@@ -1,5 +1,5 @@
 SYNOPSIS_ANALYSIS_PROMPT = """
-As a medical writer, analyze the following clinical study synopsis and provide a structured JSON output:
+Analyze the following synopsis and return ONLY a JSON object with no additional text:
 
 {synopsis_text}
 
@@ -20,4 +20,6 @@ Format your response as a valid JSON object with the following structure:
     },
     "required_protocol_sections": ["string"],
     "missing_information": ["string"]
-}"""
+}
+
+IMPORTANT: Return ONLY the JSON object without any additional text or explanation."""

@@ -1,9 +1,14 @@
 import os
 import json
+import logging
 from openai import OpenAI
 from prompts.analysis_prompts import SYNOPSIS_ANALYSIS_PROMPT
 from prompts.section_prompts import SECTION_PROMPTS
 from utils.template_manager import TemplateManager
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class GPTHandler:
     def __init__(self):
@@ -42,6 +47,8 @@ class GPTHandler:
 
         try:
             prompt = SYNOPSIS_ANALYSIS_PROMPT.format(synopsis_text=synopsis_text)
+            logger.info("Sending synopsis analysis request to GPT-4")
+            
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[{
@@ -52,6 +59,14 @@ class GPTHandler:
             )
             
             analysis_json = response.choices[0].message.content
+            logger.info(f"Received GPT response: {analysis_json}")
+
+            # Ensure we have valid JSON before validation
+            try:
+                json.loads(analysis_json)  # This will raise JSONDecodeError if invalid
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON in GPT response: {str(e)}")
+
             # Validate JSON structure
             validated_analysis = self._validate_analysis_json(analysis_json)
             # Determine study phase from validated analysis
@@ -60,8 +75,10 @@ class GPTHandler:
             return validated_analysis, study_type
 
         except ValueError as e:
+            logger.error(f"Analysis validation error: {str(e)}")
             raise ValueError(f"Analysis validation error: {str(e)}")
         except Exception as e:
+            logger.error(f"Error analyzing synopsis: {str(e)}")
             raise Exception(f"Error analyzing synopsis: {str(e)}")
 
     def _determine_study_phase(self, analysis):
@@ -75,6 +92,7 @@ class GPTHandler:
                 raise ValueError("study_type_and_design must be a dictionary")
 
             phase = study_design.get("phase", "").lower()
+            logger.info(f"Detected study phase: {phase}")
             
             # Map phase string to template type
             if "1" in phase or "i" in phase:
@@ -84,11 +102,14 @@ class GPTHandler:
             elif "3" in phase or "iii" in phase:
                 return "phase3"
             else:
+                logger.warning("Study phase unclear, defaulting to phase1")
                 return "phase1"  # Default to phase 1 if unclear
 
         except (AttributeError, KeyError) as e:
+            logger.error(f"Error parsing study phase: {str(e)}")
             raise ValueError(f"Error parsing study phase: {str(e)}")
         except Exception as e:
+            logger.error(f"Unexpected error determining study phase: {str(e)}")
             raise Exception(f"Unexpected error determining study phase: {str(e)}")
 
     def generate_section(self, section_name, synopsis_content, previous_sections=None, study_type=None):
@@ -108,8 +129,7 @@ class GPTHandler:
                     template = self.template_manager.get_section_template(study_type, section_name)
                     template_guidance = f"\n\nTemplate Requirements:\n{json.dumps(template, indent=2)}"
                 except Exception as e:
-                    # Log the error but continue without template
-                    print(f"Warning: Could not load template - {str(e)}")
+                    logger.warning(f"Could not load template - {str(e)}")
 
             prompt = section_prompt.format(
                 synopsis_content=synopsis_content,
@@ -117,6 +137,7 @@ class GPTHandler:
                 template_guidance=template_guidance
             )
 
+            logger.info(f"Generating section: {section_name}")
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[{"role": "user", "content": prompt}]
@@ -125,6 +146,8 @@ class GPTHandler:
             return response.choices[0].message.content
 
         except ValueError as e:
+            logger.error(f"Section generation error: {str(e)}")
             raise ValueError(f"Section generation error: {str(e)}")
         except Exception as e:
+            logger.error(f"Error generating section: {str(e)}")
             raise Exception(f"Error generating section: {str(e)}")
