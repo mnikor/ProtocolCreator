@@ -1,9 +1,8 @@
-SYNOPSIS_ANALYSIS_PROMPT = """
-Analyze the following synopsis and return ONLY a JSON object with no additional text:
-
-{synopsis_text}
-
-Format your response as a valid JSON object with the following structure:
+SYNOPSIS_ANALYSIS_PROMPT = '''
+Analyze the following synopsis and return a JSON object following these rules:
+1. Response must be a single valid JSON object
+2. Do not include any text before or after the JSON
+3. Follow this exact structure:
 {
     "study_type_and_design": {
         "primary_classification": "string",
@@ -22,4 +21,6 @@ Format your response as a valid JSON object with the following structure:
     "missing_information": ["string"]
 }
 
-IMPORTANT: Return ONLY the JSON object without any additional text or explanation."""
+Synopsis to analyze:
+{synopsis_text}
+'''

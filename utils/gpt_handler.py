@@ -13,10 +13,10 @@ logger = logging.getLogger(__name__)
 class GPTHandler:
     def __init__(self):
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-        self.model_name = "gpt-4o-2024-08-06"
+        self.model_name = "gpt-4"
         self.template_manager = TemplateManager()
 
-    def _validate_analysis_json(self, json_str):
+    def _validate_analysis_json(self, analysis_dict):
         """Validate the JSON structure of analysis response"""
         required_fields = {
             "study_type_and_design": ["primary_classification", "design_type", "phase", "key_features"],
@@ -26,57 +26,59 @@ class GPTHandler:
         }
 
         try:
-            data = json.loads(json_str)
             for field, subfields in required_fields.items():
-                if field not in data:
+                if field not in analysis_dict:
                     raise ValueError(f"Missing required field: {field}")
                 if subfields:
                     for subfield in subfields:
-                        if subfield not in data[field]:
+                        if subfield not in analysis_dict[field]:
                             raise ValueError(f"Missing required subfield: {subfield} in {field}")
-            return data
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON format: {str(e)}")
+            return analysis_dict
         except Exception as e:
             raise ValueError(f"Invalid analysis structure: {str(e)}")
 
     def analyze_synopsis(self, synopsis_text):
         """Analyze synopsis using GPT-4"""
-        if not synopsis_text:
-            raise ValueError("Synopsis text cannot be empty")
-
         try:
             prompt = SYNOPSIS_ANALYSIS_PROMPT.format(synopsis_text=synopsis_text)
             logger.info("Sending synopsis analysis request to GPT-4")
             
+            # Ensure strict JSON response
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[{
+                    "role": "system",
+                    "content": "You are a protocol analysis assistant. Always respond with valid JSON only."
+                }, {
                     "role": "user",
                     "content": prompt
                 }],
                 response_format={"type": "json_object"}
             )
             
+            # Get response content
             analysis_json = response.choices[0].message.content
-            logger.info(f"Received GPT response: {analysis_json}")
-
-            # Ensure we have valid JSON before validation
+            
+            # Clean response - remove any non-JSON content
+            analysis_json = analysis_json.strip()
+            if analysis_json.startswith('"') or analysis_json.startswith("'"):
+                analysis_json = analysis_json[1:]
+            if analysis_json.endswith('"') or analysis_json.endswith("'"):
+                analysis_json = analysis_json[:-1]
+                
+            # Parse and validate JSON
             try:
-                json.loads(analysis_json)  # This will raise JSONDecodeError if invalid
+                validated_analysis = json.loads(analysis_json)
             except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON in GPT response: {str(e)}")
-
-            # Validate JSON structure
-            validated_analysis = self._validate_analysis_json(analysis_json)
-            # Determine study phase from validated analysis
+                logger.error(f"JSON parsing error: {str(e)}, Content: {analysis_json}")
+                raise ValueError(f"Invalid JSON response: {str(e)}")
+                
+            # Validate structure
+            self._validate_analysis_json(validated_analysis)
             study_type = self._determine_study_phase(validated_analysis)
             
             return validated_analysis, study_type
-
-        except ValueError as e:
-            logger.error(f"Analysis validation error: {str(e)}")
-            raise ValueError(f"Analysis validation error: {str(e)}")
+            
         except Exception as e:
             logger.error(f"Error analyzing synopsis: {str(e)}")
             raise Exception(f"Error analyzing synopsis: {str(e)}")
@@ -140,7 +142,13 @@ class GPTHandler:
             logger.info(f"Generating section: {section_name}")
             response = self.client.chat.completions.create(
                 model=self.model_name,
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{
+                    "role": "system",
+                    "content": "You are a medical writer generating protocol sections. Provide detailed, scientifically accurate content."
+                }, {
+                    "role": "user",
+                    "content": prompt
+                }]
             )
             
             return response.choices[0].message.content
