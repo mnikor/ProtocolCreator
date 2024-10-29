@@ -4,6 +4,7 @@ import json
 from components.input_section import render_input_section
 from components.navigator import render_navigator
 from components.editor import render_editor
+from components.compliance_checker import render_compliance_checker
 from utils.synopsis_validator import validate_synopsis
 from utils.protocol_formatter import ProtocolFormatter
 from utils.template_manager import TemplateManager
@@ -61,9 +62,14 @@ def main():
             if st.session_state.study_type:
                 render_navigator()
 
-        # Main content area for editor
+        # Main content area
         if st.session_state.study_type:
-            render_editor()
+            tab1, tab2 = st.tabs(["Protocol Editor", "Compliance Check"])
+            
+            with tab1:
+                render_editor()
+            with tab2:
+                render_compliance_checker()
         else:
             st.info("Please select a study type to begin")
     else:
