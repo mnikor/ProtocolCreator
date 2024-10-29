@@ -1,0 +1,33 @@
+{
+    "structure": {
+        "primary_objectives": {
+            "required": true,
+            "components": [
+                "Safety assessment",
+                "Tolerability evaluation",
+                "PK parameters (if applicable)"
+            ]
+        },
+        "secondary_objectives": {
+            "required": true,
+            "components": [
+                "PD markers",
+                "Initial clinical activity",
+                "Dose-response relationships"
+            ]
+        },
+        "exploratory_objectives": {
+            "required": false,
+            "components": [
+                "Biomarkers",
+                "Mechanistic studies",
+                "Population PK"
+            ]
+        }
+    },
+    "prompt_additions": [
+        "Focus on safety and PK objectives",
+        "Include clear measurable parameters",
+        "Specify timing of assessments"
+    ]
+}

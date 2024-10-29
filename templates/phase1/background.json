@@ -1,0 +1,34 @@
+{
+    "structure": {
+        "disease_background": {
+            "required": true,
+            "components": [
+                "Disease pathophysiology",
+                "Current understanding",
+                "Epidemiology if relevant"
+            ]
+        },
+        "preclinical_data": {
+            "required": true,
+            "components": [
+                "Mechanism of action",
+                "Animal studies",
+                "Safety findings",
+                "PK/PD data"
+            ]
+        },
+        "first_in_human": {
+            "required": true,
+            "components": [
+                "Rationale for starting dose",
+                "Dose escalation approach",
+                "Safety monitoring plan"
+            ]
+        }
+    },
+    "prompt_additions": [
+        "Emphasize safety aspects",
+        "Include detailed pharmacological background",
+        "Focus on translational aspects from preclinical to clinical"
+    ]
+}
