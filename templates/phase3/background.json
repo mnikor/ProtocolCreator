@@ -1,0 +1,37 @@
+{
+    "structure": {
+        "disease_background": {
+            "required": true,
+            "components": [
+                "Disease burden",
+                "Current standard of care",
+                "Treatment guidelines",
+                "Market landscape"
+            ]
+        },
+        "clinical_evidence": {
+            "required": true,
+            "components": [
+                "Phase 1 summary",
+                "Phase 2 results",
+                "Safety database",
+                "Efficacy findings"
+            ]
+        },
+        "confirmatory_rationale": {
+            "required": true,
+            "components": [
+                "Phase 3 design justification",
+                "Endpoint selection",
+                "Population definition",
+                "Statistical approach"
+            ]
+        }
+    },
+    "prompt_additions": [
+        "Comprehensive literature review",
+        "Strong scientific rationale",
+        "Regulatory considerations",
+        "Clinical practice impact"
+    ]
+}

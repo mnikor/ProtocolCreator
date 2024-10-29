@@ -1,0 +1,36 @@
+{
+    "structure": {
+        "primary_objectives": {
+            "required": true,
+            "components": [
+                "Efficacy assessment",
+                "Safety monitoring",
+                "Dose-response evaluation"
+            ]
+        },
+        "secondary_objectives": {
+            "required": true,
+            "components": [
+                "Additional efficacy parameters",
+                "Quality of life measures",
+                "PK/PD relationships",
+                "Biomarker analyses"
+            ]
+        },
+        "exploratory_objectives": {
+            "required": false,
+            "components": [
+                "Novel biomarkers",
+                "Patient-reported outcomes",
+                "Health economics",
+                "Subgroup analyses"
+            ]
+        }
+    },
+    "prompt_additions": [
+        "Focus on efficacy objectives",
+        "Include detailed endpoints",
+        "Define success criteria",
+        "Specify timing of assessments"
+    ]
+}

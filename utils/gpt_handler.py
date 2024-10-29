@@ -15,55 +15,58 @@ class GPTHandler:
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
         self.model_name = "gpt-4"
         self.template_manager = TemplateManager()
+        
+        # Define mandatory protocol sections
+        self.mandatory_sections = {
+            'background': {
+                'required': True,
+                'description': 'Disease background, current treatments, and study rationale'
+            },
+            'objectives': {
+                'required': True,
+                'description': 'Primary and secondary objectives with endpoints'
+            },
+            'study_design': {
+                'required': True,
+                'description': 'Overall design, methodology, and procedures'
+            },
+            'statistical_considerations': {
+                'required': True,
+                'description': 'Sample size, analysis methods, and statistical plan'
+            },
+            'population': {
+                'required': True,
+                'description': 'Inclusion/exclusion criteria and population characteristics'
+            }
+        }
 
     def analyze_synopsis(self, synopsis_text):
         """Analyze synopsis with improved handling of missing and empty sections"""
         try:
-            # Default values for all possible sections
+            # Default values for all possible sections with explicit handling
             default_analysis = {
                 'study_type_and_design': {
                     'primary_classification': 'Not specified',
                     'design_type': 'Not specified',
                     'phase': 'Not specified',
-                    'key_features': []
+                    'key_features': ['None specified']  # Always include at least one item
                 },
                 'critical_parameters': {
                     'population': 'Not specified',
                     'intervention': 'Not specified',
                     'control_comparator': 'Not specified',
                     'primary_endpoint': 'Not specified',
-                    'secondary_endpoints': []
+                    'secondary_endpoints': ['None specified']  # Always include at least one item
                 },
                 'required_sections': [],
+                'missing_sections': [],
                 'missing_information': []
             }
 
             messages = [
                 {
                     "role": "system",
-                    "content": (
-                        "You are a protocol analysis assistant. Analyze the synopsis thoroughly and provide a complete structured output. "
-                        "For any missing or unclear information, explicitly state 'Not specified' or 'None' - do not leave any fields empty. "
-                        "If information is missing, provide a detailed explanation in the Missing Information section.\n\n"
-                        "Required output format:\n"
-                        "=== STUDY TYPE AND DESIGN ===\n"
-                        "Primary Classification: [classification or 'Not specified']\n"
-                        "Design Type: [type or 'Not specified']\n"
-                        "Phase: [phase or 'Not specified']\n"
-                        "Key Features:\n"
-                        "- [feature 1 or 'None if no features identified']\n"
-                        "\n=== CRITICAL PARAMETERS ===\n"
-                        "Population: [description or 'Not specified']\n"
-                        "Intervention: [description or 'Not specified']\n"
-                        "Control/Comparator: [description or 'Not specified']\n"
-                        "Primary Endpoint: [description or 'Not specified']\n"
-                        "Secondary Endpoints:\n"
-                        "- [endpoint or 'None if no secondary endpoints']\n"
-                        "\n=== REQUIRED SECTIONS ===\n"
-                        "- [Must list ALL required protocol sections]\n"
-                        "\n=== MISSING INFORMATION ===\n"
-                        "- [List each missing element with explanation]\n"
-                    )
+                    "content": SYNOPSIS_ANALYSIS_PROMPT
                 },
                 {
                     "role": "user",
@@ -82,6 +85,11 @@ class GPTHandler:
             
             # Parse structured text into dictionary with validation
             analysis_dict = self._parse_structured_text(analysis_text, default_analysis)
+            
+            # Validate mandatory sections and content
+            self._validate_mandatory_sections(analysis_dict, synopsis_text)
+            
+            # Determine study type
             study_type = self._determine_study_phase(analysis_dict)
             
             # Validate required content
@@ -95,7 +103,7 @@ class GPTHandler:
 
     def _parse_structured_text(self, text, default_values):
         '''Parse structured text into dictionary with improved error handling'''
-        sections = default_values.copy()  # Start with default values
+        sections = default_values.copy()
         current_section = None
         current_list = {}
         
@@ -118,17 +126,19 @@ class GPTHandler:
                     key = key.lower().replace(' ', '_')
                     
                     # Handle empty or 'Not specified' values
-                    if value.lower() in ['', 'not specified', 'none']:
+                    if not value or value.lower() in ['', 'not specified', 'none']:
                         value = 'Not specified'
-                        
+                        if key in ['key_features', 'secondary_endpoints']:
+                            value = ['None specified']
+                    
                     if current_section == 'STUDY TYPE AND DESIGN':
                         if key == 'key_features':
-                            current_list[key] = []
+                            current_list[key] = value if isinstance(value, list) else []
                         else:
                             current_list[key] = value
                     elif current_section == 'CRITICAL PARAMETERS':
                         if key == 'secondary_endpoints':
-                            current_list[key] = []
+                            current_list[key] = value if isinstance(value, list) else []
                         else:
                             current_list[key] = value
                             
@@ -146,8 +156,12 @@ class GPTHandler:
                             sections['missing_information'] = []
                         sections['missing_information'].append(item)
                     elif current_section == 'STUDY TYPE AND DESIGN' and 'key_features' in current_list:
+                        if not current_list['key_features'] or current_list['key_features'] == ['None specified']:
+                            current_list['key_features'] = []
                         current_list['key_features'].append(item)
                     elif current_section == 'CRITICAL PARAMETERS' and 'secondary_endpoints' in current_list:
+                        if not current_list['secondary_endpoints'] or current_list['secondary_endpoints'] == ['None specified']:
+                            current_list['secondary_endpoints'] = []
                         current_list['secondary_endpoints'].append(item)
             
             # Handle the last section
@@ -155,11 +169,41 @@ class GPTHandler:
                 section_key = current_section.lower().replace(' ', '_')
                 sections[section_key] = current_list or sections.get(section_key, {})
             
+            # Ensure lists are never empty
+            if 'study_type_and_design' in sections:
+                if not sections['study_type_and_design'].get('key_features'):
+                    sections['study_type_and_design']['key_features'] = ['None specified']
+                    
+            if 'critical_parameters' in sections:
+                if not sections['critical_parameters'].get('secondary_endpoints'):
+                    sections['critical_parameters']['secondary_endpoints'] = ['None specified']
+            
             return sections
             
         except Exception as e:
             logger.error(f"Error parsing structured text: {str(e)}")
             return default_values
+
+    def _validate_mandatory_sections(self, analysis, synopsis_text):
+        """Validate presence of mandatory sections in synopsis"""
+        missing_sections = []
+        
+        for section, details in self.mandatory_sections.items():
+            if details['required']:
+                # Check for section presence using case-insensitive search
+                if not any(section.lower() in text.lower() for text in [synopsis_text]):
+                    missing_sections.append({
+                        'section': section,
+                        'description': details['description']
+                    })
+        
+        if missing_sections:
+            analysis['missing_sections'] = missing_sections
+            # Add detailed feedback for missing sections
+            for missing in missing_sections:
+                analysis['missing_information'].append(
+                    f"Missing required section: {missing['section']} - {missing['description']}"
+                )
 
     def _validate_analysis(self, analysis):
         """Validate required content in analysis"""
@@ -173,7 +217,14 @@ class GPTHandler:
         study_design = analysis.get('study_type_and_design', {})
         if not isinstance(study_design, dict):
             raise ValueError("study_type_and_design must be a dictionary")
-            
+        
+        # Validate critical parameters
+        critical_params = analysis.get('critical_parameters', {})
+        if not critical_params.get('control_comparator'):
+            analysis['missing_information'].append(
+                "Control/Comparator information is required but not specified"
+            )
+        
         # Ensure missing_information is always a list
         if 'missing_information' not in analysis:
             analysis['missing_information'] = []

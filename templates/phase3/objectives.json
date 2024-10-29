@@ -1,0 +1,36 @@
+{
+    "structure": {
+        "primary_objectives": {
+            "required": true,
+            "components": [
+                "Confirmatory efficacy",
+                "Safety in larger population",
+                "Statistical superiority/non-inferiority"
+            ]
+        },
+        "secondary_objectives": {
+            "required": true,
+            "components": [
+                "Key secondary endpoints",
+                "Quality of life",
+                "Economic outcomes",
+                "Long-term safety"
+            ]
+        },
+        "exploratory_objectives": {
+            "required": false,
+            "components": [
+                "Subgroup analyses",
+                "Pharmacoeconomics",
+                "Real-world evidence",
+                "Novel endpoints"
+            ]
+        }
+    },
+    "prompt_additions": [
+        "Clear regulatory endpoints",
+        "Well-defined hierarchy",
+        "Multiplicity handling",
+        "Clinical relevance"
+    ]
+}

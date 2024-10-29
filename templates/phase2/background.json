@@ -1,0 +1,37 @@
+{
+    "structure": {
+        "disease_background": {
+            "required": true,
+            "components": [
+                "Disease pathophysiology",
+                "Current understanding",
+                "Treatment landscape",
+                "Unmet medical needs"
+            ]
+        },
+        "previous_findings": {
+            "required": true,
+            "components": [
+                "Phase 1 results summary",
+                "Safety profile",
+                "PK/PD findings",
+                "Initial efficacy signals"
+            ]
+        },
+        "study_rationale": {
+            "required": true,
+            "components": [
+                "Dose selection rationale",
+                "Population selection",
+                "Endpoint justification",
+                "Risk-benefit assessment"
+            ]
+        }
+    },
+    "prompt_additions": [
+        "Include phase 1 findings",
+        "Focus on preliminary efficacy",
+        "Justify dose selection",
+        "Emphasize unmet needs"
+    ]
+}
