@@ -51,6 +51,102 @@ class SynopsisValidator:
             }
         }
 
+    def _validate_basic_structure(self, content):
+        """Validate basic synopsis structure"""
+        required_sections = [
+            'background',
+            'objectives',
+            'study design',
+            'population',
+            'endpoints',
+            'statistical considerations'
+        ]
+        
+        missing_sections = []
+        warnings = []
+        
+        # Check for required sections
+        for section in required_sections:
+            if not re.search(rf'\b{section}\b', content.lower()):
+                missing_sections.append({
+                    'section': section,
+                    'guidelines': self.section_rules.get(section, {}).get('guidelines', []),
+                    'suggested_content': self.section_rules.get(section, {}).get('suggested_content', [])
+                })
+        
+        return {
+            'is_valid': len(missing_sections) == 0,
+            'missing_sections': missing_sections,
+            'warnings': warnings
+        }
+
+    def _validate_against_template(self, content, study_phase):
+        """Validate synopsis against phase-specific template"""
+        template = self.template_manager.get_template(study_phase)
+        missing_requirements = []
+        
+        for section, requirements in template['sections'].items():
+            # Load section template
+            section_template = self.template_manager.get_section_template(study_phase, section)
+            
+            # Check required components
+            for component in section_template['structure']:
+                if component.get('required', False):
+                    if not self._check_component_presence(content, component):
+                        missing_requirements.append({
+                            'section': section,
+                            'component': component,
+                            'example_content': section_template['structure'][component].get('components', []),
+                            'guidelines': self.section_rules.get(section, {}).get('guidelines', [])
+                        })
+        
+        return {
+            'missing_requirements': missing_requirements,
+            'study_phase': study_phase
+        }
+
+    def _check_component_presence(self, content, component):
+        """Check if a component is present in the content"""
+        component_name = component.lower().replace('_', ' ')
+        return bool(re.search(rf'\b{component_name}\b', content.lower()))
+
+    def _generate_feedback(self, basic_validation, template_validation, detailed_analysis):
+        """Generate comprehensive feedback with guidance"""
+        feedback = []
+        
+        # Basic structure feedback
+        for missing in basic_validation['missing_sections']:
+            feedback.append({
+                'type': 'missing_section',
+                'section': missing['section'],
+                'message': f"Missing required section: {missing['section']}",
+                'guidelines': missing['guidelines'],
+                'suggested_content': missing['suggested_content'],
+                'impact': "Required for protocol completeness and regulatory compliance"
+            })
+        
+        # Template-specific feedback
+        for missing in template_validation['missing_requirements']:
+            feedback.append({
+                'type': 'template_requirement',
+                'section': missing['section'],
+                'component': missing['component'],
+                'message': f"Missing required component in {missing['section']}: {missing['component']}",
+                'example_content': missing['example_content'],
+                'guidelines': missing['guidelines']
+            })
+        
+        # Detailed analysis feedback
+        if detailed_analysis.get('missing_information'):
+            for info in detailed_analysis['missing_information']:
+                feedback.append({
+                    'type': 'content_guidance',
+                    'message': info,
+                    'impact': "May affect protocol quality and regulatory acceptance"
+                })
+        
+        return feedback
+
 def validate_synopsis(content):
     """Validate synopsis structure and content with enhanced feedback"""
     validator = SynopsisValidator()
@@ -84,99 +180,3 @@ def validate_synopsis(content):
         
     except Exception as e:
         raise Exception(f"Error validating synopsis: {str(e)}")
-
-def _validate_basic_structure(self, content):
-    """Validate basic synopsis structure"""
-    required_sections = [
-        'background',
-        'objectives',
-        'study design',
-        'population',
-        'endpoints',
-        'statistical considerations'
-    ]
-    
-    missing_sections = []
-    warnings = []
-    
-    # Check for required sections
-    for section in required_sections:
-        if not re.search(rf'\b{section}\b', content.lower()):
-            missing_sections.append({
-                'section': section,
-                'guidelines': self.section_rules.get(section, {}).get('guidelines', []),
-                'suggested_content': self.section_rules.get(section, {}).get('suggested_content', [])
-            })
-    
-    return {
-        'is_valid': len(missing_sections) == 0,
-        'missing_sections': missing_sections,
-        'warnings': warnings
-    }
-
-def _validate_against_template(self, content, study_phase):
-    """Validate synopsis against phase-specific template"""
-    template = self.template_manager.get_template(study_phase)
-    missing_requirements = []
-    
-    for section, requirements in template['sections'].items():
-        # Load section template
-        section_template = self.template_manager.get_section_template(study_phase, section)
-        
-        # Check required components
-        for component in section_template['structure']:
-            if component.get('required', False):
-                if not self._check_component_presence(content, component):
-                    missing_requirements.append({
-                        'section': section,
-                        'component': component,
-                        'example_content': section_template['structure'][component].get('components', []),
-                        'guidelines': self.section_rules.get(section, {}).get('guidelines', [])
-                    })
-    
-    return {
-        'missing_requirements': missing_requirements,
-        'study_phase': study_phase
-    }
-
-def _check_component_presence(self, content, component):
-    """Check if a component is present in the content"""
-    component_name = component.lower().replace('_', ' ')
-    return bool(re.search(rf'\b{component_name}\b', content.lower()))
-
-def _generate_feedback(self, basic_validation, template_validation, detailed_analysis):
-    """Generate comprehensive feedback with guidance"""
-    feedback = []
-    
-    # Basic structure feedback
-    for missing in basic_validation['missing_sections']:
-        feedback.append({
-            'type': 'missing_section',
-            'section': missing['section'],
-            'message': f"Missing required section: {missing['section']}",
-            'guidelines': missing['guidelines'],
-            'suggested_content': missing['suggested_content'],
-            'impact': "Required for protocol completeness and regulatory compliance"
-        })
-    
-    # Template-specific feedback
-    for missing in template_validation['missing_requirements']:
-        feedback.append({
-            'type': 'template_requirement',
-            'section': missing['section'],
-            'component': missing['component'],
-            'message': f"Missing required component in {missing['section']}: {missing['component']}",
-            'example_content': missing['example_content'],
-            'guidelines': missing['guidelines']
-        })
-    
-    # Detailed analysis feedback
-    if detailed_analysis.get('missing_information'):
-        for info in detailed_analysis['missing_information']:
-            feedback.append({
-                'type': 'content_guidance',
-                'message': info,
-                'impact': "May affect protocol quality and regulatory acceptance"
-            })
-    
-    return feedback
