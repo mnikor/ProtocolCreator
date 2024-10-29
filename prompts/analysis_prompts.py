@@ -1,30 +1,23 @@
 SYNOPSIS_ANALYSIS_PROMPT = """
-You are an expert medical writer analyzing a clinical study synopsis. Your task is to:
-1. Identify study type and key design elements
-2. Extract critical parameters
-3. Determine required protocol sections
-4. Identify missing essential information
+As a medical writer, analyze the following clinical study synopsis and provide a structured JSON output:
 
-Review the provided synopsis and output a structured analysis:
 {synopsis_text}
 
-Required Output Format:
-1. Study Type & Design:
-   - Primary classification
-   - Design type
-   - Phase (if applicable)
-   - Key features
-
-2. Critical Parameters:
-   - Population
-   - Intervention
-   - Control/Comparator
-   - Primary endpoint
-   - Key secondary endpoints
-
-3. Required Protocol Sections:
-   [List specific sections needed based on study type]
-
-4. Missing Information:
-   [List any essential elements not found in synopsis]
-"""
+Format your response as a valid JSON object with the following structure:
+{
+    "study_type_and_design": {
+        "primary_classification": "string",
+        "design_type": "string",
+        "phase": "string",
+        "key_features": ["string"]
+    },
+    "critical_parameters": {
+        "population": "string",
+        "intervention": "string",
+        "control_comparator": "string",
+        "primary_endpoint": "string",
+        "secondary_endpoints": ["string"]
+    },
+    "required_protocol_sections": ["string"],
+    "missing_information": ["string"]
+}"""

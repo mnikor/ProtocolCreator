@@ -13,8 +13,9 @@ class GPTHandler:
         try:
             prompt = SYNOPSIS_ANALYSIS_PROMPT.format(synopsis_text=synopsis_text)
             response = self.client.chat.completions.create(
-                model=self.model_name,  # Using updated model name
-                messages=[{"role": "user", "content": prompt}]
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"}
             )
             return response.choices[0].message.content
         except Exception as e:
@@ -32,7 +33,7 @@ class GPTHandler:
                 previous_sections=previous_sections or ""
             )
             response = self.client.chat.completions.create(
-                model=self.model_name,  # Using updated model name
+                model=self.model_name,
                 messages=[{"role": "user", "content": prompt}]
             )
             return response.choices[0].message.content
