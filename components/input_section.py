@@ -47,9 +47,41 @@ def display_validation_results(content):
                 st.warning("Synopsis validation found some issues:")
                 for section in validation_results['missing_sections']:
                     st.warning(f"Missing section: {section}")
-                    
-            st.subheader("Detailed Analysis")
-            st.json(validation_results['detailed_analysis'])
             
+            if 'detailed_analysis' in validation_results:
+                analysis_dict = validation_results['detailed_analysis']
+                
+                # Display Study Type and Design
+                st.subheader("Study Type and Design")
+                study_design = analysis_dict[0].get('study_type_and_design', {})
+                st.write(f"Primary Classification: {study_design.get('primary_classification', '')}")
+                st.write(f"Design Type: {study_design.get('design_type', '')}")
+                st.write(f"Phase: {study_design.get('phase', '')}")
+                st.write("Key Features:")
+                for feature in study_design.get('key_features', []):
+                    st.write(f"• {feature}")
+                
+                # Display Critical Parameters
+                st.subheader("Critical Parameters")
+                params = analysis_dict[0].get('critical_parameters', {})
+                st.write(f"Population: {params.get('population', '')}")
+                st.write(f"Intervention: {params.get('intervention', '')}")
+                st.write(f"Control/Comparator: {params.get('control_comparator', '')}")
+                st.write(f"Primary Endpoint: {params.get('primary_endpoint', '')}")
+                st.write("Secondary Endpoints:")
+                for endpoint in params.get('secondary_endpoints', []):
+                    st.write(f"• {endpoint}")
+                
+                # Display Required Sections
+                st.subheader("Required Sections")
+                for section in analysis_dict[0].get('required_protocol_sections', []):
+                    st.write(f"• {section}")
+                
+                # Display Missing Information
+                if analysis_dict[0].get('missing_information'):
+                    st.subheader("Missing Information")
+                    for item in analysis_dict[0].get('missing_information', []):
+                        st.write(f"• {item}")
+                
         except Exception as e:
             st.error(f"Error during validation: {str(e)}")
