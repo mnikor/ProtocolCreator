@@ -6,13 +6,14 @@ from prompts.section_prompts import SECTION_PROMPTS
 class GPTHandler:
     def __init__(self):
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        self.model_name = "gpt-4o-2024-08-06"  # Updated model name
 
     def analyze_synopsis(self, synopsis_text):
         """Analyze synopsis using GPT-4"""
         try:
             prompt = SYNOPSIS_ANALYSIS_PROMPT.format(synopsis_text=synopsis_text)
             response = self.client.chat.completions.create(
-                model="gpt-4",
+                model=self.model_name,  # Using updated model name
                 messages=[{"role": "user", "content": prompt}]
             )
             return response.choices[0].message.content
@@ -31,7 +32,7 @@ class GPTHandler:
                 previous_sections=previous_sections or ""
             )
             response = self.client.chat.completions.create(
-                model="gpt-4",
+                model=self.model_name,  # Using updated model name
                 messages=[{"role": "user", "content": prompt}]
             )
             return response.choices[0].message.content
