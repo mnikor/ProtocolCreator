@@ -4,13 +4,16 @@ from utils.protocol_formatter import ProtocolFormatter
 
 def render_editor():
     """Render the protocol editor interface"""
+    # Debug information at the top
+    st.write("Debug Session State:", {
+        "synopsis_content": st.session_state.get('synopsis_content', 'None'),
+        "study_type": st.session_state.get('study_type', 'None'),
+        "sections_status": st.session_state.get('sections_status', {}),
+        "current_section": st.session_state.get('current_section', 'None')
+    })
+
     st.header("Protocol Editor")
-    
-    # Debug information
-    st.write("Debug Info:")
-    st.write(f"Synopsis Content: {'Available' if st.session_state.get('synopsis_content') else 'Not Available'}")
-    st.write(f"Study Type: {st.session_state.get('study_type') if st.session_state.get('study_type') else 'Not Selected'}")
-    
+
     # Generate Complete Protocol button
     if st.session_state.get('synopsis_content') and st.session_state.get('study_type'):
         st.markdown('''
@@ -35,40 +38,35 @@ def render_editor():
         st.markdown("Click the button below to generate all protocol sections based on your synopsis.")
         
         if st.button('🔄 Generate Complete Protocol', use_container_width=True):
-            generate_complete_protocol()
+            generate_all_sections()
     else:
         st.warning("⚠️ Please upload a synopsis and select a study type to generate the protocol.")
     
     st.markdown("---")  # Separator
-    
+
     # Section editing interface
     if st.session_state.get('current_section'):
         edit_section(st.session_state.current_section)
     else:
         st.info("👈 Select a section from the navigator to begin editing")
 
-def generate_complete_protocol():
-    """Generate all protocol sections in sequence"""
+def generate_all_sections():
+    """Generate all protocol sections"""
     generator = TemplateSectionGenerator()
     
-    # Create progress tracking
-    progress_bar = st.progress(0)
-    status_container = st.empty()
+    progress = st.progress(0)
+    status = st.empty()
     
     try:
-        # Show spinner during generation
         with st.spinner('Generating protocol sections...'):
             total_sections = len(st.session_state.sections_status)
             completed = 0
             
             for section_name in st.session_state.sections_status.keys():
-                # Update status
-                status_text = f"📝 Generating {section_name.replace('_', ' ').title()} section..."
-                status_container.info(status_text)
+                status.info(f"📝 Generating {section_name.replace('_', ' ').title()}...")
                 st.session_state.sections_status[section_name] = 'In Progress'
                 
                 try:
-                    # Generate section content
                     content = generator.generate_section(
                         section_name,
                         st.session_state.study_type,
@@ -76,51 +74,31 @@ def generate_complete_protocol():
                         st.session_state.generated_sections
                     )
                     
-                    # Update session state
                     st.session_state.generated_sections[section_name] = content
                     st.session_state.sections_status[section_name] = 'Generated'
-                    
-                    # Update progress
                     completed += 1
-                    progress_bar.progress(completed / total_sections)
                     
                 except Exception as e:
-                    st.error(f"❌ Error generating {section_name} section: {str(e)}")
-                    st.session_state.sections_status[section_name] = 'Not Started'
+                    st.error(f"Error generating {section_name}: {str(e)}")
+                    st.session_state.sections_status[section_name] = 'Error'
                     continue
+                
+                progress.progress(completed / total_sections)
             
-            # Final status update
             if completed == total_sections:
-                status_container.success("✅ Protocol generation completed successfully!")
+                status.success("✅ Protocol generation completed!")
                 st.balloons()
             else:
-                status_container.warning(
-                    f"⚠️ Protocol generation completed with {total_sections - completed} failed sections. "
-                    "You can regenerate failed sections individually."
-                )
+                status.warning(f"⚠️ Generated {completed}/{total_sections} sections")
                 
     except Exception as e:
-        st.error(f"❌ Error during protocol generation: {str(e)}")
-        return False
-        
-    return True
+        st.error(f"❌ Error during generation: {str(e)}")
 
 def edit_section(section_name):
     """Edit individual protocol section"""
     st.subheader(section_name.replace('_', ' ').title())
     
-    # Section generation button
-    if section_name not in st.session_state.get('generated_sections', {}):
-        if st.button(
-            "📝 Generate Section",
-            key=f"generate_{section_name}",
-            help=f"Click to generate the {section_name} section",
-            use_container_width=True
-        ):
-            generate_section(section_name)
-            
-    # Edit interface
-    if section_name in st.session_state.get('generated_sections', {}):
+    if section_name in st.session_state.generated_sections:
         content = st.text_area(
             "Edit Content",
             value=st.session_state.generated_sections[section_name],
@@ -129,43 +107,21 @@ def edit_section(section_name):
         )
         
         col1, col2 = st.columns(2)
-        
         with col1:
-            if st.button(
-                "💾 Save Changes",
-                key=f"save_{section_name}",
-                help="Save your edits to this section",
-                use_container_width=True
-            ):
+            if st.button("💾 Save Changes", use_container_width=True):
                 st.session_state.generated_sections[section_name] = content
-                st.success("✅ Changes saved successfully!")
+                st.success("✅ Changes saved!")
                 
         with col2:
-            if st.button(
-                "🔄 Regenerate",
-                key=f"regenerate_{section_name}",
-                help="Regenerate this section from scratch",
-                use_container_width=True
-            ):
+            if st.button("🔄 Regenerate", use_container_width=True):
                 generate_section(section_name)
-                
-    # Export options
-    if st.session_state.get('generated_sections'):
-        st.markdown("---")
-        st.subheader("Export Options")
-        
-        if st.button(
-            "📥 Export Protocol",
-            key="export_protocol",
-            help="Export the complete protocol as a Word document",
-            use_container_width=True
-        ):
-            export_protocol()
+    else:
+        st.warning("Section not yet generated")
 
 def generate_section(section_name):
     """Generate individual protocol section"""
-    with st.spinner(f"Generating {section_name.replace('_', ' ').title()} section..."):
-        try:
+    try:
+        with st.spinner(f"Generating {section_name.replace('_', ' ').title()} section..."):
             generator = TemplateSectionGenerator()
             content = generator.generate_section(
                 section_name,
@@ -173,20 +129,19 @@ def generate_section(section_name):
                 st.session_state.synopsis_content,
                 st.session_state.generated_sections
             )
+            
             st.session_state.generated_sections[section_name] = content
             st.session_state.sections_status[section_name] = 'Generated'
             st.success("✅ Section generated successfully!")
+            st.experimental_rerun()
             
-        except Exception as e:
-            st.error(f"❌ Error generating section: {str(e)}")
-            return False
-            
-    return True
+    except Exception as e:
+        st.error(f"❌ Error generating section: {str(e)}")
 
 def export_protocol():
     """Export complete protocol document"""
     try:
-        with st.spinner("Preparing protocol document for export..."):
+        with st.spinner("Creating protocol document..."):
             formatter = ProtocolFormatter()
             doc = formatter.format_protocol(st.session_state.generated_sections)
             
@@ -199,12 +154,9 @@ def export_protocol():
                     label="📥 Download Protocol",
                     data=file,
                     file_name="protocol.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    help="Download the complete protocol as a Word document"
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
-                
+            st.success("✅ Protocol exported successfully!")
+            
     except Exception as e:
         st.error(f"❌ Error exporting protocol: {str(e)}")
-        return False
-        
-    return True
