@@ -1,0 +1,47 @@
+Let's modify the setup_custom_styles method to check if styles exist first:
+pythonCopydef setup_custom_styles(self):
+    """Set up custom document styles"""
+    styles = {
+        'CustomTitle': {'name': 'Protocol Title', 'size': 24, 'bold': True, 'align': 'CENTER'},
+        'CustomHeading1': {'name': 'Section Title', 'size': 16, 'bold': True},
+        'CustomHeading2': {'name': 'Subsection Title', 'size': 14, 'bold': True},
+        'CustomHeading3': {'name': 'Sub-subsection Title', 'size': 12, 'bold': True},
+        'BodyText': {'name': 'Body Text', 'size': 11},
+        'TableText': {'name': 'Table Text', 'size': 10},
+        'TableHeader': {'name': 'Table Header', 'size': 10, 'bold': True},
+        'Caption': {'name': 'Figure Caption', 'size': 10, 'italic': True},
+        'Reference': {'name': 'Reference Text', 'size': 10},
+        'ListBullet': {'name': 'List Bullet', 'size': 11},
+        'ListNumber': {'name': 'List Number', 'size': 11}
+    }
+
+    for style_name, props in styles.items():
+        if style_name not in self.doc.styles:
+            style = self.doc.styles.add_style(style_name, 1)
+            font = style.font
+            font.name = 'Arial'
+            font.size = Pt(props['size'])
+            font.bold = props.get('bold', False)
+            font.italic = props.get('italic', False)
+            
+            para_format = style.paragraph_format
+            para_format.space_before = Pt(6)
+            para_format.space_after = Pt(6)
+            para_format.line_spacing = 1.15
+            
+            if props.get('align') == 'CENTER':
+                para_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+Also update the setup_document method to use our custom title style:
+pythonCopydef setup_document(self):
+    """Initialize document settings"""
+    # Set margins
+    sections = self.doc.sections
+    for section in sections:
+        section.top_margin = Inches(1)
+        section.bottom_margin = Inches(1)
+        section.left_margin = Inches(1)
+        section.right_margin = Inches(1)
+
+    # Add title page using custom style
+    title = self.doc.add_paragraph('Clinical Trial Protocol')
+    title.style = self.doc.styles['CustomTitle']
