@@ -1,6 +1,7 @@
 import logging
 from utils.gpt_handler import GPTHandler
 from utils.template_manager import TemplateManager
+from streamlit_mermaid import st_mermaid
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,7 @@ class TemplateSectionGenerator:
         """Generate a protocol section"""
         try:
             logger.info(f"Starting generation of {section_name} section")
-
+            
             # Input validation
             if not section_name:
                 raise ValueError("Section name is required")
@@ -27,6 +28,10 @@ class TemplateSectionGenerator:
             logger.info(f"Study type: {study_type}")
             logger.info(f"Synopsis length: {len(synopsis_content)}")
             logger.info(f"Existing sections: {list(existing_sections.keys()) if existing_sections else []}")
+
+            # Special handling for study design section to include Mermaid diagram
+            if section_name == 'study_design':
+                return self._generate_study_design_section(synopsis_content, study_type, existing_sections)
 
             # Special handling for procedures section
             if section_name == 'procedures':
@@ -57,6 +62,119 @@ class TemplateSectionGenerator:
             logger.error(f"Error generating section {section_name}: {str(e)}")
             raise
 
+    def _generate_study_design_section(self, synopsis_content: str, study_type: str, existing_sections: dict = None):
+        """Generate study design section with Mermaid diagram"""
+        try:
+            # Generate base content first
+            content = self.gpt_handler.generate_section(
+                section_name='study_design',
+                synopsis_content=synopsis_content,
+                previous_sections=self._format_previous_sections(existing_sections)
+            )
+
+            # Extract design information from synopsis for diagram
+            design_info = self._extract_design_info(synopsis_content)
+
+            # Generate Mermaid diagram code
+            mermaid_code = self._generate_mermaid_diagram(design_info)
+
+            # Insert diagram code after the Overall Design section
+            content_parts = content.split('## Overall Design')
+            if len(content_parts) > 1:
+                content = f"{content_parts[0]}## Overall Design{content_parts[1]}\n\n## Study Schema\n\n```mermaid\n{mermaid_code}\n```\n"
+            else:
+                content = f"{content}\n\n## Study Schema\n\n```mermaid\n{mermaid_code}\n```\n"
+
+            return content
+
+        except Exception as e:
+            logger.error(f"Error generating study design section: {str(e)}")
+            raise
+
+    def _extract_design_info(self, synopsis_content: str) -> dict:
+        """Extract study design information from synopsis"""
+        try:
+            # Use GPT to extract design information
+            prompt = f"""
+            Analyze this synopsis and extract the following information in JSON format:
+            - Study design type (parallel, crossover, etc.)
+            - Number of treatment groups
+            - Study duration
+            - Key timepoints/visits
+
+            Synopsis:
+            {synopsis_content}
+            """
+
+            response = self.gpt_handler.client.chat.completions.create(
+                model=self.gpt_handler.model_name,
+                messages=[
+                    {"role": "system", "content": "Extract study design information in JSON format"},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3
+            )
+
+            design_info = eval(response.choices[0].message.content)
+            return design_info
+
+        except Exception as e:
+            logger.error(f"Error extracting design info: {str(e)}")
+            return {
+                "design_type": "parallel",
+                "treatment_groups": 2,
+                "duration": "52 weeks",
+                "timepoints": ["Screening", "Randomization", "Treatment", "Follow-up"]
+            }
+
+    def _generate_mermaid_diagram(self, design_info: dict) -> str:
+        """Generate Mermaid diagram code based on study design"""
+        try:
+            if design_info["design_type"].lower() == "crossover":
+                return self._generate_crossover_diagram(design_info)
+            else:
+                return self._generate_parallel_diagram(design_info)
+        except Exception as e:
+            logger.error(f"Error generating diagram: {str(e)}")
+            return """
+            graph TD
+                A[Screening] --> B[Randomization]
+                B --> C[Treatment Group 1]
+                B --> D[Treatment Group 2]
+                C --> E[Follow-up]
+                D --> E
+            """
+
+    def _generate_parallel_diagram(self, design_info: dict) -> str:
+        """Generate diagram for parallel design"""
+        groups = design_info.get("treatment_groups", 2)
+        mermaid_code = ["graph TD"]
+        mermaid_code.append("    A[Screening] --> B[Randomization]")
+        
+        # Add treatment groups
+        for i in range(groups):
+            group_letter = chr(67 + i)  # C, D, E, etc.
+            mermaid_code.append(f"    B --> {group_letter}[Treatment Group {i + 1}]")
+            mermaid_code.append(f"    {group_letter} --> F[Follow-up]")
+
+        return "\n".join(mermaid_code)
+
+    def _generate_crossover_diagram(self, design_info: dict) -> str:
+        """Generate diagram for crossover design"""
+        return """
+        graph TD
+            A[Screening] --> B[Randomization]
+            B --> C[Group 1: Treatment A]
+            B --> D[Group 2: Treatment B]
+            C --> E[Washout]
+            D --> E
+            E --> F[Crossover]
+            F --> G[Group 1: Treatment B]
+            F --> H[Group 2: Treatment A]
+            G --> I[Follow-up]
+            H --> I
+        """
+
     def _generate_procedures_section(self, synopsis_content: str, existing_sections: dict = None):
         """Special handler for procedures section"""
         try:
@@ -71,11 +189,9 @@ This section details the procedures to be followed during the study, including s
 2. Demographics and medical history
 3. Physical examination
 4. Vital signs
-5. ECOG performance status
-6. Laboratory assessments
-7. Disease assessment imaging
-8. ECG
-9. Inclusion/exclusion criteria review
+5. Laboratory assessments
+6. Disease assessment
+7. Inclusion/exclusion criteria review
 
 ## Treatment Phase Procedures
 1. Drug administration
@@ -98,26 +214,19 @@ This section details the procedures to be followed during the study, including s
 - Vital signs
 - Laboratory tests
 - Adverse event monitoring
-- ECG monitoring when clinically indicated
+- ECG monitoring when indicated
 
 ### Efficacy Assessments
-- Radiographic assessments
-- PSA measurements
-- Clinical progression evaluation
-- Pain assessments
-- Quality of life questionnaires
+- Disease-specific assessments
+- Response evaluation
+- Patient-reported outcomes
+- Quality of life measures
 
 ### Laboratory Assessments
 - Hematology
 - Clinical chemistry
-- PSA
-- Testosterone
-- Pharmacokinetic sampling
-
-### Other Assessments
-- Patient-reported outcomes
-- Resource utilization
 - Biomarker sampling
+- PK/PD assessments when applicable
             """
 
             # Now use GPT to enhance this template with study-specific details
