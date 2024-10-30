@@ -1,0 +1,46 @@
+{
+    "structure": {
+        "overview": {
+            "required": true,
+            "components": [
+                "Target population description",
+                "Key characteristics",
+                "Geographic considerations",
+                "Recruitment strategy"
+            ]
+        },
+        "inclusion_criteria": {
+            "required": true,
+            "components": [
+                "Disease-specific criteria",
+                "Demographic requirements",
+                "Laboratory parameters",
+                "Prior therapy requirements"
+            ]
+        },
+        "exclusion_criteria": {
+            "required": true,
+            "components": [
+                "Medical conditions",
+                "Prohibited medications",
+                "Laboratory exclusions",
+                "Other restrictions"
+            ]
+        },
+        "withdrawal_criteria": {
+            "required": true,
+            "components": [
+                "Safety-based withdrawal",
+                "Protocol violation",
+                "Subject request",
+                "Follow-up requirements"
+            ]
+        }
+    },
+    "prompt_additions": [
+        "Include clear eligibility criteria",
+        "Define withdrawal procedures",
+        "Specify recruitment approach",
+        "Detail retention strategies"
+    ]
+}

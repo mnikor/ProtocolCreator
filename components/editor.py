@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.gpt_handler import GPTHandler
+from utils.template_section_generator import TemplateSectionGenerator
 from utils.protocol_formatter import ProtocolFormatter
 
 def render_editor():
@@ -46,12 +46,13 @@ def edit_section(section_name):
             export_protocol()
 
 def generate_section(section_name):
-    """Generate individual protocol section"""
+    """Generate individual protocol section using templates"""
     with st.spinner("Generating section..."):
         try:
-            gpt_handler = GPTHandler()
-            content = gpt_handler.generate_section(
+            generator = TemplateSectionGenerator()
+            content = generator.generate_section(
                 section_name,
+                st.session_state.study_type,
                 st.session_state.synopsis_content,
                 st.session_state.generated_sections
             )
