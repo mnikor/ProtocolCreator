@@ -2,6 +2,7 @@ import logging
 from utils.gpt_handler import GPTHandler
 from utils.template_manager import TemplateManager
 from streamlit_mermaid import st_mermaid
+import streamlit as st
 
 logger = logging.getLogger(__name__)
 
@@ -78,12 +79,15 @@ class TemplateSectionGenerator:
             # Generate Mermaid diagram code
             mermaid_code = self._generate_mermaid_diagram(design_info)
 
-            # Insert diagram code after the Overall Design section
+            # Split content and add study schema section
             content_parts = content.split('## Overall Design')
             if len(content_parts) > 1:
-                content = f"{content_parts[0]}## Overall Design{content_parts[1]}\n\n## Study Schema\n\n```mermaid\n{mermaid_code}\n```\n"
+                content = f"{content_parts[0]}## Overall Design{content_parts[1]}\n\n## Study Schema\n"
             else:
-                content = f"{content}\n\n## Study Schema\n\n```mermaid\n{mermaid_code}\n```\n"
+                content = f"{content}\n\n## Study Schema\n"
+
+            # Render Mermaid diagram
+            st_mermaid(mermaid_code)
 
             return content
 
@@ -136,14 +140,12 @@ class TemplateSectionGenerator:
                 return self._generate_parallel_diagram(design_info)
         except Exception as e:
             logger.error(f"Error generating diagram: {str(e)}")
-            return """
-            graph TD
-                A[Screening] --> B[Randomization]
-                B --> C[Treatment Group 1]
-                B --> D[Treatment Group 2]
-                C --> E[Follow-up]
-                D --> E
-            """
+            return """graph TD
+    A[Screening] --> B[Randomization]
+    B --> C[Treatment Group 1]
+    B --> D[Treatment Group 2]
+    C --> E[Follow-up]
+    D --> E"""
 
     def _generate_parallel_diagram(self, design_info: dict) -> str:
         """Generate diagram for parallel design"""
@@ -156,24 +158,22 @@ class TemplateSectionGenerator:
             group_letter = chr(67 + i)  # C, D, E, etc.
             mermaid_code.append(f"    B --> {group_letter}[Treatment Group {i + 1}]")
             mermaid_code.append(f"    {group_letter} --> F[Follow-up]")
-
+        
         return "\n".join(mermaid_code)
 
     def _generate_crossover_diagram(self, design_info: dict) -> str:
         """Generate diagram for crossover design"""
-        return """
-        graph TD
-            A[Screening] --> B[Randomization]
-            B --> C[Group 1: Treatment A]
-            B --> D[Group 2: Treatment B]
-            C --> E[Washout]
-            D --> E
-            E --> F[Crossover]
-            F --> G[Group 1: Treatment B]
-            F --> H[Group 2: Treatment A]
-            G --> I[Follow-up]
-            H --> I
-        """
+        return """graph TD
+    A[Screening] --> B[Randomization]
+    B --> C[Group 1: Treatment A]
+    B --> D[Group 2: Treatment B]
+    C --> E[Washout]
+    D --> E
+    E --> F[Crossover]
+    F --> G[Group 1: Treatment B]
+    F --> H[Group 2: Treatment A]
+    G --> I[Follow-up]
+    H --> I"""
 
     def _generate_procedures_section(self, synopsis_content: str, existing_sections: dict = None):
         """Special handler for procedures section"""
