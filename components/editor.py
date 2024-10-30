@@ -4,11 +4,14 @@ from utils.protocol_formatter import ProtocolFormatter
 
 def render_editor():
     """Render the protocol editor interface"""
-    st.header("Protocol Editor")
+    st.header('Protocol Editor')
     
-    # Add Generate Complete Protocol button at the top
-    if st.button("🔄 Generate Complete Protocol", key="generate_complete"):
+    st.write('Click the button below to generate all protocol sections automatically')
+    
+    if st.button('🔄 Generate Complete Protocol', type='primary', use_container_width=True):
         generate_complete_protocol()
+        
+    st.markdown('---')  # Add separator line
     
     if st.session_state.current_section:
         edit_section(st.session_state.current_section)
