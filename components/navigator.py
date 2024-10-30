@@ -2,6 +2,8 @@ import streamlit as st
 from utils.template_section_generator import TemplateSectionGenerator
 import logging
 from datetime import datetime
+from bs4 import BeautifulSoup
+import html5lib
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,11 @@ def generate_all_sections():
                     st.session_state.synopsis_content,
                     st.session_state.generated_sections
                 )
+
+                # Clean and parse HTML content if present
+                if content and isinstance(content, str):
+                    soup = BeautifulSoup(content, 'html5lib')
+                    content = soup.get_text()
 
                 # Update session state
                 st.session_state.generated_sections[section] = content
@@ -71,7 +78,7 @@ def generate_all_sections():
         logger.error(f"Error in protocol generation: {str(e)}")
         status.error(f"❌ Error: {str(e)}")
     finally:
-        st.rerun()  # Changed from experimental_rerun
+        st.rerun()
 
 def render_navigator():
     """Render the section navigator sidebar"""
@@ -91,12 +98,27 @@ def render_navigator():
     if st.session_state.get('synopsis_content') is not None and st.session_state.get('study_type'):
         st.sidebar.markdown("Generate a complete protocol from your synopsis")
 
-        # Primary generation button
+        # Add styling for the generation button
+        st.sidebar.markdown("""
+            <style>
+            div.stButton > button:first-child {
+                background-color: #4CAF50;
+                color: white;
+                font-weight: bold;
+                padding: 0.75rem;
+                border-radius: 8px;
+                margin: 10px 0;
+                width: 100%;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
+        # Primary generation button with improved visibility
         if st.sidebar.button(
             "🚀 Generate Complete Protocol",
             help="Generate all protocol sections at once",
             use_container_width=True,
-            key='generate_all'
+            key='generate_complete_protocol'
         ):
             generate_all_sections()
     else:
@@ -128,10 +150,10 @@ def render_navigator():
         'Error': {'icon': '🔴', 'desc': 'Error in generation', 'color': 'red'}
     }
 
-    # Section navigation
+    # Section navigation with improved styling
     for section, status in st.session_state.sections_status.items():
         col1, col2 = st.sidebar.columns([3, 1])
-
+        
         with col1:
             if st.button(
                 section.replace('_', ' ').title(),
@@ -140,7 +162,7 @@ def render_navigator():
                 use_container_width=True
             ):
                 st.session_state.current_section = section
-                st.rerun()  # Changed from experimental_rerun
+                st.rerun()
 
         with col2:
             indicator = status_indicators.get(status, status_indicators['Not Started'])
@@ -165,7 +187,7 @@ def render_navigator():
             regenerate_failed_sections(failed_sections)
 
 def regenerate_failed_sections(failed_sections):
-    """Regenerate failed sections"""
+    """Regenerate failed sections with enhanced error handling"""
     generator = TemplateSectionGenerator()
 
     progress = st.sidebar.progress(0)
@@ -182,12 +204,17 @@ def regenerate_failed_sections(failed_sections):
             st.session_state.sections_status[section] = 'In Progress'
 
             try:
+                # Generate content with HTML cleaning
                 content = generator.generate_section(
                     section,
                     st.session_state.study_type,
                     st.session_state.synopsis_content,
                     st.session_state.generated_sections
                 )
+
+                if content and isinstance(content, str):
+                    soup = BeautifulSoup(content, 'html5lib')
+                    content = soup.get_text()
 
                 st.session_state.generated_sections[section] = content
                 st.session_state.sections_status[section] = 'Generated'
@@ -224,4 +251,4 @@ def regenerate_failed_sections(failed_sections):
         logger.error(f"Error in regeneration: {str(e)}")
         status.error(f"❌ Error: {str(e)}")
     finally:
-        st.rerun()  # Changed from experimental_rerun
+        st.rerun()
