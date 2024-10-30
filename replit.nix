@@ -1,5 +1,6 @@
 {pkgs}: {
   deps = [
+    pkgs.libreoffice
     pkgs.pango
     pkgs.harfbuzz
     pkgs.glib
