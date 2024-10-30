@@ -1,0 +1,6 @@
+graph TD
+    A[Screening] --> B[Randomization]
+    B --> C[Treatment Group 1]
+    C --> F[Follow-up]
+    B --> D[Treatment Group 2]
+    D --> F[Follow-up]

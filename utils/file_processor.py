@@ -1,42 +1,32 @@
-import io
-import PyPDF2
+import logging
 from docx import Document
-import pandas as pd
+import PyPDF2
 
-def read_file_content(uploaded_file):
-    """Process uploaded files based on their extension"""
-    if uploaded_file is None:
-        return None
+logger = logging.getLogger(__name__)
 
-    file_type = uploaded_file.type
-    content = None
-
+def read_file_content(file):
+    '''Read content from uploaded file'''
     try:
-        if file_type == "application/pdf":
-            content = read_pdf(uploaded_file)
-        elif file_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-            content = read_docx(uploaded_file)
-        elif file_type == "text/plain":
-            content = uploaded_file.getvalue().decode("utf-8")
-        else:
-            raise ValueError(f"Unsupported file type: {file_type}")
+        # Get file extension
+        file_name = file.name.lower()
         
-        return content
+        if file_name.endswith('.txt'):
+            # Read text file
+            return str(file.read(), 'utf-8')
+            
+        elif file_name.endswith('.docx'):
+            # Read DOCX using python-docx
+            doc = Document(file)
+            return '\n'.join(paragraph.text for paragraph in doc.paragraphs)
+            
+        elif file_name.endswith('.pdf'):
+            # Read PDF using PyPDF2
+            pdf = PyPDF2.PdfReader(file)
+            return '\n'.join(page.extract_text() for page in pdf.pages)
+            
+        else:
+            raise ValueError(f"Unsupported file format: {file_name}")
+            
     except Exception as e:
-        raise Exception(f"Error processing file: {str(e)}")
-
-def read_pdf(file):
-    """Extract text from PDF file"""
-    pdf_reader = PyPDF2.PdfReader(io.BytesIO(file.getvalue()))
-    text = ""
-    for page in pdf_reader.pages:
-        text += page.extract_text() + "\n"
-    return text
-
-def read_docx(file):
-    """Extract text from DOCX file"""
-    doc = Document(io.BytesIO(file.getvalue()))
-    text = ""
-    for paragraph in doc.paragraphs:
-        text += paragraph.text + "\n"
-    return text
+        logger.error(f"Error reading file: {str(e)}")
+        raise
