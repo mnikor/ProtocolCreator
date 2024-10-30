@@ -17,4 +17,5 @@ dependencies = [
     "reportlab>=4.2.5",
     "streamlit-mermaid>=0.2.0",
     "streamlit>=1.39.0",
+    "weasyprint>=63.0",
 ]

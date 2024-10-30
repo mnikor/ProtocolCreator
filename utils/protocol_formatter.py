@@ -1,247 +1,334 @@
-from docx import Document
-from docx.shared import Inches, Pt, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.oxml import OxmlElement, parse_xml
-from docx.oxml.ns import qn
-from fpdf import FPDF
-import re
-import html
-from bs4 import BeautifulSoup
 import logging
-import io
+from docx import Document
+from docx.shared import Inches, Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from bs4 import BeautifulSoup
+import re
 import os
-from PIL import Image
+from weasyprint import HTML
+from htmldocx import HtmlToDocx
 import graphviz
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 class ProtocolFormatter:
     def __init__(self):
-        self.doc = Document()
-        self.content_for_pdf = []
-        self.setup_custom_styles()
-        self.setup_document()
+        self.html_template = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    margin: 1in;
+                    color: #333;
+                }
 
-    def setup_custom_styles(self):
-        """Set up custom document styles"""
-        styles = {
-            'CustomTitle': {'name': 'Protocol Title', 'size': 24, 'bold': True, 'align': 'CENTER'},
-            'CustomHeading1': {'name': 'Section Title', 'size': 16, 'bold': True},
-            'CustomHeading2': {'name': 'Subsection Title', 'size': 14, 'bold': True},
-            'CustomHeading3': {'name': 'Sub-subsection Title', 'size': 12, 'bold': True},
-            'BodyText': {'name': 'Body Text', 'size': 11},
-            'TableText': {'name': 'Table Text', 'size': 10},
-            'TableHeader': {'name': 'Table Header', 'size': 10, 'bold': True},
-            'Caption': {'name': 'Figure Caption', 'size': 10, 'italic': True},
-            'Reference': {'name': 'Reference Text', 'size': 10},
-            'ListBullet': {'name': 'List Bullet', 'size': 11},
-            'ListNumber': {'name': 'List Number', 'size': 11}
-        }
+                /* Headings */
+                h1 {
+                    font-size: 24px;
+                    text-align: center;
+                    margin: 24px 0;
+                    color: #000;
+                    page-break-before: always;
+                }
+                h1:first-of-type {
+                    page-break-before: avoid;
+                }
+                h2 {
+                    font-size: 16px;
+                    margin: 20px 0 10px 0;
+                    color: #000;
+                }
+                h3 {
+                    font-size: 14px;
+                    margin: 16px 0 8px 0;
+                    color: #222;
+                }
 
-        for style_name, props in styles.items():
-            if style_name not in self.doc.styles:
-                style = self.doc.styles.add_style(style_name, 1)
-                font = style.font
-                font.name = 'Arial'
-                font.size = Pt(props['size'])
-                font.bold = props.get('bold', False)
-                font.italic = props.get('italic', False)
-                
-                para_format = style.paragraph_format
-                para_format.space_before = Pt(6)
-                para_format.space_after = Pt(6)
-                para_format.line_spacing = 1.15
-                
-                if props.get('align') == 'CENTER':
-                    para_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                /* Paragraphs */
+                p {
+                    font-size: 11px;
+                    margin: 6px 0;
+                    text-align: justify;
+                }
 
-    def setup_document(self):
-        """Initialize document settings"""
-        # Set margins
-        sections = self.doc.sections
-        for section in sections:
-            section.top_margin = Inches(1)
-            section.bottom_margin = Inches(1)
-            section.left_margin = Inches(1)
-            section.right_margin = Inches(1)
+                /* Tables */
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 10px 0;
+                    font-size: 10px;
+                }
+                th, td {
+                    border: 1px solid #ddd;
+                    padding: 8px;
+                    text-align: left;
+                    vertical-align: top;
+                }
+                th {
+                    background-color: #f2f2f2;
+                    font-weight: bold;
+                    text-align: center;
+                }
 
-        # Add title page using custom style
-        title = self.doc.add_paragraph('Clinical Trial Protocol')
-        title.style = self.doc.styles['CustomTitle']
+                /* Lists */
+                ul, ol {
+                    margin: 6px 0 6px 20px;
+                    padding-left: 20px;
+                }
+                li {
+                    font-size: 11px;
+                    margin: 4px 0;
+                    padding-left: 4px;
+                }
 
-    def add_mermaid_diagram(self, mermaid_code):
-        """Convert Mermaid code to SVG and add to document"""
-        try:
-            if not mermaid_code or not isinstance(mermaid_code, str):
-                logger.warning("Invalid or empty Mermaid code")
-                return
+                /* Images */
+                img {
+                    max-width: 100%;
+                    height: auto;
+                    margin: 10px auto;
+                    display: block;
+                }
 
-            # Convert Mermaid to DOT format using graphviz
-            dot = graphviz.Source(mermaid_code)
-            
-            # Save as temporary SVG
-            svg_path = "temp_diagram.svg"
-            dot.render(svg_path, format='svg')
-            
-            # Add to document
-            self.doc.add_picture(svg_path)
-            
-            # Clean up temporary files
-            if os.path.exists(svg_path):
-                os.remove(svg_path)
-            if os.path.exists(svg_path + '.svg'):
-                os.remove(svg_path + '.svg')
-                
-        except Exception as e:
-            logger.error(f"Error adding Mermaid diagram: {str(e)}")
+                /* Page breaks */
+                .page-break {
+                    page-break-after: always;
+                }
 
-    def format_protocol(self, sections):
-        """Format complete protocol with timing information"""
-        try:
-            start_time = datetime.now()
-            for section_name, content in sections.items():
-                if content:
-                    title = section_name.replace('_', ' ').title()
-                    section_start_time = datetime.now()
-                    self.add_section(title, content)
-                    section_duration = (datetime.now() - section_start_time).total_seconds()
-                    logger.info(f"Formatted section {title} in {section_duration:.2f} seconds")
-            
-            total_duration = (datetime.now() - start_time).total_seconds()
-            logger.info(f"Total protocol formatting time: {total_duration:.2f} seconds")
-            return self.doc
-            
-        except Exception as e:
-            logger.error(f"Error formatting protocol: {str(e)}")
-            raise
+                /* Special sections */
+                .cover-page {
+                    text-align: center;
+                    margin-top: 3in;
+                }
+                .cover-page h1 {
+                    font-size: 28px;
+                    margin-bottom: 48px;
+                }
 
-    def add_section(self, title, content):
-        """Add formatted section with timing information"""
-        start_time = datetime.now()
-        try:
-            # Clean content
-            content = self.clean_text(content)
-            
-            # Add section title using custom style
-            heading = self.doc.add_paragraph(title)
-            heading.style = self.doc.styles['CustomHeading1']
-            self.content_for_pdf.append(('heading1', title))
-
-            # Process content
-            paragraphs = content.split('\n\n')
-            for para in paragraphs:
-                if not para.strip():
-                    continue
-
-                # Process different content types with appropriate styling
-                if '```mermaid' in para:
-                    mermaid_match = re.search(r'```mermaid\n(.*?)\n```', para, re.DOTALL)
-                    if mermaid_match:
-                        self.add_mermaid_diagram(mermaid_match.group(1))
-                    continue
-
-                # Handle lists with custom styles
-                if re.match(r'^\s*[-*]\s', para):
-                    items = [line.strip('- *').strip() for line in para.split('\n') if line.strip()]
-                    for item in items:
-                        p = self.doc.add_paragraph(style='ListBullet')
-                        p.add_run(item)
-                    continue
-
-                if re.match(r'^\s*\d+\.\s', para):
-                    items = [line.strip().split('. ', 1)[1] for line in para.split('\n') if re.match(r'^\s*\d+\.\s', line)]
-                    for item in items:
-                        p = self.doc.add_paragraph(style='ListNumber')
-                        p.add_run(item)
-                    continue
-
-                # Regular paragraphs with body text style
-                p = self.doc.add_paragraph(para.strip(), style='BodyText')
-                self.content_for_pdf.append(('paragraph', para))
-
-            end_time = datetime.now()
-            duration = (end_time - start_time).total_seconds()
-            logger.info(f"Generated section {title} in {duration:.2f} seconds")
-
-        except Exception as e:
-            logger.error(f"Error generating section {title}: {str(e)}")
-            raise
-
-    def _generate_docx(self, filename):
-        """Generate DOCX document with timing"""
-        try:
-            start_time = datetime.now()
-            output_file = f"{filename}.docx"
-            self.doc.save(output_file)
-            end_time = datetime.now()
-            duration = (end_time - start_time).total_seconds()
-            logger.info(f"Generated DOCX document in {duration:.2f} seconds: {output_file}")
-            return output_file
-        except Exception as e:
-            logger.error(f"Error generating DOCX: {str(e)}")
-            raise
-
-    def _generate_pdf(self, filename):
-        """Generate PDF with timing"""
-        try:
-            start_time = datetime.now()
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_auto_page_break(auto=True, margin=15)
-            
-            # Add fonts
-            pdf.add_font('Arial', '', None, uni=True)
-            pdf.set_font('Arial', '', 11)
-            
-            # Process content with custom styles
-            for content_type, content in self.content_for_pdf:
-                if content_type == 'heading1':
-                    pdf.set_font('Arial', 'B', 16)
-                    pdf.ln(10)
-                    pdf.cell(0, 10, content, ln=True)
-                    pdf.set_font('Arial', '', 11)
-                else:
-                    pdf.multi_cell(0, 10, content)
-                    pdf.ln(5)
-            
-            output_file = f"{filename}.pdf"
-            pdf.output(output_file)
-            end_time = datetime.now()
-            duration = (end_time - start_time).total_seconds()
-            logger.info(f"Generated PDF document in {duration:.2f} seconds: {output_file}")
-            return output_file
-            
-        except Exception as e:
-            logger.error(f"Error generating PDF: {str(e)}")
-            raise
-
-    def save_document(self, fname, format='docx'):
-        """Save document in specified format"""
-        try:
-            if not fname:
-                raise ValueError("Filename is required")
-
-            if format.lower() == 'pdf':
-                return self._generate_pdf(fname)
-            else:
-                return self._generate_docx(fname)
-
-        except Exception as e:
-            logger.error(f"Error saving document: {str(e)}")
-            raise
+                /* Tables of contents */
+                .toc {
+                    margin: 20px 0;
+                }
+                .toc a {
+                    text-decoration: none;
+                    color: #000;
+                }
+                .toc-entry {
+                    margin: 4px 0;
+                    display: flex;
+                    justify-content: space-between;
+                }
+            </style>
+        </head>
+        <body>
+            {content}
+        </body>
+        </html>
+        """
+        self.content_sections = []
 
     def clean_text(self, text):
         """Clean text content"""
         if not isinstance(text, str):
             return ""
-        
-        # Remove escape characters and clean formatting
+
+        # Remove escape characters
         text = text.replace('\\', '')
+
+        # Remove markdown formatting
         text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
         text = re.sub(r'\*(.*?)\*', r'\1', text)
-        text = re.sub(r'#{1,6}\s*', '', text)
+
+        # Fix multiple newlines
         text = re.sub(r'\n{3,}', '\n\n', text)
-        
+
+        # Fix spacing around lists
+        text = re.sub(r'(?<=\w)\n(?=[1-9]\.|\-|\*)', '\n\n', text)
+
         return text.strip()
+
+    def convert_markdown_to_html(self, content):
+        """Convert markdown content to HTML"""
+        html_parts = []
+        content = self.clean_text(content)
+
+        paragraphs = content.split('\n\n')
+        for para in paragraphs:
+            para = para.strip()
+            if not para:
+                continue
+
+            # Handle different content types
+            if para.startswith('|'):  # Table
+                html_parts.append(self._convert_table(para))
+            elif para.startswith('#'):  # Heading
+                html_parts.append(self._convert_heading(para))
+            elif para.startswith(('- ', '* ')):  # Bullet list
+                html_parts.append(self._convert_list(para, ordered=False))
+            elif re.match(r'^\d+\.', para):  # Numbered list
+                html_parts.append(self._convert_list(para, ordered=True))
+            elif '```mermaid' in para:  # Mermaid diagram
+                html_parts.append(self._convert_mermaid(para))
+            else:  # Normal paragraph
+                html_parts.append(f"<p>{para}</p>")
+
+        return '\n'.join(html_parts)
+
+    def _convert_table(self, table_text):
+        """Convert markdown table to HTML table"""
+        rows = [row.strip('|').split('|') for row in table_text.split('\n') 
+               if '|' in row and not row.strip('| -').isspace()]
+
+        if not rows:
+            return ''
+
+        html = ['<table>']
+
+        # Add header
+        html.append('<thead>')
+        html.append('<tr>')
+        for cell in rows[0]:
+            html.append(f'<th>{cell.strip()}</th>')
+        html.append('</tr>')
+        html.append('</thead>')
+
+        # Add body
+        html.append('<tbody>')
+        for row in rows[2:]:  # Skip header and separator
+            html.append('<tr>')
+            for cell in row:
+                html.append(f'<td>{cell.strip()}</td>')
+            html.append('</tr>')
+        html.append('</tbody>')
+        html.append('</table>')
+
+        return '\n'.join(html)
+
+    def _convert_list(self, list_text, ordered=False):
+        """Convert markdown list to HTML list"""
+        items = list_text.split('\n')
+        tag = 'ol' if ordered else 'ul'
+
+        html = [f'<{tag}>']
+        for item in items:
+            if ordered:
+                item = re.sub(r'^\d+\.\s*', '', item)
+            else:
+                item = item.lstrip('- *')
+            html.append(f'<li>{item.strip()}</li>')
+        html.append(f'</{tag}>')
+
+        return '\n'.join(html)
+
+    def _convert_heading(self, heading_text):
+        """Convert markdown heading to HTML heading"""
+        level = len(heading_text.split()[0].strip('#'))
+        text = heading_text.lstrip('#').strip()
+        return f'<h{min(level+1, 6)}>{text}</h{min(level+1, 6)}>'
+
+    def _convert_mermaid(self, mermaid_text):
+        """Convert Mermaid diagram to SVG and embed in HTML"""
+        try:
+            # Extract Mermaid code
+            mermaid_code = re.search(r'```mermaid\n(.*?)\n```', mermaid_text, re.DOTALL)
+            if not mermaid_code:
+                return ''
+
+            # Generate SVG using graphviz
+            dot = graphviz.Source(mermaid_code.group(1))
+            svg_filename = 'temp_diagram'
+            dot.render(svg_filename, format='svg')
+
+            # Read SVG content
+            with open(f'{svg_filename}.svg', 'r') as f:
+                svg_content = f.read()
+
+            # Clean up
+            os.remove(f'{svg_filename}')
+            os.remove(f'{svg_filename}.svg')
+
+            return svg_content
+
+        except Exception as e:
+            logger.error(f"Error converting Mermaid diagram: {str(e)}")
+            return ''
+
+    def add_cover_page(self):
+        """Add cover page to document"""
+        cover = """
+        <div class="cover-page">
+            <h1>Clinical Trial Protocol</h1>
+            <p class="protocol-id">{protocol_id}</p>
+            <p class="protocol-title">{title}</p>
+            <p class="date">{date}</p>
+        </div>
+        <div class="page-break"></div>
+        """.format(
+            protocol_id="Protocol ID: XXX-XXX",
+            title="Study Title",
+            date="Date: YYYY-MM-DD"
+        )
+        self.content_sections.insert(0, cover)
+
+    def add_toc(self):
+        """Add table of contents"""
+        toc = ['<div class="toc"><h2>Table of Contents</h2>']
+        for section in self.content_sections:
+            soup = BeautifulSoup(section, 'html.parser')
+            for heading in soup.find_all(['h1', 'h2', 'h3']):
+                level = int(heading.name[1])
+                toc.append(
+                    f'<div class="toc-entry" style="margin-left: {(level-1)*20}px">'
+                    f'<span>{heading.text}</span>'
+                    f'</div>'
+                )
+        toc.append('</div><div class="page-break"></div>')
+        self.content_sections.insert(1, '\n'.join(toc))
+
+    def format_protocol(self, sections):
+        """Format complete protocol document"""
+        try:
+            # Add cover page
+            self.add_cover_page()
+
+            # Process each section
+            for section_name, content in sections.items():
+                title = section_name.replace('_', ' ').title()
+                html_content = f'<h1>{title}</h1>\n'
+                html_content += self.convert_markdown_to_html(content)
+                self.content_sections.append(html_content)
+
+            # Add table of contents
+            self.add_toc()
+
+            # Combine all sections
+            complete_html = self.html_template.format(
+                content='\n'.join(self.content_sections)
+            )
+
+            return complete_html
+
+        except Exception as e:
+            logger.error(f"Error formatting protocol: {str(e)}")
+            raise
+
+    def save_document(self, html_content, output_file, format='docx'):
+        """Save document in specified format"""
+        try:
+            if format.lower() == 'pdf':
+                HTML(string=html_content).write_pdf(
+                    f"{output_file}.pdf",
+                    stylesheets=[]
+                )
+                return f"{output_file}.pdf"
+            else:
+                converter = HtmlToDocx()
+                doc = converter.parse_html_string(html_content)
+                doc.save(f"{output_file}.docx")
+                return f"{output_file}.docx"
+        except Exception as e:
+            logger.error(f"Error saving document: {str(e)}")
+            raise

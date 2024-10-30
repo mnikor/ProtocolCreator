@@ -9,6 +9,13 @@ logger = logging.getLogger(__name__)
 
 def generate_all_sections():
     """Generate all protocol sections with enhanced progress tracking"""
+    if not st.session_state.get('synopsis_content'):
+        st.error("Please upload a synopsis first")
+        return
+    if not st.session_state.get('study_type'):
+        st.error("Please select a study type first")
+        return
+
     # Initialize the generator
     generator = TemplateSectionGenerator()
 
@@ -78,50 +85,44 @@ def generate_all_sections():
 
 def render_navigator():
     """Render the section navigator sidebar"""
-    # Debug information at the top
-    with st.sidebar.expander("🔍 Debug Info", expanded=False):
-        st.write({
-            "Synopsis Present": st.session_state.get('synopsis_content') is not None,
-            "Synopsis Length": len(st.session_state.get('synopsis_content', '')) if st.session_state.get('synopsis_content') else 0,
-            "Study Type": st.session_state.get('study_type'),
-            "Sections Status": st.session_state.get('sections_status', {}),
-            "Current Section": st.session_state.get('current_section')
-        })
-
     # Protocol Generation Section
     st.sidebar.markdown("## 🚀 Protocol Generation")
 
-    if st.session_state.get('synopsis_content') is not None and st.session_state.get('study_type'):
-        st.sidebar.markdown("Generate a complete protocol from your synopsis")
+    # Check prerequisites
+    can_generate = (
+        st.session_state.get('synopsis_content') is not None and 
+        st.session_state.get('study_type') is not None
+    )
 
-        # Add styling for the generation button
+    if can_generate:
+        # Protocol Generation Button with improved styling
         st.sidebar.markdown("""
             <style>
             div.stButton > button:first-child {
                 background-color: #4CAF50;
                 color: white;
+                font-size: 16px;
                 font-weight: bold;
-                padding: 0.75rem;
-                border-radius: 8px;
-                margin: 10px 0;
+                padding: 1rem;
+                border-radius: 10px;
+                margin: 20px 0;
                 width: 100%;
             }
             </style>
         """, unsafe_allow_html=True)
 
-        # Primary generation button with improved visibility
         if st.sidebar.button(
             "🚀 Generate Complete Protocol",
-            help="Generate all protocol sections at once",
+            help="Generate all protocol sections from your synopsis",
             use_container_width=True,
             key='generate_complete_protocol'
         ):
             generate_all_sections()
     else:
         if not st.session_state.get('synopsis_content'):
-            st.sidebar.warning("⚠️ Please upload synopsis first")
+            st.sidebar.warning("⚠️ Please upload a synopsis first")
         if not st.session_state.get('study_type'):
-            st.sidebar.warning("⚠️ Please select study type")
+            st.sidebar.warning("⚠️ Please select a study type")
 
     st.sidebar.markdown("---")
 
@@ -140,10 +141,9 @@ def render_navigator():
     # Status indicators with tooltips
     status_indicators = {
         'Not Started': {'icon': '⚪', 'desc': 'Not started yet', 'color': 'gray'},
-        'In Progress': {'icon': '🟡', 'desc': 'Generation in progress', 'color': 'yellow'},
-        'Generated': {'icon': '🟢', 'desc': 'Generated successfully', 'color': 'green'},
-        'Review': {'icon': '🟣', 'desc': 'Ready for review', 'color': 'purple'},
-        'Error': {'icon': '🔴', 'desc': 'Error in generation', 'color': 'red'}
+        'In Progress': {'icon': '🟡', 'desc': 'Generation in progress', 'color': '#FFD700'},
+        'Generated': {'icon': '🟢', 'desc': 'Generated successfully', 'color': '#4CAF50'},
+        'Error': {'icon': '🔴', 'desc': 'Error in generation', 'color': '#FF0000'}
     }
 
     # Section navigation with improved styling
@@ -163,14 +163,16 @@ def render_navigator():
         with col2:
             indicator = status_indicators.get(status, status_indicators['Not Started'])
             st.markdown(
-                f"<span title='{indicator['desc']}' style='color: {indicator['color']}'>{indicator['icon']}</span>",
+                f"""<div style='text-align: center;'>
+                    <span title='{indicator['desc']}' style='color: {indicator['color']};
+                    font-size: 20px;'>{indicator['icon']}</span></div>""",
                 unsafe_allow_html=True
             )
 
     # Retry failed sections
     failed_sections = [s for s, status in st.session_state.sections_status.items() 
                       if status in ['Error', 'Not Started']]
-    if failed_sections:
+    if failed_sections and can_generate:
         st.sidebar.markdown("---")
         st.sidebar.markdown("### Additional Controls")
         if st.sidebar.button(
@@ -199,7 +201,6 @@ def regenerate_failed_sections(failed_sections):
             st.session_state.sections_status[section] = 'In Progress'
 
             try:
-                # Generate content
                 content = generator.generate_section(
                     section,
                     st.session_state.study_type,
