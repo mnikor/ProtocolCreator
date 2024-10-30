@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 def generate_all_sections():
     """Generate all protocol sections with enhanced progress tracking"""
+    # Initialize the generator
     generator = TemplateSectionGenerator()
 
     # Create progress indicators
@@ -34,11 +35,6 @@ def generate_all_sections():
                     st.session_state.synopsis_content,
                     st.session_state.generated_sections
                 )
-
-                # Clean and parse HTML content if present
-                if content and isinstance(content, str):
-                    soup = BeautifulSoup(content, 'html5lib')
-                    content = soup.get_text()
 
                 # Update session state
                 st.session_state.generated_sections[section] = content
@@ -167,8 +163,7 @@ def render_navigator():
         with col2:
             indicator = status_indicators.get(status, status_indicators['Not Started'])
             st.markdown(
-                f"<span style='color: {indicator['color']}'>{indicator['icon']}</span>",
-                help=indicator['desc'],
+                f"<span title='{indicator['desc']}' style='color: {indicator['color']}'>{indicator['icon']}</span>",
                 unsafe_allow_html=True
             )
 
@@ -204,17 +199,13 @@ def regenerate_failed_sections(failed_sections):
             st.session_state.sections_status[section] = 'In Progress'
 
             try:
-                # Generate content with HTML cleaning
+                # Generate content
                 content = generator.generate_section(
                     section,
                     st.session_state.study_type,
                     st.session_state.synopsis_content,
                     st.session_state.generated_sections
                 )
-
-                if content and isinstance(content, str):
-                    soup = BeautifulSoup(content, 'html5lib')
-                    content = soup.get_text()
 
                 st.session_state.generated_sections[section] = content
                 st.session_state.sections_status[section] = 'Generated'
