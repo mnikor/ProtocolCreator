@@ -13,6 +13,7 @@ import io
 import os
 from PIL import Image
 import graphviz
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -41,30 +42,27 @@ class ProtocolFormatter:
         title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     def add_mermaid_diagram(self, mermaid_code):
-        """Convert Mermaid code to SVG and add to document"""
+        '''Convert Mermaid code to SVG and add to document'''
         try:
             if not mermaid_code or not isinstance(mermaid_code, str):
                 logger.warning("Invalid or empty Mermaid code")
                 return
 
-            # Convert Mermaid to DOT format
+            # Convert Mermaid to DOT format using graphviz
             dot = graphviz.Source(mermaid_code)
             
             # Save as temporary SVG
             svg_path = "temp_diagram.svg"
-            try:
-                dot.render(svg_path, format='svg')
-                
-                # Add to document
-                self.doc.add_picture(svg_path)
-                
-                # Clean up
-                if os.path.exists(svg_path):
-                    os.remove(svg_path)
-                if os.path.exists(svg_path + ".svg"):
-                    os.remove(svg_path + ".svg")
-            except Exception as e:
-                logger.error(f"Error processing diagram: {str(e)}")
+            dot.render(svg_path, format='svg')
+            
+            # Add to document
+            self.doc.add_picture(svg_path)
+            
+            # Clean up temporary files
+            if os.path.exists(svg_path):
+                os.remove(svg_path)
+            if os.path.exists(svg_path + '.svg'):
+                os.remove(svg_path + '.svg')
                 
         except Exception as e:
             logger.error(f"Error adding Mermaid diagram: {str(e)}")
@@ -177,6 +175,7 @@ class ProtocolFormatter:
 
     def add_section(self, title, content):
         """Add formatted section to document"""
+        start_time = datetime.now()
         try:
             # Clean content
             content = self.clean_text(content)
@@ -224,17 +223,25 @@ class ProtocolFormatter:
                 self.doc.add_paragraph(para)
                 self.content_for_pdf.append(('paragraph', para))
 
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds()
+            logger.info(f"Generated section {title} in {duration:.2f} seconds")
+
         except Exception as e:
-            logger.error(f"Error adding section: {str(e)}")
+            logger.error(f"Error generating section {title}: {str(e)}")
             raise
 
     def format_protocol(self, sections):
         """Format complete protocol"""
         try:
+            total_start_time = datetime.now()
             for section_name, content in sections.items():
                 if content:
                     title = section_name.replace('_', ' ').title()
                     self.add_section(title, content)
+            total_end_time = datetime.now()
+            total_duration = (total_end_time - total_start_time).total_seconds()
+            logger.info(f"Total protocol formatting time: {total_duration:.2f} seconds")
             return self.doc
         except Exception as e:
             logger.error(f"Error formatting protocol: {str(e)}")
@@ -257,9 +264,12 @@ class ProtocolFormatter:
     def _generate_docx(self, filename):
         """Generate DOCX document"""
         try:
+            start_time = datetime.now()
             output_file = f"{filename}.docx"
             self.doc.save(output_file)
-            logger.info(f"Successfully saved DOCX document: {output_file}")
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds()
+            logger.info(f"Generated DOCX document in {duration:.2f} seconds: {output_file}")
             return output_file
         except Exception as e:
             logger.error(f"Error generating DOCX: {str(e)}")
@@ -268,6 +278,7 @@ class ProtocolFormatter:
     def _generate_pdf(self, filename):
         """Generate PDF using FPDF"""
         try:
+            start_time = datetime.now()
             pdf = FPDF()
             pdf.add_page()
             pdf.set_auto_page_break(auto=True, margin=15)
@@ -299,7 +310,9 @@ class ProtocolFormatter:
 
             output_file = f"{filename}.pdf"
             pdf.output(output_file)
-            logger.info(f"Successfully saved PDF document: {output_file}")
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds()
+            logger.info(f"Generated PDF document in {duration:.2f} seconds: {output_file}")
             return output_file
 
         except Exception as e:
