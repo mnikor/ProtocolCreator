@@ -63,19 +63,25 @@ def render_input_section():
                 else:
                     st.success("✅ No major issues identified")
 
-                # Confirm Study Phase
-                st.subheader("Confirm Study Phase")
-                detected_text = f"Detected Phase: {detected_phase.replace('phase', 'Phase ')}"
+                # Confirm Study Type
+                st.subheader("Confirm Study Type")
+                detected_text = f"Detected Type: {detected_phase}"
                 st.info(f"👉 {detected_text}")
 
                 phase_options = {
                     'phase1': 'Phase 1',
                     'phase2': 'Phase 2',
-                    'phase3': 'Phase 3'
+                    'phase3': 'Phase 3',
+                    'phase4': 'Phase 4',
+                    'rwe': 'Real World Evidence',
+                    'slr': 'Systematic Literature Review',
+                    'meta': 'Meta-analysis',
+                    'consensus': 'Consensus Method',
+                    'observational': 'Observational Study'
                 }
 
                 selected_phase = st.selectbox(
-                    "Confirm or modify study phase:",
+                    "Confirm or modify study type:",
                     options=list(phase_options.keys()),
                     format_func=lambda x: phase_options[x],
                     index=list(phase_options.keys()).index(detected_phase) if detected_phase in phase_options else 0,
@@ -84,7 +90,7 @@ def render_input_section():
 
                 if st.button("Confirm and Continue", key='confirm_phase'):
                     st.session_state.study_type = selected_phase
-                    st.success("✅ Study phase confirmed. You can now proceed with protocol generation.")
+                    st.success("✅ Study type confirmed. You can now proceed with protocol generation.")
                     st.rerun()
 
         except Exception as e:
@@ -99,5 +105,5 @@ def render_input_section():
             "Synopsis Length": len(synopsis_content) if synopsis_content else 0,
             "Study Type": st.session_state.get('study_type'),
             "Analysis Results": st.session_state.get('synopsis_analysis'),
-            "Detected Phase": st.session_state.get('detected_phase')
+            "Detected Type": st.session_state.get('detected_phase')
         })
