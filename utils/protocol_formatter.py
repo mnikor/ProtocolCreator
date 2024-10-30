@@ -9,6 +9,9 @@ import re
 import html
 from bs4 import BeautifulSoup
 import logging
+from streamlit_mermaid import st_mermaid
+import io
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +38,21 @@ class ProtocolFormatter:
         # Add title page
         title = self.doc.add_heading('Clinical Trial Protocol', 0)
         title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    def _handle_mermaid_diagram(self, content):
+        """Convert Mermaid diagram to image"""
+        # Extract Mermaid code
+        mermaid_start = content.find('```mermaid')
+        if mermaid_start != -1:
+            mermaid_end = content.find('```', mermaid_start + 10)
+            if mermaid_end != -1:
+                mermaid_code = content[mermaid_start + 10:mermaid_end].strip()
+                # Use st_mermaid to render diagram
+                with io.BytesIO() as buf:
+                    diagram = st_mermaid(mermaid_code)
+                    if diagram:
+                        return diagram.save(buf, format='PNG')
+        return None
 
     def markdown_to_html_table(self, markdown_table):
         """Convert markdown table to HTML"""
@@ -147,10 +165,21 @@ class ProtocolFormatter:
             # Store for PDF
             self.content_for_pdf.append(('heading1', title.strip('#').strip()))
 
+            # Handle Mermaid diagrams
+            mermaid_diagram = self._handle_mermaid_diagram(content)
+            if mermaid_diagram:
+                # Add diagram to document
+                self.doc.add_picture(mermaid_diagram)
+                self.content_for_pdf.append(('image', mermaid_diagram))
+
             # Process content by paragraphs
             paragraphs = content.split('\n\n')
             for para in paragraphs:
                 if not para.strip():
+                    continue
+
+                # Skip Mermaid code blocks
+                if '```mermaid' in para:
                     continue
 
                 # Handle tables
@@ -243,6 +272,9 @@ class ProtocolFormatter:
                     pdf.multi_cell(0, 10, content)
                 elif content_type == 'number':
                     pdf.multi_cell(0, 10, content)
+                elif content_type == 'image':
+                    pdf.image(content, x=10, y=None, w=190)
+                    pdf.ln(5)
                 else:
                     pdf.multi_cell(0, 10, content)
                     pdf.ln(5)
