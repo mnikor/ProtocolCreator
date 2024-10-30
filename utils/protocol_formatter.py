@@ -10,7 +10,9 @@ import html
 from bs4 import BeautifulSoup
 import logging
 import io
+import os
 from PIL import Image
+import graphviz
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,35 @@ class ProtocolFormatter:
         # Add title page
         title = self.doc.add_heading('Clinical Trial Protocol', 0)
         title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    def add_mermaid_diagram(self, mermaid_code):
+        """Convert Mermaid code to SVG and add to document"""
+        try:
+            if not mermaid_code or not isinstance(mermaid_code, str):
+                logger.warning("Invalid or empty Mermaid code")
+                return
+
+            # Convert Mermaid to DOT format
+            dot = graphviz.Source(mermaid_code)
+            
+            # Save as temporary SVG
+            svg_path = "temp_diagram.svg"
+            try:
+                dot.render(svg_path, format='svg')
+                
+                # Add to document
+                self.doc.add_picture(svg_path)
+                
+                # Clean up
+                if os.path.exists(svg_path):
+                    os.remove(svg_path)
+                if os.path.exists(svg_path + ".svg"):
+                    os.remove(svg_path + ".svg")
+            except Exception as e:
+                logger.error(f"Error processing diagram: {str(e)}")
+                
+        except Exception as e:
+            logger.error(f"Error adding Mermaid diagram: {str(e)}")
 
     def markdown_to_html_table(self, markdown_table):
         """Convert markdown table to HTML"""
@@ -156,14 +187,17 @@ class ProtocolFormatter:
             # Store for PDF
             self.content_for_pdf.append(('heading1', title.strip('#').strip()))
 
+            # Process Mermaid diagrams
+            mermaid_matches = re.finditer(r'```mermaid\n(.*?)\n```', content, re.DOTALL)
+            for match in mermaid_matches:
+                mermaid_code = match.group(1)
+                self.add_mermaid_diagram(mermaid_code)
+                content = content.replace(match.group(0), '')  # Remove Mermaid code
+
             # Process content by paragraphs
             paragraphs = content.split('\n\n')
             for para in paragraphs:
                 if not para.strip():
-                    continue
-
-                # Handle Mermaid diagrams (skip them in document)
-                if '```mermaid' in para:
                     continue
 
                 # Handle tables
