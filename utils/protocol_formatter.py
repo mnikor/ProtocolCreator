@@ -1,11 +1,9 @@
 from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from fpdf import FPDF
 import re
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
+import os
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,7 +12,7 @@ class ProtocolFormatter:
     def __init__(self):
         self.doc = Document()
         self.setup_document()
-        self.content_for_pdf = []  # Store content for PDF generation
+        self.content_for_pdf = []
 
     def setup_document(self):
         """Setup document styles"""
@@ -115,59 +113,61 @@ class ProtocolFormatter:
     def save_document(self, filename, format='docx'):
         """Save document in specified format"""
         try:
-            # Save DOCX
-            docx_filename = filename if filename.endswith('.docx') else f"{filename}.docx"
-            self.doc.save(docx_filename)
-
-            # Generate PDF if requested
             if format.lower() == 'pdf':
-                pdf_filename = filename if filename.endswith('.pdf') else f"{filename}.pdf"
-                self._generate_pdf(pdf_filename)
-                return pdf_filename
-
-            return docx_filename
-
+                return self._generate_pdf(filename)
+            else:
+                return self._generate_docx(filename)
         except Exception as e:
             logger.error(f"Error saving document: {str(e)}")
             raise
 
-    def _generate_pdf(self, filename):
-        """Generate PDF using reportlab"""
+    def _generate_docx(self, filename):
+        """Generate DOCX document"""
         try:
-            doc = SimpleDocTemplate(filename, pagesize=letter)
-            styles = getSampleStyleSheet()
-            story = []
+            output_file = f"{filename}.docx"
+            self.doc.save(output_file)
+            logger.info(f"Successfully saved DOCX document: {output_file}")
+            return output_file
+        except Exception as e:
+            logger.error(f"Error generating DOCX: {str(e)}")
+            raise
 
-            # Add custom styles
-            styles.add(ParagraphStyle(
-                name='Heading1',
-                parent=styles['Heading1'],
-                fontSize=16,
-                spaceAfter=12
-            ))
-            styles.add(ParagraphStyle(
-                name='Heading2',
-                parent=styles['Heading2'],
-                fontSize=14,
-                spaceAfter=6
-            ))
+    def _generate_pdf(self, filename):
+        """Generate PDF using FPDF"""
+        try:
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_auto_page_break(auto=True, margin=15)
 
+            # Set up fonts
+            pdf.add_font('DejaVu', '', os.path.join(os.path.dirname(__file__), 'DejaVuSansCondensed.ttf'), uni=True)
+            pdf.set_font('DejaVu', '', 11)
+
+            # Process content
             for content_type, content in self.content_for_pdf:
                 if content_type == 'heading1':
-                    story.append(Paragraph(content, styles['Heading1']))
-                    story.append(Spacer(1, 12))
+                    pdf.set_font('DejaVu', '', 16)
+                    pdf.ln(10)
+                    pdf.cell(0, 10, content, ln=True)
+                    pdf.set_font('DejaVu', '', 11)
                 elif content_type == 'heading2':
-                    story.append(Paragraph(content, styles['Heading2']))
-                    story.append(Spacer(1, 6))
+                    pdf.set_font('DejaVu', '', 14)
+                    pdf.ln(5)
+                    pdf.cell(0, 10, content, ln=True)
+                    pdf.set_font('DejaVu', '', 11)
                 elif content_type == 'bullet':
-                    story.append(Paragraph(f"• {content}", styles['Normal']))
+                    pdf.cell(10, 10, '•', ln=0)
+                    pdf.multi_cell(0, 10, content)
                 elif content_type == 'number':
-                    story.append(Paragraph(content, styles['Normal']))
+                    pdf.multi_cell(0, 10, content)
                 else:
-                    story.append(Paragraph(content, styles['Normal']))
-                    story.append(Spacer(1, 6))
+                    pdf.multi_cell(0, 10, content)
+                    pdf.ln(5)
 
-            doc.build(story)
+            output_file = f"{filename}.pdf"
+            pdf.output(output_file)
+            logger.info(f"Successfully saved PDF document: {output_file}")
+            return output_file
 
         except Exception as e:
             logger.error(f"Error generating PDF: {str(e)}")

@@ -5,6 +5,7 @@ description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
     "docx2pdf>=0.1.8",
+    "fpdf2>=2.8.1",
     "jsonschema>=4.23.0",
     "openai>=1.52.2",
     "pandas>=2.2.3",
