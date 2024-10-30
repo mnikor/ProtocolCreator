@@ -75,45 +75,66 @@ class GPTHandler:
             }
         }
 
-        # Phase 3 specific requirements
-        self.phase3_requirements = {
-            'background': {
-                'required_elements': [
-                    'disease_state',
-                    'current_treatments',
-                    'treatment_guidelines',
-                    'market_landscape'
-                ],
-                'validation_rules': {
-                    'min_sections': 4,
-                    'required_keywords': ['standard of care', 'guidelines', 'treatment options']
-                }
-            },
-            'statistical_considerations': {
-                'required_elements': [
-                    'sample_size_calculation',
-                    'power_analysis',
-                    'interim_analyses',
-                    'multiplicity_adjustment'
-                ],
-                'validation_rules': {
-                    'min_sections': 3,
-                    'required_keywords': ['power', 'sample size', 'analysis population']
-                }
-            },
-            'study_design': {
-                'required_elements': [
-                    'control_comparator',
-                    'randomization',
-                    'blinding',
-                    'treatment_duration'
-                ],
-                'validation_rules': {
-                    'min_sections': 4,
-                    'required_keywords': ['control', 'comparator', 'randomization']
-                }
-            }
-        }
+    def _parse_structured_text(self, text, default_values):
+        '''Parse structured text into dictionary'''
+        try:
+            # Initialize with default values
+            analysis_dict = default_values.copy()
+            
+            # Split text into sections
+            sections = text.split('===')
+            
+            for section in sections:
+                section = section.strip()
+                if not section:
+                    continue
+                    
+                # Get section name from first line
+                lines = section.split('\n')
+                section_name = lines[0].strip().lower()
+                section_name = section_name.replace(' ', '_')
+                
+                # Process section content
+                content = {}
+                current_list = []
+                current_key = None
+                
+                for line in lines[1:]:
+                    line = line.strip()
+                    if not line:
+                        continue
+                        
+                    if line.startswith('•') or line.startswith('-'):
+                        item = line[1:].strip()
+                        if current_key:
+                            if not isinstance(content.get(current_key), list):
+                                content[current_key] = []
+                            content[current_key].append(item)
+                        else:
+                            current_list.append(item)
+                    elif ':' in line:
+                        current_key, value = line.split(':', 1)
+                        current_key = current_key.strip().lower().replace(' ', '_')
+                        value = value.strip()
+                        if value:
+                            content[current_key] = value
+                            
+                # Store section content
+                if section_name == 'study_type_and_design':
+                    analysis_dict['study_type_and_design'] = content
+                elif section_name == 'critical_parameters':
+                    analysis_dict['critical_parameters'] = content
+                elif section_name == 'required_sections':
+                    analysis_dict['required_sections'] = current_list
+                elif section_name == 'missing_information':
+                    analysis_dict['missing_information'] = current_list
+                    
+            return analysis_dict
+            
+        except Exception as e:
+            logger.error(f"Error parsing structured text: {str(e)}")
+            logger.error(f"Problematic text: {text}")
+            return default_values
 
     def analyze_synopsis(self, synopsis_text):
         """Analyze synopsis with improved handling of missing and empty sections"""
@@ -175,156 +196,13 @@ class GPTHandler:
             logger.error(f"Error in analyze_synopsis: {str(e)}")
             raise Exception(f"Error analyzing synopsis: {str(e)}")
 
-    def _validate_phase_specific_requirements(self, analysis, phase):
-        """Validate phase-specific requirements"""
-        if phase == 'phase3':
-            requirements = self.phase3_requirements
-            for section, rules in requirements.items():
-                self._validate_section_requirements(analysis, section, rules)
-
-    def _validate_section_requirements(self, analysis, section, rules):
-        """Validate specific section requirements"""
-        validation_feedback = analysis.setdefault('validation_feedback', [])
-        
-        # Check required elements
-        missing_elements = []
-        for element in rules['required_elements']:
-            if not self._check_element_presence(analysis, section, element):
-                missing_elements.append(element)
-        
-        if missing_elements:
-            feedback = {
-                'section': section,
-                'missing_elements': missing_elements,
-                'guidelines': self.mandatory_sections[section]['guidelines'],
-                'examples': self.mandatory_sections[section]['example_content']
-            }
-            validation_feedback.append(feedback)
-
-    def _check_element_presence(self, analysis, section, element):
-        """Check if an element is present in the analysis"""
-        if section in analysis:
-            section_content = str(analysis[section]).lower()
-            return element.replace('_', ' ') in section_content
-        return False
-
-    def _generate_detailed_feedback(self, analysis):
-        """Generate detailed feedback for missing or incomplete sections"""
-        feedback = []
-        
-        for section, details in self.mandatory_sections.items():
-            if section in analysis.get('missing_sections', []):
-                feedback.append({
-                    'section': section,
-                    'message': f"Missing required section: {section}",
-                    'description': details['description'],
-                    'examples': details['example_content'],
-                    'guidelines': details['guidelines'],
-                    'impact': "This section is critical for protocol completeness and regulatory compliance"
-                })
-        
-        analysis['detailed_feedback'] = feedback
-
-    def _parse_structured_text(self, text, default_values):
-        '''Parse structured text into dictionary with improved error handling'''
-        sections = default_values.copy()
-        current_section = None
-        current_list = {}
-        
-        try:
-            for line in text.split('\n'):
-                line = line.strip()
-                if not line:
-                    continue
-                    
-                if line.startswith('=== ') and line.endswith(' ==='):
-                    if current_section:
-                        section_key = current_section.lower().replace(' ', '_')
-                        sections[section_key] = current_list or sections.get(section_key, {})
-                    current_section = line.strip('= ')
-                    current_list = {}
-                    continue
-                    
-                if ': ' in line:
-                    key, value = line.split(': ', 1)
-                    key = key.lower().replace(' ', '_')
-                    
-                    # Handle empty or 'Not specified' values with placeholders
-                    if not value or value.lower() in ['', 'not specified', 'none']:
-                        value = 'Not specified'
-                        if key in ['key_features', 'secondary_endpoints']:
-                            value = ['None specified']
-                    
-                    # Enhanced validation for critical fields
-                    if current_section == 'STUDY TYPE AND DESIGN':
-                        if key == 'key_features':
-                            current_list[key] = value if isinstance(value, list) else []
-                        else:
-                            current_list[key] = value
-                    elif current_section == 'CRITICAL PARAMETERS':
-                        if key == 'secondary_endpoints':
-                            current_list[key] = value if isinstance(value, list) else []
-                        else:
-                            current_list[key] = value
-                            
-                elif line.startswith('- '):
-                    item = line[2:].strip()
-                    if not item or item.lower() in ['none', 'not specified']:
-                        continue
-                        
-                    if current_section == 'REQUIRED SECTIONS':
-                        sections.setdefault('required_sections', []).append(item)
-                    elif current_section == 'MISSING INFORMATION':
-                        sections.setdefault('missing_information', []).append(item)
-                    elif current_section == 'STUDY TYPE AND DESIGN' and 'key_features' in current_list:
-                        current_list.setdefault('key_features', []).append(item)
-                    elif current_section == 'CRITICAL PARAMETERS' and 'secondary_endpoints' in current_list:
-                        current_list.setdefault('secondary_endpoints', []).append(item)
-            
-            # Handle the last section
-            if current_section:
-                section_key = current_section.lower().replace(' ', '_')
-                sections[section_key] = current_list or sections.get(section_key, {})
-            
-            return sections
-            
-        except Exception as e:
-            logger.error(f"Error parsing structured text: {str(e)}")
-            return default_values
-
-    def _validate_mandatory_sections(self, analysis, synopsis_text):
-        """Validate presence of mandatory sections with enhanced feedback"""
-        missing_sections = []
-        
-        for section, details in self.mandatory_sections.items():
-            if details['required']:
-                if not any(section.lower() in text.lower() for text in [synopsis_text]):
-                    missing_sections.append({
-                        'section': section,
-                        'description': details['description'],
-                        'examples': details['example_content'],
-                        'guidelines': details['guidelines']
-                    })
-        
-        if missing_sections:
-            analysis['missing_sections'] = missing_sections
-            for missing in missing_sections:
-                analysis['missing_information'].append(
-                    f"Missing required section: {missing['section']}\n"
-                    f"Description: {missing['description']}\n"
-                    f"Expected content examples:\n"
-                    f"{chr(10).join(['- ' + ex for ex in missing['examples']])}\n"
-                    f"Relevant guidelines: {', '.join(missing['guidelines'])}"
-                )
-
     def _determine_study_phase(self, analysis):
-        """Determine study phase from analysis with enhanced validation"""
+        """Determine study phase from analysis"""
         try:
             study_design = analysis.get("study_type_and_design", {})
             phase = study_design.get("phase", "").lower()
             logger.info(f"Detected study phase: {phase}")
             
-            # Map phase string to template type with validation
             if "1" in phase or "i" in phase:
                 return "phase1"
             elif "2" in phase or "ii" in phase:
@@ -333,62 +211,98 @@ class GPTHandler:
                 return "phase3"
             else:
                 logger.warning("Study phase unclear, defaulting to phase1")
-                analysis['validation_feedback'].append({
-                    'warning': 'Study phase not clearly specified',
-                    'impact': 'Using Phase 1 template as default',
-                    'recommendation': 'Please specify study phase explicitly in synopsis'
-                })
                 return "phase1"
-
+                
         except Exception as e:
             logger.error(f"Error determining study phase: {str(e)}")
-            raise Exception(f"Error determining study phase: {str(e)}")
+            return "phase1"
 
-    def generate_section(self, section_name, synopsis_content, previous_sections=None, study_type=None):
-        """Generate protocol section with enhanced template handling"""
-        if not section_name or not synopsis_content:
-            raise ValueError("Section name and synopsis content are required")
-
+    def _validate_phase_specific_requirements(self, analysis, phase):
+        """Validate phase-specific requirements"""
         try:
-            section_prompt = SECTION_PROMPTS.get(section_name)
-            if not section_prompt:
-                raise ValueError(f"No prompt template found for section: {section_name}")
+            template = self.template_manager.get_template(phase)
+            missing_requirements = []
+            
+            for section, requirements in template['sections'].items():
+                section_content = analysis.get(section, {})
+                if not section_content:
+                    missing_requirements.append({
+                        'section': section,
+                        'message': f"Missing required section for {phase}"
+                    })
+            
+            if missing_requirements:
+                analysis.setdefault('validation_feedback', []).extend(missing_requirements)
+                
+        except Exception as e:
+            logger.error(f"Error in phase validation: {str(e)}")
 
-            # Get template-specific guidance with enhanced validation
-            template_guidance = ""
-            if study_type:
-                try:
-                    template = self.template_manager.get_section_template(study_type, section_name)
-                    
-                    # Add validation requirements
-                    if study_type == 'phase3':
-                        if section_name in self.phase3_requirements:
-                            template['validation'] = self.phase3_requirements[section_name]
-                    
-                    template_guidance = f"\n\nTemplate Requirements:\n{json.dumps(template, indent=2)}"
-                except Exception as e:
-                    logger.warning(f"Could not load template - {str(e)}")
+    def _validate_mandatory_sections(self, analysis, synopsis_text):
+        """Validate presence of mandatory sections"""
+        try:
+            missing_sections = []
+            
+            for section, details in self.mandatory_sections.items():
+                if details['required']:
+                    if not any(section.lower() in text.lower() for text in [synopsis_text]):
+                        missing_sections.append({
+                            'section': section,
+                            'description': details['description'],
+                            'guidelines': details['guidelines']
+                        })
+            
+            if missing_sections:
+                analysis['missing_sections'] = missing_sections
+                
+        except Exception as e:
+            logger.error(f"Error in mandatory section validation: {str(e)}")
 
-            prompt = section_prompt.format(
+    def _generate_detailed_feedback(self, analysis):
+        """Generate detailed feedback for missing or incomplete sections"""
+        try:
+            feedback = []
+            
+            for section, details in self.mandatory_sections.items():
+                if section in analysis.get('missing_sections', []):
+                    feedback.append({
+                        'section': section,
+                        'message': f"Missing required section: {section}",
+                        'description': details['description'],
+                        'guidelines': details['guidelines']
+                    })
+            
+            analysis['detailed_feedback'] = feedback
+            
+        except Exception as e:
+            logger.error(f"Error generating feedback: {str(e)}")
+
+    def generate_section(self, section_name, synopsis_content, previous_sections=None):
+        """Generate protocol section"""
+        try:
+            if not section_name or not synopsis_content:
+                raise ValueError("Section name and synopsis content are required")
+
+            prompt = SECTION_PROMPTS.get(section_name, "").format(
                 synopsis_content=synopsis_content,
-                previous_sections=previous_sections or "",
-                template_guidance=template_guidance
+                previous_sections=previous_sections or ""
             )
 
-            logger.info(f"Generating section: {section_name}")
             response = self.client.chat.completions.create(
                 model=self.model_name,
-                messages=[{
-                    "role": "system",
-                    "content": "You are a medical writer generating protocol sections. Provide detailed, scientifically accurate content following ICH guidelines."
-                }, {
-                    "role": "user",
-                    "content": prompt
-                }]
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a medical writer generating protocol sections."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ]
             )
             
             return response.choices[0].message.content
-
+            
         except Exception as e:
             logger.error(f"Error generating section: {str(e)}")
             raise Exception(f"Error generating section: {str(e)}")
