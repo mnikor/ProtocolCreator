@@ -1,7 +1,6 @@
 import logging
 from utils.gpt_handler import GPTHandler
 from utils.template_manager import TemplateManager
-from streamlit_mermaid import st_mermaid
 import streamlit as st
 
 logger = logging.getLogger(__name__)
@@ -79,15 +78,12 @@ class TemplateSectionGenerator:
             # Generate Mermaid diagram code
             mermaid_code = self._generate_mermaid_diagram(design_info)
 
-            # Split content and add study schema section
+            # Split content and add study schema section with diagram
             content_parts = content.split('## Overall Design')
             if len(content_parts) > 1:
-                content = f"{content_parts[0]}## Overall Design{content_parts[1]}\n\n## Study Schema\n"
+                content = f"{content_parts[0]}## Overall Design{content_parts[1]}\n\n## Study Schema\n\n```mermaid\n{mermaid_code}\n```\n"
             else:
-                content = f"{content}\n\n## Study Schema\n"
-
-            # Render Mermaid diagram
-            st_mermaid(mermaid_code)
+                content = f"{content}\n\n## Study Schema\n\n```mermaid\n{mermaid_code}\n```\n"
 
             return content
 
