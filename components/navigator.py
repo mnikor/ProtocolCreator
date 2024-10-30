@@ -27,6 +27,10 @@ def generate_all_sections():
         total_sections = len(sections)
         start_time = datetime.now()
 
+        # Reset section statuses
+        for section in sections:
+            st.session_state.sections_status[section] = 'Not Started'
+
         for idx, section in enumerate(sections):
             section_start = datetime.now()
             status.info(f"📝 Generating {section.replace('_', ' ').title()}...")
@@ -35,23 +39,26 @@ def generate_all_sections():
             try:
                 # Generate section content
                 content = generator.generate_section(
-                    section,
-                    st.session_state.study_type,
-                    st.session_state.synopsis_content,
-                    st.session_state.generated_sections
+                    section_name=section,
+                    study_type=st.session_state.study_type,
+                    synopsis_content=st.session_state.synopsis_content,
+                    existing_sections=st.session_state.generated_sections
                 )
 
-                # Update session state
-                st.session_state.generated_sections[section] = content
-                st.session_state.sections_status[section] = 'Generated'
+                if content and isinstance(content, str):
+                    # Update session state
+                    st.session_state.generated_sections[section] = content
+                    st.session_state.sections_status[section] = 'Generated'
 
-                # Update progress
-                section_time = datetime.now() - section_start
-                progress.progress((idx + 1) / total_sections)
-                detailed_status.success(
-                    f"✅ {section.replace('_', ' ').title()} "
-                    f"({section_time.total_seconds():.1f}s)"
-                )
+                    # Update progress
+                    section_time = datetime.now() - section_start
+                    progress.progress((idx + 1) / total_sections)
+                    detailed_status.success(
+                        f"✅ {section.replace('_', ' ').title()} "
+                        f"({section_time.total_seconds():.1f}s)"
+                    )
+                else:
+                    raise ValueError(f"Invalid content generated for {section}")
 
             except Exception as e:
                 logger.error(f"Error generating {section}: {str(e)}")
@@ -82,7 +89,7 @@ def generate_all_sections():
 def render_navigator():
     """Render the section navigator sidebar"""
     # Debug information
-    with st.sidebar.expander("🔍 Debug Info", expanded=False):
+    with st.sidebar.expander("🔍 Debug Info", expanded=True):
         st.write({
             "Synopsis Present": st.session_state.get('synopsis_content') is not None,
             "Synopsis Length": len(st.session_state.get('synopsis_content', '')) if st.session_state.get('synopsis_content') else 0,
@@ -189,10 +196,10 @@ def render_navigator():
                 try:
                     generator = TemplateSectionGenerator()
                     content = generator.generate_section(
-                        section,
-                        st.session_state.study_type,
-                        st.session_state.synopsis_content,
-                        st.session_state.generated_sections
+                        section_name=section,
+                        study_type=st.session_state.study_type,
+                        synopsis_content=st.session_state.synopsis_content,
+                        existing_sections=st.session_state.generated_sections
                     )
                     st.session_state.generated_sections[section] = content
                     st.session_state.sections_status[section] = 'Generated'
