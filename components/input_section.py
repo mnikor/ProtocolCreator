@@ -85,7 +85,7 @@ def render_input_section():
                 if st.button("Confirm and Continue", key='confirm_phase'):
                     st.session_state.study_type = selected_phase
                     st.success("✅ Study phase confirmed. You can now proceed with protocol generation.")
-                    st.rerun()  # Using st.rerun() instead of experimental_rerun
+                    st.rerun()
 
         except Exception as e:
             st.error(f"Error processing synopsis: {str(e)}")
@@ -93,9 +93,10 @@ def render_input_section():
 
     # Debug information
     with st.expander("Debug Information", expanded=False):
+        synopsis_content = st.session_state.get('synopsis_content')
         st.json({
-            "Synopsis Present": st.session_state.get('synopsis_content') is not None,
-            "Synopsis Length": len(st.session_state.get('synopsis_content', '')),
+            "Synopsis Present": synopsis_content is not None,
+            "Synopsis Length": len(synopsis_content) if synopsis_content else 0,
             "Study Type": st.session_state.get('study_type'),
             "Analysis Results": st.session_state.get('synopsis_analysis'),
             "Detected Phase": st.session_state.get('detected_phase')

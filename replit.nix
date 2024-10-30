@@ -1,5 +1,6 @@
 {pkgs}: {
   deps = [
+    pkgs.graphviz
     pkgs.libreoffice
     pkgs.pango
     pkgs.harfbuzz

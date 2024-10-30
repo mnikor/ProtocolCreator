@@ -8,21 +8,21 @@ logger = logging.getLogger(__name__)
 def generate_all_sections():
     """Generate all protocol sections with enhanced progress tracking"""
     if not st.session_state.get('synopsis_content'):
-        st.error("Please upload a synopsis first")
+        st.sidebar.error("⚠️ Please upload a synopsis first")
         return
     if not st.session_state.get('study_type'):
-        st.error("Please select a study type first")
+        st.sidebar.error("⚠️ Please select a study type first")
         return
 
-    # Initialize the generator
-    generator = TemplateSectionGenerator()
-
-    # Create progress indicators
-    progress = st.progress(0)
-    status = st.empty()
-    detailed_status = st.empty()
-
     try:
+        # Initialize the generator
+        generator = TemplateSectionGenerator()
+
+        # Create progress indicators
+        progress = st.sidebar.progress(0)
+        status = st.sidebar.empty()
+        detailed_status = st.sidebar.empty()
+
         sections = list(st.session_state.sections_status.keys())
         total_sections = len(sections)
         start_time = datetime.now()
@@ -81,9 +81,19 @@ def generate_all_sections():
 
 def render_navigator():
     """Render the section navigator sidebar"""
-    # Protocol Generation Section at the top
-    st.sidebar.markdown("## 🚀 Protocol Generation")
+    # Debug information
+    with st.sidebar.expander("🔍 Debug Info", expanded=False):
+        st.write({
+            "Synopsis Present": st.session_state.get('synopsis_content') is not None,
+            "Synopsis Length": len(st.session_state.get('synopsis_content', '')) if st.session_state.get('synopsis_content') else 0,
+            "Study Type": st.session_state.get('study_type'),
+            "Sections Status": st.session_state.get('sections_status', {}),
+            "Current Section": st.session_state.get('current_section')
+        })
 
+    # Protocol Generation Section with improved styling
+    st.sidebar.markdown("## 🚀 Protocol Generation")
+    
     # Check prerequisites
     can_generate = (
         st.session_state.get('synopsis_content') is not None and 
@@ -91,17 +101,16 @@ def render_navigator():
     )
 
     if can_generate:
-        # Protocol Generation Button with improved styling
+        # Protocol Generation Button with enhanced styling
         st.sidebar.markdown("""
             <style>
             div.stButton > button:first-child {
                 background-color: #4CAF50;
                 color: white;
-                font-size: 16px;
                 font-weight: bold;
-                padding: 1rem;
+                padding: 0.75rem;
                 border-radius: 10px;
-                margin: 20px 0;
+                margin: 10px 0;
                 width: 100%;
             }
             </style>
@@ -122,14 +131,14 @@ def render_navigator():
 
     st.sidebar.markdown("---")
 
-    # Section Navigation
+    # Section Navigation with improved status tracking
     st.sidebar.header("📑 Protocol Sections")
-
+    
     # Progress tracking
     total_sections = len(st.session_state.sections_status)
     completed_sections = sum(1 for status in st.session_state.sections_status.values() 
                            if status == 'Generated')
-
+    
     # Show overall progress
     progress = completed_sections / total_sections if total_sections > 0 else 0
     st.sidebar.progress(progress, text=f"Progress: {completed_sections}/{total_sections} sections")
@@ -142,7 +151,7 @@ def render_navigator():
         'Error': {'icon': '🔴', 'desc': 'Error in generation', 'color': '#FF0000'}
     }
 
-    # Section navigation with improved styling
+    # Section navigation with status indicators
     for section, status in st.session_state.sections_status.items():
         col1, col2 = st.sidebar.columns([3, 1])
         
