@@ -10,6 +10,8 @@ from utils.protocol_formatter import ProtocolFormatter
 from utils.template_manager import TemplateManager
 
 def init_session_state():
+    if 'debug_mode' not in st.session_state:
+        st.session_state.debug_mode = True  # Set to True by default for development
     if 'synopsis_content' not in st.session_state:
         st.session_state.synopsis_content = None
     if 'current_section' not in st.session_state:
@@ -31,6 +33,15 @@ def init_session_state():
         st.session_state.generated_sections = {}
     if 'template_manager' not in st.session_state:
         st.session_state.template_manager = TemplateManager()
+
+    # Add debug output
+    if st.session_state.get('debug_mode', False):
+        st.write("Current Session State:", {
+            "synopsis_content": bool(st.session_state.get('synopsis_content')),
+            "study_type": st.session_state.get('study_type'),
+            "sections_status": st.session_state.get('sections_status'),
+            "current_section": st.session_state.get('current_section')
+        })
 
 def main():
     st.set_page_config(

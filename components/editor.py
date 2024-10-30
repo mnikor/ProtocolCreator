@@ -4,18 +4,24 @@ from utils.protocol_formatter import ProtocolFormatter
 
 def render_editor():
     """Render the protocol editor interface"""
-    # Debug information at the top
-    st.write("Debug Session State:", {
-        "synopsis_content": st.session_state.get('synopsis_content', 'None'),
-        "study_type": st.session_state.get('study_type', 'None'),
-        "sections_status": st.session_state.get('sections_status', {}),
-        "current_section": st.session_state.get('current_section', 'None')
-    })
-
     st.header("Protocol Editor")
-
-    # Generate Complete Protocol button
-    if st.session_state.get('synopsis_content') and st.session_state.get('study_type'):
+    
+    # Debug information
+    st.write("Session State Debug Info:")
+    st.write({
+        "Synopsis Content": "Available" if st.session_state.get('synopsis_content') else "Not Available",
+        "Study Type": st.session_state.get('study_type', "Not Selected"),
+        "Generated Sections": len(st.session_state.get('generated_sections', {})),
+        "Current Section": st.session_state.get('current_section', "None")
+    })
+    
+    # Generate Complete Protocol button section
+    st.markdown("### 🚀 Protocol Generation")
+    
+    # Check conditions for generation
+    can_generate = st.session_state.get('synopsis_content') and st.session_state.get('study_type')
+    
+    if can_generate:
         st.markdown('''
             <style>
             div.stButton > button:first-child {
@@ -23,24 +29,35 @@ def render_editor():
                 color: white;
                 font-size: 20px;
                 font-weight: bold;
-                padding: 1rem;
+                padding: 1.5rem;
                 border-radius: 10px;
                 margin: 20px 0;
                 width: 100%;
+                border: none;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             }
             div.stButton > button:first-child:hover {
                 background-color: #45a049;
-                border-color: #45a049;
+                box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+                transform: translateY(-2px);
+                transition: all 0.3s ease;
             }
             </style>''', unsafe_allow_html=True)
         
-        st.markdown("### 🚀 Generate Protocol")
-        st.markdown("Click the button below to generate all protocol sections based on your synopsis.")
+        st.markdown("Click below to generate all protocol sections based on your synopsis:")
         
-        if st.button('🔄 Generate Complete Protocol', use_container_width=True):
+        if st.button('🔄 GENERATE COMPLETE PROTOCOL', use_container_width=True):
             generate_all_sections()
     else:
-        st.warning("⚠️ Please upload a synopsis and select a study type to generate the protocol.")
+        missing_items = []
+        if not st.session_state.get('synopsis_content'):
+            missing_items.append("- Upload a synopsis")
+        if not st.session_state.get('study_type'):
+            missing_items.append("- Select a study type")
+            
+        st.warning("⚠️ Please complete the following before generating the protocol:\n" + "\n".join(missing_items))
     
     st.markdown("---")  # Separator
 
@@ -86,7 +103,7 @@ def generate_all_sections():
                 progress.progress(completed / total_sections)
             
             if completed == total_sections:
-                status.success("✅ Protocol generation completed!")
+                status.success("✅ Protocol generation completed successfully!")
                 st.balloons()
             else:
                 status.warning(f"⚠️ Generated {completed}/{total_sections} sections")
@@ -97,6 +114,10 @@ def generate_all_sections():
 def edit_section(section_name):
     """Edit individual protocol section"""
     st.subheader(section_name.replace('_', ' ').title())
+    
+    # Section status indicator
+    status = st.session_state.sections_status.get(section_name, 'Not Started')
+    st.info(f"Current Status: {status}")
     
     if section_name in st.session_state.generated_sections:
         content = st.text_area(
@@ -113,10 +134,10 @@ def edit_section(section_name):
                 st.success("✅ Changes saved!")
                 
         with col2:
-            if st.button("🔄 Regenerate", use_container_width=True):
+            if st.button("🔄 Regenerate Section", use_container_width=True):
                 generate_section(section_name)
     else:
-        st.warning("Section not yet generated")
+        st.warning("Section not yet generated. Use the generate button above to create content.")
 
 def generate_section(section_name):
     """Generate individual protocol section"""
