@@ -90,7 +90,14 @@ class ProtocolFormatter:
 
             # Create Word table
             rows = soup.find_all('tr')
-            table = self.doc.add_table(rows=len(rows), cols=len(rows[0].find_all(['th', 'td'])))
+            if not rows:
+                return None
+            
+            cols = len(rows[0].find_all(['th', 'td']))
+            if cols == 0:
+                return None
+
+            table = self.doc.add_table(rows=len(rows), cols=cols)
             table.style = 'Table Grid'
             table.alignment = WD_TABLE_ALIGNMENT.CENTER
 
