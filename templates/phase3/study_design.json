@@ -1,0 +1,47 @@
+{
+    "structure": {
+        "overall_design": {
+            "required": true,
+            "components": [
+                "Study type and phase",
+                "Design characteristics",
+                "Control description",
+                "Blinding details",
+                "Duration specifications"
+            ]
+        },
+        "study_population": {
+            "required": true,
+            "components": [
+                "Key inclusion criteria",
+                "Key exclusion criteria",
+                "Sample size justification",
+                "Stratification factors"
+            ]
+        },
+        "treatment_plan": {
+            "required": true,
+            "components": [
+                "Treatment arms",
+                "Dosing regimens",
+                "Treatment duration",
+                "Allowed medications"
+            ]
+        },
+        "procedures": {
+            "required": true,
+            "components": [
+                "Visit schedule",
+                "Study assessments",
+                "Safety monitoring",
+                "Efficacy evaluations"
+            ]
+        }
+    },
+    "prompt_additions": [
+        "Include clear study schema",
+        "Specify randomization details",
+        "Define interim analyses",
+        "Detail safety monitoring"
+    ]
+}
