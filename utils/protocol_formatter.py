@@ -1,9 +1,13 @@
 from docx import Document
-from docx.shared import Inches, Pt
+from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.oxml import OxmlElement, parse_xml
+from docx.oxml.ns import qn
 from fpdf import FPDF
 import re
-import os
+import html
+from bs4 import BeautifulSoup
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,100 +19,179 @@ class ProtocolFormatter:
         self.content_for_pdf = []
 
     def setup_document(self):
-        """Setup document styles"""
+        # Set up document styles
+        style = self.doc.styles['Normal']
+        style.font.name = 'Arial'
+        style.font.size = Pt(11)
+        
+        # Set margins
         sections = self.doc.sections
         for section in sections:
             section.top_margin = Inches(1)
             section.bottom_margin = Inches(1)
             section.left_margin = Inches(1)
             section.right_margin = Inches(1)
+        
+        # Add title page
+        title = self.doc.add_heading('Clinical Trial Protocol', 0)
+        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-        styles = {
-            'Heading 1': {'size': 16, 'bold': True, 'before': 24, 'after': 12},
-            'Heading 2': {'size': 14, 'bold': True, 'before': 12, 'after': 6},
-            'Heading 3': {'size': 12, 'bold': True, 'before': 6, 'after': 6},
-            'Normal': {'size': 11, 'bold': False, 'before': 0, 'after': 6}
-        }
+    def markdown_to_html_table(self, markdown_table):
+        """Convert markdown table to HTML"""
+        try:
+            lines = [line.strip() for line in markdown_table.split('\n') if line.strip()]
+            if len(lines) < 3:
+                return None
 
-        for name, props in styles.items():
-            style = self.doc.styles[name]
-            font = style.font
-            font.size = Pt(props['size'])
-            font.bold = props['bold']
-            paragraph_format = style.paragraph_format
-            paragraph_format.space_before = Pt(props['before'])
-            paragraph_format.space_after = Pt(props['after'])
+            # Process header
+            header = [cell.strip() for cell in lines[0].strip('|').split('|')]
+
+            # Skip separator line
+            data_rows = []
+            for line in lines[2:]:  # Skip header and separator
+                if not all(c in '|-' for c in line):  # Skip separator rows
+                    row = [cell.strip() for cell in line.strip('|').split('|')]
+                    data_rows.append(row)
+
+            # Create HTML table
+            html_table = ['<table style="width:100%; border-collapse: collapse; margin: 10px 0;">']
+
+            # Add header
+            html_table.append('<thead>')
+            html_table.append('<tr>')
+            for cell in header:
+                html_table.append(f'<th style="background-color: #f2f2f2; border: 1px solid #ddd; padding: 8px; text-align: left;">{html.escape(cell)}</th>')
+            html_table.append('</tr>')
+            html_table.append('</thead>')
+
+            # Add body
+            html_table.append('<tbody>')
+            for row in data_rows:
+                html_table.append('<tr>')
+                for cell in row:
+                    html_table.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{html.escape(cell)}</td>')
+                html_table.append('</tr>')
+            html_table.append('</tbody>')
+            html_table.append('</table>')
+
+            return '\n'.join(html_table)
+
+        except Exception as e:
+            logger.error(f"Error converting table to HTML: {str(e)}")
+            return None
+
+    def insert_html_table(self, html_table):
+        """Insert HTML table into Word document"""
+        try:
+            # Parse HTML
+            soup = BeautifulSoup(html_table, 'html.parser')
+
+            # Create Word table
+            rows = soup.find_all('tr')
+            table = self.doc.add_table(rows=len(rows), cols=len(rows[0].find_all(['th', 'td'])))
+            table.style = 'Table Grid'
+            table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+            # Process rows
+            for i, row in enumerate(rows):
+                cells = row.find_all(['th', 'td'])
+                for j, cell in enumerate(cells):
+                    # Get cell and paragraph
+                    word_cell = table.cell(i, j)
+                    paragraph = word_cell.paragraphs[0]
+
+                    # Set cell text
+                    run = paragraph.add_run(cell.get_text())
+
+                    # Format header cells
+                    if cell.name == 'th':
+                        run.bold = True
+                        word_cell._tc.get_or_add_tcPr().append(parse_xml(f'''
+                            <w:shd xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" 
+                                  w:fill="F2F2F2"/>
+                        '''))
+
+                    # Set alignment
+                    paragraph.alignment = WD_TABLE_ALIGNMENT.LEFT
+
+            # Add spacing after table
+            self.doc.add_paragraph()
+            return table
+
+        except Exception as e:
+            logger.error(f"Error inserting HTML table: {str(e)}")
+            return None
 
     def clean_text(self, text):
-        """Clean text of markdown and escape characters"""
-        text = text.replace('\\', '').strip()
-        text = re.sub(r'# (\w+)\s+# \1', r'# \1', text)
-        text = re.sub(r'\\\#', '#', text)
+        """Clean text content"""
+        if not isinstance(text, str):
+            return ""
+        
+        # Remove excessive newlines
         text = re.sub(r'\n{3,}', '\n\n', text)
-        text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
-        return text
+        
+        # Clean markdown-style headers
+        text = re.sub(r'^#{1,6}\s*', '', text, flags=re.MULTILINE)
+        
+        return text.strip()
 
     def add_section(self, title, content):
-        """Add a section to both Word and PDF content"""
-        content = self.clean_text(content)
+        """Add formatted section to document"""
+        try:
+            # Clean content
+            content = self.clean_text(content)
 
-        # Add to Word document
-        self.doc.add_heading(title.strip('#').strip(), level=1)
-        self.content_for_pdf.append(('heading1', title.strip('#').strip()))
+            # Add section title
+            self.doc.add_heading(title.strip('#').strip(), level=1)
+            
+            # Store for PDF
+            self.content_for_pdf.append(('heading1', title.strip('#').strip()))
 
-        paragraphs = content.split('\n\n')
-        for para in paragraphs:
-            para = para.strip()
-            if not para:
-                continue
+            # Process content by paragraphs
+            paragraphs = content.split('\n\n')
+            for para in paragraphs:
+                if not para.strip():
+                    continue
 
-            # Handle headings
-            if para.startswith('##'):
-                text = para.lstrip('#').strip()
-                self.doc.add_heading(text, level=2)
-                self.content_for_pdf.append(('heading2', text))
-                continue
+                # Handle tables
+                if '|' in para and '-|-' in para:
+                    html_table = self.markdown_to_html_table(para)
+                    if html_table:
+                        self.insert_html_table(html_table)
+                    continue
 
-            # Handle bullet points
-            if para.startswith('- '):
-                for line in para.split('\n'):
-                    if line.strip():
-                        self.doc.add_paragraph(line.strip('- ').strip(), style='List Bullet')
-                        self.content_for_pdf.append(('bullet', line.strip('- ').strip()))
-                continue
+                # Handle lists
+                if para.strip().startswith(('- ', '* ', '1. ')):
+                    lines = para.split('\n')
+                    for line in lines:
+                        line = line.strip()
+                        if line.startswith(('- ', '* ')):
+                            p = self.doc.add_paragraph(line[2:], style='List Bullet')
+                            self.content_for_pdf.append(('bullet', line[2:]))
+                        elif re.match(r'^\d+\.\s', line):
+                            p = self.doc.add_paragraph(line, style='List Number')
+                            self.content_for_pdf.append(('number', line))
+                    continue
 
-            # Handle numbered lists
-            if re.match(r'^\d+\.', para):
-                for line in para.split('\n'):
-                    if line.strip():
-                        self.doc.add_paragraph(line.strip(), style='List Number')
-                        self.content_for_pdf.append(('number', line.strip()))
-                continue
+                # Regular paragraph
+                self.doc.add_paragraph(para)
+                self.content_for_pdf.append(('paragraph', para))
 
-            # Regular paragraph
-            self.doc.add_paragraph(para)
-            self.content_for_pdf.append(('para', para))
+        except Exception as e:
+            logger.error(f"Error adding section: {str(e)}")
+            raise
 
     def format_protocol(self, sections):
-        """Format protocol document"""
-        section_order = [
-            'background',
-            'objectives',
-            'study_design',
-            'population',
-            'procedures',
-            'statistical',
-            'safety'
-        ]
-
-        for section_name in section_order:
-            if section_name in sections:
-                self.add_section(
-                    section_name.replace('_', ' ').title(),
-                    sections[section_name]
-                )
-
-        return self.doc
+        """Format complete protocol"""
+        try:
+            for section_name, content in sections.items():
+                if content:
+                    title = section_name.replace('_', ' ').title()
+                    self.add_section(title, content)
+            return self.doc
+        except Exception as e:
+            logger.error(f"Error formatting protocol: {str(e)}")
+            raise
 
     def save_document(self, filename, format='docx'):
         """Save document in specified format"""
@@ -140,21 +223,21 @@ class ProtocolFormatter:
             pdf.set_auto_page_break(auto=True, margin=15)
 
             # Set up fonts
-            pdf.add_font('DejaVu', '', os.path.join(os.path.dirname(__file__), 'DejaVuSansCondensed.ttf'), uni=True)
-            pdf.set_font('DejaVu', '', 11)
+            pdf.add_font('Arial', '', None, uni=True)
+            pdf.set_font('Arial', '', 11)
 
             # Process content
             for content_type, content in self.content_for_pdf:
                 if content_type == 'heading1':
-                    pdf.set_font('DejaVu', '', 16)
+                    pdf.set_font('Arial', 'B', 16)
                     pdf.ln(10)
                     pdf.cell(0, 10, content, ln=True)
-                    pdf.set_font('DejaVu', '', 11)
+                    pdf.set_font('Arial', '', 11)
                 elif content_type == 'heading2':
-                    pdf.set_font('DejaVu', '', 14)
+                    pdf.set_font('Arial', 'B', 14)
                     pdf.ln(5)
                     pdf.cell(0, 10, content, ln=True)
-                    pdf.set_font('DejaVu', '', 11)
+                    pdf.set_font('Arial', '', 11)
                 elif content_type == 'bullet':
                     pdf.cell(10, 10, '•', ln=0)
                     pdf.multi_cell(0, 10, content)
