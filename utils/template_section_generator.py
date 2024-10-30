@@ -1,87 +1,115 @@
-from typing import Dict, Optional
 import logging
-from utils.template_manager import TemplateManager
 from utils.gpt_handler import GPTHandler
+from utils.template_manager import TemplateManager
 
 logger = logging.getLogger(__name__)
 
 class TemplateSectionGenerator:
     def __init__(self):
-        self.template_manager = TemplateManager()
         self.gpt_handler = GPTHandler()
+        self.template_manager = TemplateManager()
 
-    def generate_section(self, section_name: str, study_phase: str, synopsis_content: str, previous_sections: Optional[Dict] = None) -> str:
+    def generate_section(self, section_name: str, study_type: str, synopsis_content: str, existing_sections: dict = None):
         """
-        Generate a protocol section using phase-specific templates and GPT
+        Generate a protocol section using GPT and templates
+        
+        Args:
+            section_name (str): Name of the section to generate
+            study_type (str): Type of study (phase1, phase2, phase3)
+            synopsis_content (str): Original synopsis content
+            existing_sections (dict): Previously generated sections
+            
+        Returns:
+            str: Generated section content
         """
         try:
-            # Get template for the section
-            template = self.template_manager.get_section_template(study_phase, section_name)
+            logger.info(f"Generating {section_name} section for {study_type}")
             
-            if not template:
-                logger.warning(f"Template not found for {section_name} in {study_phase}")
-                return self.gpt_handler.generate_section(section_name, synopsis_content, previous_sections)
-
-            # Build enhanced prompt using template
-            prompt = self._build_template_prompt(template, section_name, synopsis_content, previous_sections)
+            # Get template for this section
+            template = self.template_manager.get_section_template(study_type, section_name)
+            
+            # Format previous sections if they exist
+            previous_sections = ""
+            if existing_sections:
+                previous_sections = self._format_previous_sections(existing_sections)
             
             # Generate content using GPT
-            section_content = self.gpt_handler.generate_section(section_name, prompt, previous_sections)
+            content = self.gpt_handler.generate_section(
+                section_name=section_name,
+                synopsis_content=synopsis_content,
+                previous_sections=previous_sections
+            )
             
-            # Validate generated content against template requirements
-            if not self._validate_generated_content(section_content, template):
-                logger.warning(f"Generated content for {section_name} does not meet all template requirements")
+            # Validate generated content against template
+            self._validate_against_template(content, template)
             
-            return section_content
-
+            return content
+            
         except Exception as e:
             logger.error(f"Error generating section {section_name}: {str(e)}")
-            raise
-
-    def _build_template_prompt(self, template: Dict, section_name: str, synopsis_content: str, previous_sections: Optional[Dict] = None) -> str:
+            raise Exception(f"Failed to generate {section_name} section: {str(e)}")
+    
+    def _format_previous_sections(self, existing_sections: dict) -> str:
+        """Format previously generated sections for context"""
+        formatted_sections = []
+        for section_name, content in existing_sections.items():
+            formatted_sections.append(f"=== {section_name.upper()} ===\n{content}\n")
+        return "\n".join(formatted_sections)
+    
+    def _validate_against_template(self, content: str, template: dict):
         """
-        Build enhanced prompt using template structure and requirements
+        Validate generated content against section template
+        
+        Args:
+            content (str): Generated section content
+            template (dict): Section template with requirements
         """
-        prompt_parts = [
-            f"Generate the {section_name} section for a clinical protocol based on the following synopsis:",
-            synopsis_content,
-            "\nRequired Structure:"
-        ]
-
-        if 'structure' in template:
-            for component, details in template['structure'].items():
-                prompt_parts.append(f"\n{component.replace('_', ' ').title()}:")
-                if 'components' in details:
-                    for item in details['components']:
-                        prompt_parts.append(f"- {item}")
-
-        if 'prompt_additions' in template:
-            prompt_parts.append("\nAdditional Requirements:")
-            for addition in template['prompt_additions']:
-                prompt_parts.append(f"- {addition}")
-
-        return "\n".join(prompt_parts)
-
-    def _validate_generated_content(self, content: str, template: Dict) -> bool:
+        try:
+            # Check for required components
+            structure = template.get('structure', {})
+            for component, details in structure.items():
+                if details.get('required', False):
+                    # Convert component name to searchable text
+                    search_text = component.lower().replace('_', ' ')
+                    if search_text not in content.lower():
+                        logger.warning(f"Required component '{component}' not found in generated content")
+                        # We don't raise an error here, just log the warning
+                        
+        except Exception as e:
+            logger.error(f"Error validating content against template: {str(e)}")
+            # Continue despite validation errors to not block generation
+    
+    def generate_complete_protocol(self, study_type: str, synopsis_content: str):
         """
-        Validate that generated content includes required elements from template
+        Generate all protocol sections
+        
+        Args:
+            study_type (str): Type of study (phase1, phase2, phase3)
+            synopsis_content (str): Original synopsis content
+            
+        Returns:
+            dict: Dictionary of generated sections
         """
-        if not content or not template:
-            return False
-
-        required_elements = []
-        for section, details in template.get('structure', {}).items():
-            if details.get('required', False):
-                required_elements.extend(details.get('components', []))
-
-        # Check if all required elements are present in the content
-        missing_elements = []
-        for element in required_elements:
-            if element.lower() not in content.lower():
-                missing_elements.append(element)
-
-        if missing_elements:
-            logger.warning(f"Missing required elements: {', '.join(missing_elements)}")
-            return False
-
-        return True
+        try:
+            template = self.template_manager.get_template(study_type)
+            sections = template.get('sections', {}).keys()
+            
+            generated_sections = {}
+            for section_name in sections:
+                try:
+                    content = self.generate_section(
+                        section_name,
+                        study_type,
+                        synopsis_content,
+                        generated_sections
+                    )
+                    generated_sections[section_name] = content
+                except Exception as e:
+                    logger.error(f"Error generating section {section_name}: {str(e)}")
+                    continue
+                    
+            return generated_sections
+            
+        except Exception as e:
+            logger.error(f"Error generating complete protocol: {str(e)}")
+            raise Exception(f"Failed to generate complete protocol: {str(e)}")
