@@ -2,7 +2,10 @@ from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import re
-from docx2pdf import convert
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,10 +14,10 @@ class ProtocolFormatter:
     def __init__(self):
         self.doc = Document()
         self.setup_document()
+        self.content_for_pdf = []  # Store content for PDF generation
 
     def setup_document(self):
         """Setup document styles"""
-        # Set margins
         sections = self.doc.sections
         for section in sections:
             section.top_margin = Inches(1)
@@ -22,7 +25,6 @@ class ProtocolFormatter:
             section.left_margin = Inches(1)
             section.right_margin = Inches(1)
 
-        # Set up styles
         styles = {
             'Heading 1': {'size': 16, 'bold': True, 'before': 24, 'after': 12},
             'Heading 2': {'size': 14, 'bold': True, 'before': 12, 'after': 6},
@@ -41,80 +43,32 @@ class ProtocolFormatter:
 
     def clean_text(self, text):
         """Clean text of markdown and escape characters"""
-        # Remove escaped characters and extra spaces
         text = text.replace('\\', '').strip()
-        # Remove duplicate headings
         text = re.sub(r'# (\w+)\s+# \1', r'# \1', text)
-        # Remove escaped hashmarks
         text = re.sub(r'\\\#', '#', text)
-        # Clean up multiple newlines
         text = re.sub(r'\n{3,}', '\n\n', text)
+        text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
         return text
 
-    def parse_table(self, table_text):
-        """Parse markdown table into rows and columns"""
-        lines = [line.strip() for line in table_text.split('\n') if line.strip()]
-        if len(lines) < 3:  # Need header, separator, and at least one row
-            return None
-
-        # Remove outer pipes and split
-        rows = [[cell.strip() for cell in row.strip('|').split('|')] 
-               for row in lines if not all(c in '|-' for c in row)]
-
-        return rows
-
-    def add_table(self, table_text):
-        """Add a table to the document"""
-        try:
-            rows = self.parse_table(table_text)
-            if not rows:
-                return
-
-            # Create table
-            table = self.doc.add_table(rows=len(rows), cols=len(rows[0]))
-            table.style = 'Table Grid'
-
-            # Fill table
-            for i, row in enumerate(rows):
-                for j, cell in enumerate(row):
-                    table.cell(i, j).text = cell.strip()
-
-                    # Format header row
-                    if i == 0:
-                        paragraph = table.cell(i, j).paragraphs[0]
-                        run = paragraph.runs[0] if paragraph.runs else paragraph.add_run()
-                        run.bold = True
-
-            self.doc.add_paragraph()  # Add spacing after table
-
-        except Exception as e:
-            logger.error(f"Error adding table: {str(e)}")
-
     def add_section(self, title, content):
-        """Add a section to the protocol document"""
+        """Add a section to both Word and PDF content"""
         content = self.clean_text(content)
 
-        # Add section title
+        # Add to Word document
         self.doc.add_heading(title.strip('#').strip(), level=1)
+        self.content_for_pdf.append(('heading1', title.strip('#').strip()))
 
-        # Process content by paragraphs
         paragraphs = content.split('\n\n')
-
         for para in paragraphs:
             para = para.strip()
             if not para:
                 continue
 
-            # Handle tables
-            if '|' in para and '-|-' in para:
-                self.add_table(para)
-                continue
-
             # Handle headings
-            if para.startswith('#'):
-                level = len(re.match(r'^#+', para).group())
+            if para.startswith('##'):
                 text = para.lstrip('#').strip()
-                self.doc.add_heading(text, level=min(level, 3))
+                self.doc.add_heading(text, level=2)
+                self.content_for_pdf.append(('heading2', text))
                 continue
 
             # Handle bullet points
@@ -122,6 +76,7 @@ class ProtocolFormatter:
                 for line in para.split('\n'):
                     if line.strip():
                         self.doc.add_paragraph(line.strip('- ').strip(), style='List Bullet')
+                        self.content_for_pdf.append(('bullet', line.strip('- ').strip()))
                 continue
 
             # Handle numbered lists
@@ -129,14 +84,15 @@ class ProtocolFormatter:
                 for line in para.split('\n'):
                     if line.strip():
                         self.doc.add_paragraph(line.strip(), style='List Number')
+                        self.content_for_pdf.append(('number', line.strip()))
                 continue
 
             # Regular paragraph
             self.doc.add_paragraph(para)
+            self.content_for_pdf.append(('para', para))
 
     def format_protocol(self, sections):
-        """Format complete protocol document"""
-        # Order sections
+        """Format protocol document"""
         section_order = [
             'background',
             'objectives',
@@ -147,7 +103,6 @@ class ProtocolFormatter:
             'safety'
         ]
 
-        # Add sections in order
         for section_name in section_order:
             if section_name in sections:
                 self.add_section(
@@ -158,20 +113,62 @@ class ProtocolFormatter:
         return self.doc
 
     def save_document(self, filename, format='docx'):
-        """Save the document in specified format"""
+        """Save document in specified format"""
         try:
-            # Save as DOCX
+            # Save DOCX
             docx_filename = filename if filename.endswith('.docx') else f"{filename}.docx"
             self.doc.save(docx_filename)
 
-            # Convert to PDF if requested
+            # Generate PDF if requested
             if format.lower() == 'pdf':
                 pdf_filename = filename if filename.endswith('.pdf') else f"{filename}.pdf"
-                convert(docx_filename, pdf_filename)
+                self._generate_pdf(pdf_filename)
                 return pdf_filename
 
             return docx_filename
 
         except Exception as e:
             logger.error(f"Error saving document: {str(e)}")
+            raise
+
+    def _generate_pdf(self, filename):
+        """Generate PDF using reportlab"""
+        try:
+            doc = SimpleDocTemplate(filename, pagesize=letter)
+            styles = getSampleStyleSheet()
+            story = []
+
+            # Add custom styles
+            styles.add(ParagraphStyle(
+                name='Heading1',
+                parent=styles['Heading1'],
+                fontSize=16,
+                spaceAfter=12
+            ))
+            styles.add(ParagraphStyle(
+                name='Heading2',
+                parent=styles['Heading2'],
+                fontSize=14,
+                spaceAfter=6
+            ))
+
+            for content_type, content in self.content_for_pdf:
+                if content_type == 'heading1':
+                    story.append(Paragraph(content, styles['Heading1']))
+                    story.append(Spacer(1, 12))
+                elif content_type == 'heading2':
+                    story.append(Paragraph(content, styles['Heading2']))
+                    story.append(Spacer(1, 6))
+                elif content_type == 'bullet':
+                    story.append(Paragraph(f"• {content}", styles['Normal']))
+                elif content_type == 'number':
+                    story.append(Paragraph(content, styles['Normal']))
+                else:
+                    story.append(Paragraph(content, styles['Normal']))
+                    story.append(Spacer(1, 6))
+
+            doc.build(story)
+
+        except Exception as e:
+            logger.error(f"Error generating PDF: {str(e)}")
             raise
