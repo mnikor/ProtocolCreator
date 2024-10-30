@@ -4,14 +4,16 @@ from utils.protocol_formatter import ProtocolFormatter
 
 def render_editor():
     """Render the protocol editor interface"""
-    
-    # Add clear instructions at the top
     st.header("Protocol Editor")
     
-    # Show the "Generate Complete Protocol" button only when synopsis is available and study type is selected
-    if st.session_state.synopsis_content and st.session_state.study_type:
-        # Make the generate button more prominent with custom styling
-        st.markdown("""
+    # Debug information
+    st.write("Debug Info:")
+    st.write(f"Synopsis Content: {'Available' if st.session_state.get('synopsis_content') else 'Not Available'}")
+    st.write(f"Study Type: {st.session_state.get('study_type') if st.session_state.get('study_type') else 'Not Selected'}")
+    
+    # Generate Complete Protocol button
+    if st.session_state.get('synopsis_content') and st.session_state.get('study_type'):
+        st.markdown('''
             <style>
             div.stButton > button:first-child {
                 background-color: #4CAF50;
@@ -22,33 +24,25 @@ def render_editor():
                 border-radius: 10px;
                 margin: 20px 0;
                 width: 100%;
-                height: auto;
-                display: flex;
-                align-items: center;
-                justify-content: center;
             }
             div.stButton > button:first-child:hover {
                 background-color: #45a049;
                 border-color: #45a049;
             }
-            </style>
-        """, unsafe_allow_html=True)
+            </style>''', unsafe_allow_html=True)
         
-        # Add clear instructions above the button
-        st.markdown("""
-            ### 🚀 Generate Complete Protocol
-            Click the button below to automatically generate all protocol sections based on your synopsis.
-            The generation process will show real-time progress.
-        """)
+        st.markdown("### 🚀 Generate Protocol")
+        st.markdown("Click the button below to generate all protocol sections based on your synopsis.")
         
-        # Main generation button
-        if st.button('Generate Complete Protocol', use_container_width=True):
+        if st.button('🔄 Generate Complete Protocol', use_container_width=True):
             generate_complete_protocol()
-            
-        st.markdown("---")  # Add separator
+    else:
+        st.warning("⚠️ Please upload a synopsis and select a study type to generate the protocol.")
+    
+    st.markdown("---")  # Separator
     
     # Section editing interface
-    if st.session_state.current_section:
+    if st.session_state.get('current_section'):
         edit_section(st.session_state.current_section)
     else:
         st.info("👈 Select a section from the navigator to begin editing")
@@ -116,7 +110,7 @@ def edit_section(section_name):
     st.subheader(section_name.replace('_', ' ').title())
     
     # Section generation button
-    if section_name not in st.session_state.generated_sections:
+    if section_name not in st.session_state.get('generated_sections', {}):
         if st.button(
             "📝 Generate Section",
             key=f"generate_{section_name}",
@@ -126,7 +120,7 @@ def edit_section(section_name):
             generate_section(section_name)
             
     # Edit interface
-    if section_name in st.session_state.generated_sections:
+    if section_name in st.session_state.get('generated_sections', {}):
         content = st.text_area(
             "Edit Content",
             value=st.session_state.generated_sections[section_name],
@@ -156,7 +150,7 @@ def edit_section(section_name):
                 generate_section(section_name)
                 
     # Export options
-    if st.session_state.generated_sections:
+    if st.session_state.get('generated_sections'):
         st.markdown("---")
         st.subheader("Export Options")
         
