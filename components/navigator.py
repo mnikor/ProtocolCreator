@@ -77,27 +77,40 @@ def generate_all_sections():
 
 def render_navigator():
     """Render the section navigator sidebar"""
-    # Debug information at the top
-    with st.sidebar.expander("🔍 Debug Info", expanded=False):
+    # Debug information at the top with enhanced display
+    with st.sidebar.expander("🔍 Debug Info", expanded=True):
         st.write({
-            "synopsis_content": bool(st.session_state.get('synopsis_content')),
-            "study_type": st.session_state.get('study_type'),
-            "sections_status": st.session_state.get('sections_status', {}),
-            "current_section": st.session_state.get('current_section')
+            "Synopsis Present": st.session_state.get('synopsis_content') is not None,
+            "Synopsis Length": len(st.session_state.get('synopsis_content', '')) if st.session_state.get('synopsis_content') else 0,
+            "Study Type": st.session_state.get('study_type'),
+            "Sections Status": st.session_state.get('sections_status', {}),
+            "Current Section": st.session_state.get('current_section')
         })
 
-    # Protocol Generation Section - Prominent at the top
+    # Protocol Generation Section with enhanced styling
     st.sidebar.markdown("## 🚀 Protocol Generation")
     
-    if st.session_state.get('synopsis_content') and st.session_state.get('study_type'):
+    if st.session_state.get('synopsis_content') is not None and st.session_state.get('study_type'):
         st.sidebar.markdown("Generate a complete protocol from your synopsis")
+        
+        # Add enhanced styling
+        st.sidebar.markdown("""
+            <style>
+            div.stButton > button:first-child {
+                background-color: #4CAF50;
+                color: white;
+                font-weight: bold;
+                padding: 0.5rem;
+                border-radius: 5px;
+            }
+            </style>
+        """, unsafe_allow_html=True)
         
         # Primary generation button
         if st.sidebar.button(
-            "Generate Complete Protocol",
-            type='primary',
-            use_container_width=True,
-            help="Generate all protocol sections at once"
+            "🚀 Generate Complete Protocol",
+            help="Generate all protocol sections at once",
+            use_container_width=True
         ):
             try:
                 with st.spinner("Generating complete protocol..."):
@@ -105,7 +118,7 @@ def render_navigator():
             except Exception as e:
                 st.error(f"Error generating protocol: {str(e)}")
     else:
-        if not st.session_state.get('synopsis_content'):
+        if st.session_state.get('synopsis_content') is None:
             st.sidebar.warning("⚠️ Please upload synopsis first")
         if not st.session_state.get('study_type'):
             st.sidebar.warning("⚠️ Please select study type")
@@ -114,16 +127,7 @@ def render_navigator():
 
     # Section Navigation
     st.sidebar.header("Protocol Sections")
-
-    # Status indicators with enhanced tooltips
-    status_indicators = {
-        'Not Started': {'icon': '⚪', 'desc': 'Not started yet', 'color': 'gray'},
-        'In Progress': {'icon': '🟡', 'desc': 'Generation in progress', 'color': 'yellow'},
-        'Generated': {'icon': '🟢', 'desc': 'Generated successfully', 'color': 'green'},
-        'Review': {'icon': '🟣', 'desc': 'Ready for review', 'color': 'purple'},
-        'Error': {'icon': '🔴', 'desc': 'Error in generation', 'color': 'red'}
-    }
-
+    
     # Progress tracking
     total_sections = len(st.session_state.sections_status)
     completed_sections = sum(1 for status in st.session_state.sections_status.values() 
@@ -132,6 +136,15 @@ def render_navigator():
     # Show overall progress
     progress = completed_sections / total_sections if total_sections > 0 else 0
     st.sidebar.progress(progress, text=f"Progress: {completed_sections}/{total_sections} sections")
+
+    # Enhanced status indicators
+    status_indicators = {
+        'Not Started': {'icon': '⚪', 'desc': 'Not started yet', 'color': 'gray'},
+        'In Progress': {'icon': '🟡', 'desc': 'Generation in progress', 'color': 'yellow'},
+        'Generated': {'icon': '🟢', 'desc': 'Generated successfully', 'color': 'green'},
+        'Review': {'icon': '🟣', 'desc': 'Ready for review', 'color': 'purple'},
+        'Error': {'icon': '🔴', 'desc': 'Error in generation', 'color': 'red'}
+    }
 
     # Section navigation with enhanced status display
     for section, status in st.session_state.sections_status.items():

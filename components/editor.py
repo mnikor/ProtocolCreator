@@ -60,13 +60,33 @@ def render_editor():
     """Render the protocol editor interface"""
     st.header("Protocol Editor")
     
-    # Debug information
-    st.write("Debug Info:")
-    st.write(f"Synopsis: {'Available' if st.session_state.get('synopsis_content') else 'Not Available'}")
-    st.write(f"Study Type: {st.session_state.get('study_type', 'Not Selected')}")
+    # Debug information with enhanced display
+    with st.expander("Debug Information", expanded=True):
+        st.write({
+            "Synopsis Content Present": st.session_state.get('synopsis_content') is not None,
+            "Synopsis Content Length": len(st.session_state.get('synopsis_content', '')) if st.session_state.get('synopsis_content') else 0,
+            "Study Type": st.session_state.get('study_type', 'Not Selected'),
+            "Current Section": st.session_state.get('current_section', 'None'),
+            "Generated Sections": list(st.session_state.get('generated_sections', {}).keys())
+        })
     
-    # Generate Protocol button at the very top
-    if st.session_state.get('synopsis_content') and st.session_state.get('study_type'):
+    # Generate Protocol button at the very top with enhanced styling
+    if st.session_state.get('synopsis_content') is not None and st.session_state.get('study_type'):
+        st.markdown("""
+            <style>
+            div.stButton > button:first-child {
+                background-color: #4CAF50;
+                color: white;
+                font-size: 20px;
+                font-weight: bold;
+                padding: 1rem;
+                border-radius: 10px;
+                margin: 20px 0;
+                width: 100%;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+        
         st.markdown("### 🚀 Generate Complete Protocol")
         st.markdown("Click below to generate all protocol sections from your synopsis")
         
@@ -78,7 +98,10 @@ def render_editor():
             except Exception as e:
                 st.error(f"Error: {str(e)}")
     else:
-        st.warning("Please upload a synopsis and select a study type to generate the protocol")
+        if st.session_state.get('synopsis_content') is None:
+            st.warning("⚠️ Please upload a synopsis first")
+        if not st.session_state.get('study_type'):
+            st.warning("⚠️ Please select a study type")
     
     st.markdown("---")  # Add separator
     
@@ -146,27 +169,3 @@ def edit_section(section_name):
                 st.info("Section marked for review")
     else:
         st.warning("Section not yet generated. Use the generate button above to create content.")
-
-def export_protocol():
-    """Export complete protocol document"""
-    try:
-        with st.spinner("Creating protocol document..."):
-            formatter = ProtocolFormatter()
-            doc = formatter.format_protocol(st.session_state.generated_sections)
-            
-            # Save temporarily
-            doc.save("protocol.docx")
-            
-            # Provide download
-            with open("protocol.docx", "rb") as file:
-                st.download_button(
-                    label="📥 Download Protocol",
-                    data=file,
-                    file_name="protocol.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                )
-            st.success("✅ Protocol exported successfully!")
-            
-    except Exception as e:
-        logger.error(f"Error exporting protocol: {str(e)}")
-        st.error(f"❌ Error exporting protocol: {str(e)}")
