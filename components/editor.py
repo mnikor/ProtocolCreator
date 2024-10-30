@@ -8,11 +8,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def generate_complete_protocol(generator):
-    """Generate complete protocol using the template generator"""
+    """Generate the complete protocol"""
     progress_bar = st.progress(0)
     status_text = st.empty()
     sections_status = st.empty()
-    
     total_sections = len(st.session_state.sections_status)
     completed = 0
     
@@ -105,67 +104,75 @@ def render_editor():
     
     st.markdown("---")  # Add separator
     
-    # Section editing interface
+    # Show current section content if any
     if st.session_state.get('current_section'):
-        edit_section(st.session_state.current_section)
-    else:
-        st.info("👈 Select a section from the navigator to begin editing")
-
-def edit_section(section_name):
-    """Edit individual protocol section"""
-    st.subheader(section_name.replace('_', ' ').title())
-    
-    # Section status indicator with detailed information
-    status = st.session_state.sections_status.get(section_name, 'Not Started')
-    status_colors = {
-        'Not Started': 'blue',
-        'In Progress': 'orange',
-        'Generated': 'green',
-        'Error': 'red'
-    }
-    st.markdown(f"**Status:** :{status_colors.get(status, 'gray')}[{status}]")
-    
-    if section_name in st.session_state.generated_sections:
-        content = st.text_area(
-            "Edit Content",
-            value=st.session_state.generated_sections[section_name],
-            height=400,
-            key=f"edit_{section_name}"
-        )
+        section = st.session_state.current_section
+        st.subheader(f"Editing: {section.replace('_', ' ').title()}")
         
-        col1, col2, col3 = st.columns([2, 2, 1])
-        
-        with col1:
-            if st.button("💾 Save Changes", use_container_width=True):
-                try:
-                    st.session_state.generated_sections[section_name] = content
-                    st.success("✅ Changes saved successfully!")
-                except Exception as e:
-                    logger.error(f"Error saving changes: {str(e)}")
-                    st.error(f"❌ Error saving changes: {str(e)}")
-        
-        with col2:
-            if st.button("🔄 Regenerate Section", use_container_width=True):
-                try:
-                    with st.spinner(f"Regenerating {section_name.replace('_', ' ').title()}..."):
+        if section in st.session_state.generated_sections:
+            content = st.text_area(
+                "Section Content",
+                value=st.session_state.generated_sections[section],
+                height=400,
+                key=f"edit_{section}"
+            )
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("💾 Save Changes"):
+                    st.session_state.generated_sections[section] = content
+                    st.success("Changes saved!")
+            with col2:
+                if st.button("🔄 Regenerate"):
+                    try:
                         generator = TemplateSectionGenerator()
                         new_content = generator.generate_section(
-                            section_name,
+                            section,
                             st.session_state.study_type,
                             st.session_state.synopsis_content,
                             st.session_state.generated_sections
                         )
-                        st.session_state.generated_sections[section_name] = new_content
-                        st.session_state.sections_status[section_name] = 'Generated'
-                        st.success("✅ Section regenerated successfully!")
-                        st.experimental_rerun()
-                except Exception as e:
-                    logger.error(f"Error regenerating section: {str(e)}")
-                    st.error(f"❌ Error regenerating section: {str(e)}")
-        
-        with col3:
-            if st.button("🔍 Review", use_container_width=True):
-                st.session_state.sections_status[section_name] = 'Review'
-                st.info("Section marked for review")
+                        st.session_state.generated_sections[section] = new_content
+                        st.success(f"Regenerated {section}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error regenerating section: {str(e)}")
+        else:
+            st.info("Section not yet generated. Use the generate button above to create content.")
     else:
-        st.warning("Section not yet generated. Use the generate button above to create content.")
+        st.info("👈 Select a section from the sidebar to begin editing")
+
+    # Export functionality with enhanced options
+    if st.session_state.get('generated_sections'):
+        st.markdown("---")
+        if st.button("Export Protocol"):
+            try:
+                formatter = ProtocolFormatter()
+                doc = formatter.format_protocol(st.session_state.generated_sections)
+                
+                # Add export format selection
+                format_option = st.radio("Export Format:", ["DOCX", "PDF"])
+                
+                if format_option == "PDF":
+                    output_file = formatter.save_document("protocol", format='pdf')
+                    with open(output_file, "rb") as file:
+                        st.download_button(
+                            label="Download Protocol (PDF)",
+                            data=file,
+                            file_name="protocol.pdf",
+                            mime="application/pdf"
+                        )
+                else:
+                    output_file = formatter.save_document("protocol", format='docx')
+                    with open(output_file, "rb") as file:
+                        st.download_button(
+                            label="Download Protocol (DOCX)",
+                            data=file,
+                            file_name="protocol.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        )
+                        
+                st.success("Protocol exported successfully!")
+                
+            except Exception as e:
+                st.error(f"Error exporting protocol: {str(e)}")

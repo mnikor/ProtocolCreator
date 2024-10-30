@@ -1,145 +1,92 @@
+
 SECTION_PROMPTS = {
     'background': """
-Generate a comprehensive Background and Rationale section based on the following synopsis information:
+You are a medical writer generating the Background section of a clinical protocol. Based on this synopsis:
+
 {synopsis_content}
 
-Required Structure:
-1. Disease/Condition Overview (2-3 paragraphs)
-   - Current understanding and pathophysiology
-   - Epidemiology and disease burden
-   - Current treatment landscape
-   - Unmet medical needs
+Generate a Background section following these rules:
+1. Use proper heading structure (single # for main heading, ## for subsections)
+2. Do not include escape characters or markdown formatting
+3. Format should be clean and consistent
+4. Include these subsections:
+   - Disease Background
+   - Current Treatment Landscape
+   - Product Background
+   - Study Rationale
+5. Keep references for a separate References section
+6. Use clear paragraph breaks
+7. Format numbers and statistics consistently
 
-2. Product Background (2-3 paragraphs)
-   - Mechanism of action
-   - Preclinical evidence
-   - Clinical experience to date
-   - Therapeutic rationale
-
-3. Study Rationale (1-2 paragraphs)
-   - Justification for current study
-   - Expected benefits
-   - Risk-benefit assessment
-   - Development program context
-
-Format Requirements:
-- Use clear scientific language
-- Include relevant references
-- Follow ICH guidelines
-- Maintain logical flow
-""",
-    
-    'objectives': """
-Generate clear Objectives and Endpoints section based on the following synopsis information:
-{synopsis_content}
-
-Required Structure:
-1. Primary Objective
-   - Single, clear statement
-   - Specific and measurable
-   - Aligned with study phase
-   - Clear timeframe
-
-2. Primary Endpoint(s)
-   - Direct measure of objective
-   - Clear definition
-   - Measurement timing
-   - Assessment method
-
-3. Secondary Objectives
-   - Clear hierarchy
-   - Supportive measurements
-   - Additional benefits
-   - Safety considerations
-
-4. Secondary Endpoints
-   - Specific measures
-   - Assessment timing
-   - Analysis methods
-   - Clinical relevance
-
-Format Requirements:
-- Numbered format
-- Clear and concise statements
-- Consistent structure
-- Aligned with ICH guidelines
-""",
-    
-    'study_design': """
-Generate detailed Study Design section based on the following synopsis information:
-{synopsis_content}
-
-Previous sections for context:
+Previously generated sections if available:
 {previous_sections}
-
-Required Structure:
-1. Overall Design
-   - Study type and phase
-   - Design characteristics
-   - Control type
-   - Blinding/masking
-   - Randomization
-   - Duration
-
-2. Study Schema
-   - Study periods
-   - Visit schedule
-   - Key assessments
-   - Decision points
-
-3. Study Population
-   - Key eligibility criteria
-   - Sample size
-   - Recruitment approach
-   - Stratification
-
-4. Treatment Groups
-   - Intervention details
-   - Dosing regimen
-   - Treatment duration
-   - Comparative groups
-
-Format Requirements:
-- Include study schema
-- Clear timelines
-- Logical organization
-- ICH compliance
 """,
 
-    'statistical_considerations': """
-Generate comprehensive Statistical Considerations section based on the following synopsis information:
+    'objectives': """
+You are a medical writer generating the Objectives section of a clinical protocol. Based on this synopsis:
+
 {synopsis_content}
 
-Required Structure:
-1. Sample Size Determination
-   - Primary endpoint basis
-   - Effect size assumptions
-   - Power calculations
-   - Adjustment factors
+Generate an Objectives section following these rules:
+1. Use clear numbering for objectives and endpoints
+2. Format consistently with:
+   - Primary Objective(s)
+   - Primary Endpoint(s)
+   - Secondary Objectives
+   - Secondary Endpoints
+3. Each objective should align with specific endpoints
+4. Use proper heading levels
+5. Keep formatting clean without markdown or escape characters
+6. Use consistent terminology
+7. Include clear measurements and timeframes
 
-2. Analysis Populations
-   - Definition of analysis sets
-   - Handling missing data
-   - Protocol deviations
-   - Subgroup analyses
+Previously generated sections if available:
+{previous_sections}
+""",
 
-3. Statistical Methods
-   - Primary analysis
-   - Secondary analyses
-   - Interim analyses
-   - Multiple testing
-   - Safety analyses
+    'study_design': """
+You are a medical writer generating the Study Design section of a clinical protocol. Based on this synopsis:
 
-4. Study Success Criteria
-   - Primary endpoint
-   - Key secondary endpoints
-   - Interim analyses
-   - Stopping rules
+{synopsis_content}
 
-Format Requirements:
-- Clear statistical methods
-- Justified assumptions
-- ICH alignment
-- Detailed procedures
+Generate a Study Design section following these rules:
+1. Use clear heading structure
+2. Include these components:
+   - Overall Design
+   - Study Schema
+   - Study Duration
+   - Treatment Groups
+   - Study Procedures
+3. Format all lists and tables consistently
+4. No markdown formatting or escape characters
+5. Include a clear Schedule of Assessments table
+6. Use consistent terminology throughout
+7. Detail timing of assessments and procedures clearly
+
+Previously generated sections if available:
+{previous_sections}
+""",
+
+    'population': """
+You are a medical writer generating the Study Population section of a clinical protocol. Based on this synopsis:
+
+{synopsis_content}
+
+Generate a Population section following these rules:
+1. Use clear heading structure
+2. Include these components:
+   - Overview of Study Population
+   - Inclusion Criteria (numbered list)
+   - Exclusion Criteria (numbered list)
+   - Withdrawal Criteria
+   - Replacement Policy
+3. Format consistently with no markdown or escape characters
+4. Use clear numbering for criteria
+5. Group related criteria logically
+6. Include specific measurements and timeframes
+7. Define all medical terms used
+
+Previously generated sections if available:
+{previous_sections}
 """
 }

@@ -3,14 +3,12 @@ from utils.template_section_generator import TemplateSectionGenerator
 import logging
 from datetime import datetime
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def generate_all_sections():
     """Generate all protocol sections with enhanced progress tracking"""
     generator = TemplateSectionGenerator()
-    
+
     # Create progress indicators
     progress = st.sidebar.progress(0)
     status = st.sidebar.empty()
@@ -56,7 +54,7 @@ def generate_all_sections():
         # Final status update
         total_time = datetime.now() - start_time
         generated = sum(1 for s in st.session_state.sections_status.values() if s == 'Generated')
-        
+
         if generated == total_sections:
             status.success(
                 f"✅ Protocol generated successfully! "
@@ -73,12 +71,12 @@ def generate_all_sections():
         logger.error(f"Error in protocol generation: {str(e)}")
         status.error(f"❌ Error: {str(e)}")
     finally:
-        st.experimental_rerun()
+        st.rerun()  # Changed from experimental_rerun
 
 def render_navigator():
     """Render the section navigator sidebar"""
-    # Debug information at the top with enhanced display
-    with st.sidebar.expander("🔍 Debug Info", expanded=True):
+    # Debug information at the top
+    with st.sidebar.expander("🔍 Debug Info", expanded=False):
         st.write({
             "Synopsis Present": st.session_state.get('synopsis_content') is not None,
             "Synopsis Length": len(st.session_state.get('synopsis_content', '')) if st.session_state.get('synopsis_content') else 0,
@@ -87,38 +85,22 @@ def render_navigator():
             "Current Section": st.session_state.get('current_section')
         })
 
-    # Protocol Generation Section with enhanced styling
+    # Protocol Generation Section
     st.sidebar.markdown("## 🚀 Protocol Generation")
-    
+
     if st.session_state.get('synopsis_content') is not None and st.session_state.get('study_type'):
         st.sidebar.markdown("Generate a complete protocol from your synopsis")
-        
-        # Add enhanced styling
-        st.sidebar.markdown("""
-            <style>
-            div.stButton > button:first-child {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                padding: 0.5rem;
-                border-radius: 5px;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-        
+
         # Primary generation button
         if st.sidebar.button(
             "🚀 Generate Complete Protocol",
             help="Generate all protocol sections at once",
-            use_container_width=True
+            use_container_width=True,
+            key='generate_all'
         ):
-            try:
-                with st.spinner("Generating complete protocol..."):
-                    generate_all_sections()
-            except Exception as e:
-                st.error(f"Error generating protocol: {str(e)}")
+            generate_all_sections()
     else:
-        if st.session_state.get('synopsis_content') is None:
+        if not st.session_state.get('synopsis_content'):
             st.sidebar.warning("⚠️ Please upload synopsis first")
         if not st.session_state.get('study_type'):
             st.sidebar.warning("⚠️ Please select study type")
@@ -127,17 +109,17 @@ def render_navigator():
 
     # Section Navigation
     st.sidebar.header("Protocol Sections")
-    
+
     # Progress tracking
     total_sections = len(st.session_state.sections_status)
     completed_sections = sum(1 for status in st.session_state.sections_status.values() 
                            if status == 'Generated')
-    
+
     # Show overall progress
     progress = completed_sections / total_sections if total_sections > 0 else 0
     st.sidebar.progress(progress, text=f"Progress: {completed_sections}/{total_sections} sections")
 
-    # Enhanced status indicators
+    # Status indicators with tooltips
     status_indicators = {
         'Not Started': {'icon': '⚪', 'desc': 'Not started yet', 'color': 'gray'},
         'In Progress': {'icon': '🟡', 'desc': 'Generation in progress', 'color': 'yellow'},
@@ -146,7 +128,7 @@ def render_navigator():
         'Error': {'icon': '🔴', 'desc': 'Error in generation', 'color': 'red'}
     }
 
-    # Section navigation with enhanced status display
+    # Section navigation
     for section, status in st.session_state.sections_status.items():
         col1, col2 = st.sidebar.columns([3, 1])
 
@@ -158,8 +140,7 @@ def render_navigator():
                 use_container_width=True
             ):
                 st.session_state.current_section = section
-                logger.info(f"Navigating to section: {section}")
-                st.experimental_rerun()
+                st.rerun()  # Changed from experimental_rerun
 
         with col2:
             indicator = status_indicators.get(status, status_indicators['Not Started'])
@@ -169,29 +150,24 @@ def render_navigator():
                 unsafe_allow_html=True
             )
 
-    # Additional Controls
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### Additional Controls")
-
     # Retry failed sections
     failed_sections = [s for s, status in st.session_state.sections_status.items() 
                       if status in ['Error', 'Not Started']]
     if failed_sections:
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### Additional Controls")
         if st.sidebar.button(
             f"🔄 Retry Failed Sections ({len(failed_sections)})",
             help="Retry generating failed sections",
-            use_container_width=True
+            use_container_width=True,
+            key='retry_failed'
         ):
-            try:
-                with st.spinner("Retrying failed sections..."):
-                    regenerate_failed_sections(failed_sections)
-            except Exception as e:
-                st.error(f"Error retrying sections: {str(e)}")
+            regenerate_failed_sections(failed_sections)
 
 def regenerate_failed_sections(failed_sections):
-    """Regenerate failed sections with enhanced error handling"""
+    """Regenerate failed sections"""
     generator = TemplateSectionGenerator()
-    
+
     progress = st.sidebar.progress(0)
     status = st.sidebar.empty()
     detailed_status = st.sidebar.empty()
@@ -232,7 +208,7 @@ def regenerate_failed_sections(failed_sections):
         total_time = datetime.now() - start_time
         regenerated = sum(1 for s in failed_sections 
                          if st.session_state.sections_status[s] == 'Generated')
-        
+
         if regenerated == total:
             status.success(
                 f"✅ All sections regenerated successfully! "
@@ -248,4 +224,4 @@ def regenerate_failed_sections(failed_sections):
         logger.error(f"Error in regeneration: {str(e)}")
         status.error(f"❌ Error: {str(e)}")
     finally:
-        st.experimental_rerun()
+        st.rerun()  # Changed from experimental_rerun
