@@ -142,7 +142,7 @@ def render_editor():
     else:
         st.info("👈 Select a section from the sidebar to begin editing")
 
-    # Export functionality with enhanced options
+    # Export functionality with improved options
     if st.session_state.get('generated_sections'):
         st.markdown("---")
         if st.button("Export Protocol"):
@@ -150,23 +150,29 @@ def render_editor():
                 formatter = ProtocolFormatter()
                 doc = formatter.format_protocol(st.session_state.generated_sections)
                 
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.download_button(
-                        label="Download Protocol (DOCX)",
-                        data=open(formatter.save_document("protocol", format='docx'), "rb").read(),
-                        file_name="protocol.docx",
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    ):
-                        st.success("DOCX exported successfully!")
+                # Add export format selection
+                format_option = st.radio("Export Format:", ["DOCX", "PDF"])
+                
+                if format_option == "PDF":
+                    output_file = formatter.save_document("protocol", format='pdf')
+                    with open(output_file, "rb") as file:
+                        st.download_button(
+                            label="Download Protocol (PDF)",
+                            data=file,
+                            file_name="protocol.pdf",
+                            mime="application/pdf"
+                        )
+                else:
+                    output_file = formatter.save_document("protocol", format='docx')
+                    with open(output_file, "rb") as file:
+                        st.download_button(
+                            label="Download Protocol (DOCX)",
+                            data=file,
+                            file_name="protocol.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        )
                         
-                with col2:
-                    if st.download_button(
-                        label="Download Protocol (PDF)",
-                        data=open(formatter.save_document("protocol", format='pdf'), "rb").read(),
-                        file_name="protocol.pdf",
-                        mime="application/pdf"
-                    ):
-                        st.success("PDF exported successfully!")
+                st.success(f"Protocol exported successfully as {format_option}!")
+                
             except Exception as e:
                 st.error(f"Error exporting protocol: {str(e)}")
