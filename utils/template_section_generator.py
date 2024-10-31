@@ -8,19 +8,19 @@ logger = logging.getLogger(__name__)
 STUDY_TYPE_CONFIG = {
     "Clinical Trial": {
         "required_sections": [
-            "title",  # New
+            "title",
             "background",
             "objectives", 
             "study_design",
             "population",
             "procedures",
-            "statistical_analysis",  # Renamed
+            "statistical_analysis",
             "safety"
         ]
     },
     "Systematic Literature Review": {
         "required_sections": [
-            "title",  # New
+            "title",
             "background",
             "objectives",
             "methods",
@@ -28,12 +28,12 @@ STUDY_TYPE_CONFIG = {
             "selection_criteria",
             "data_extraction",
             "quality_assessment",
-            "synthesis_methods"  # Renamed from statistical
+            "synthesis_methods"
         ]
     },
     "Meta-analysis": {
         "required_sections": [
-            "title",  # New
+            "title",
             "background",
             "objectives",
             "methods",
@@ -41,25 +41,25 @@ STUDY_TYPE_CONFIG = {
             "selection_criteria",
             "data_extraction",
             "quality_assessment",
-            "statistical_synthesis"  # Renamed
+            "statistical_synthesis"
         ]
     },
     "Real World Evidence": {
         "required_sections": [
-            "title",  # New
+            "title",
             "background",
             "objectives",
             "study_design",
             "data_sources",
             "population",
             "variables",
-            "analytical_methods",  # Renamed from statistical
+            "analytical_methods",
             "limitations"
         ]
     },
     "Consensus Method": {
         "required_sections": [
-            "title",  # New
+            "title",
             "background",
             "objectives",
             "methods",
@@ -76,25 +76,14 @@ class TemplateSectionGenerator:
         self.gpt_handler = GPTHandler()
         self.template_manager = TemplateManager()
 
-    def _get_required_sections(self, study_type):
-        """Get required sections for the given study type"""
-        study_type = study_type.strip() if study_type else "Clinical Trial"
-        study_type_key = self._normalize_study_type(study_type)
-        
-        if study_type_key not in STUDY_TYPE_CONFIG:
-            logger.warning(f"Unknown study type: {study_type}, defaulting to Clinical Trial")
-            return STUDY_TYPE_CONFIG["Clinical Trial"]["required_sections"]
-            
-        return STUDY_TYPE_CONFIG[study_type_key]["required_sections"]
-
     def _normalize_study_type(self, study_type):
         """Normalize study type string to match config keys"""
-        study_type = study_type.lower()
+        study_type = study_type.lower() if study_type else ""
         if "systematic" in study_type or "literature review" in study_type or study_type == "slr":
             return "Systematic Literature Review"
         elif "meta" in study_type:
             return "Meta-analysis"
-        elif "real world" in study_type or "rwe" in study_type:
+        elif "real world" in study_type.lower() or "rwe" in study_type.lower():
             return "Real World Evidence"
         elif "consensus" in study_type:
             return "Consensus Method"
@@ -115,6 +104,46 @@ class TemplateSectionGenerator:
             
         return None
 
+    def _get_rwe_prompt(self, section_name):
+        """Get prompts for Real World Evidence studies"""
+        prompts = {
+            "title": "Generate title for Real World Evidence study...",
+            "background": "Generate background section for Real World Evidence study focusing on the disease area, current evidence gaps, and rationale for using real-world data...",
+            "objectives": "Generate objectives for Real World Evidence study including primary and secondary research questions...",
+            "study_design": "Generate study design section for Real World Evidence study describing the overall approach, study period, and key design considerations...",
+            "data_sources": "Generate data sources section describing the databases, registries, or other real-world data sources to be used...",
+            "population": "Generate population section describing the target population, inclusion/exclusion criteria, and sample selection process...",
+            "variables": "Generate variables section listing and defining all study variables including exposures, outcomes, covariates, and potential confounders...",
+            "analytical_methods": "Generate analytical methods section describing statistical approaches, confounding control, and sensitivity analyses...",
+            "limitations": "Generate limitations section discussing potential biases, data quality issues, and generalizability..."
+        }
+        return prompts.get(section_name)
+
+    def _get_section_mapping(self, study_type):
+        """Get section mapping based on study type"""
+        base_mapping = {
+            'study_design': 'study_design',
+            'population': 'population',
+            'procedures': 'procedures',
+            'statistical': 'statistical_analysis',
+            'safety': 'safety'
+        }
+
+        if study_type == "Real World Evidence":
+            base_mapping.update({
+                'study_design': 'study_design',
+                'population': 'population',
+                'procedures': 'variables',
+                'statistical': 'analytical_methods',
+                'safety': 'limitations',
+                'data_sources': 'data_sources',
+                'variables': 'variables',
+                'analytical_methods': 'analytical_methods',
+                'limitations': 'limitations'
+            })
+
+        return base_mapping
+
     def generate_section(self, section_name, study_type, synopsis_content, existing_sections=None):
         """Generate content for a specific protocol section"""
         try:
@@ -126,36 +155,31 @@ class TemplateSectionGenerator:
 
             study_type = self._normalize_study_type(study_type)
             
-            # Log the generation attempt
+            # Log generation attempt
             logger.info(f"Generating section {section_name} for {study_type}")
             logger.info(f"Synopsis length: {len(str(synopsis_content))}")
 
-            # Get required sections for study type
-            required_sections = self._get_required_sections(study_type)
-            
-            # Map old section names to new ones based on study type
-            section_mapping = {
-                'study_design': 'methods',
-                'population': 'selection_criteria',
-                'procedures': 'data_extraction',
-                'statistical': 'synthesis_methods' if study_type == "Systematic Literature Review" else
-                             'statistical_synthesis' if study_type == "Meta-analysis" else
-                             'analytical_methods' if study_type == "Real World Evidence" else
-                             'statistical_analysis'
-            }
-            
-            # Check if section is required (using mapped name if necessary)
+            # Get section mapping
+            section_mapping = self._get_section_mapping(study_type)
             mapped_section = section_mapping.get(section_name, section_name)
+
+            # Get required sections
+            required_sections = STUDY_TYPE_CONFIG.get(study_type, STUDY_TYPE_CONFIG["Clinical Trial"])["required_sections"]
+
+            # Check if section is required
             if mapped_section not in required_sections:
                 logger.info(f"Section {mapped_section} not required for {study_type} - skipping")
                 return None
+
+            # Get study type-specific prompt
+            prompt = self._modify_prompt_for_study_type(mapped_section, study_type)
 
             # Generate content
             content = self.gpt_handler.generate_section(
                 section_name=mapped_section,
                 synopsis_content=synopsis_content,
                 previous_sections=existing_sections or {},
-                prompt=None
+                prompt=prompt
             )
 
             return content
@@ -165,19 +189,18 @@ class TemplateSectionGenerator:
             return None
 
     def generate_complete_protocol(self, study_type, synopsis_content):
-        """Generate all applicable protocol sections for the given study type"""
+        """Generate all applicable protocol sections"""
         try:
             if not synopsis_content:
                 raise ValueError("Synopsis content is required")
 
             study_type = self._normalize_study_type(study_type)
             
-            # Log the generation start
+            # Log generation start
             logger.info(f"Generating complete protocol for {study_type}")
             logger.info(f"Synopsis length: {len(str(synopsis_content))}")
 
-            # Get required sections for study type
-            required_sections = self._get_required_sections(study_type)
+            required_sections = STUDY_TYPE_CONFIG.get(study_type, STUDY_TYPE_CONFIG["Clinical Trial"])["required_sections"]
             logger.info(f"Required sections: {required_sections}")
 
             sections = {}
