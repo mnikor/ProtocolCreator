@@ -26,7 +26,7 @@ STUDY_TYPE_CONFIG = {
             "selection_criteria",  # Instead of population
             "data_extraction",  # Instead of procedures
             "quality_assessment",  # New section
-            "statistical"  # For meta-analysis methods
+            "statistical"  # Keep statistical for meta-analysis methods
         ]
     },
     "Meta-analysis": {
@@ -117,7 +117,8 @@ class TemplateSectionGenerator:
             "search_strategy": "Generate the Search Strategy section for a Systematic Literature Review protocol. Include details about database selection, search terms, and search string construction.",
             "selection_criteria": "Generate the Selection Criteria section for a Systematic Literature Review protocol. Detail inclusion/exclusion criteria and screening process.",
             "data_extraction": "Generate the Data Extraction section for a Systematic Literature Review protocol. Describe the data collection form and extraction process.",
-            "quality_assessment": "Generate the Quality Assessment section for a Systematic Literature Review protocol. Detail the tools and process for assessing study quality."
+            "quality_assessment": "Generate the Quality Assessment section for a Systematic Literature Review protocol. Detail the tools and process for assessing study quality.",
+            "statistical": "Generate the Statistical Analysis section for a Systematic Literature Review protocol. Include:\n- Meta-analysis methodology if applicable\n- Statistical methods for data synthesis\n- Heterogeneity assessment approach\n- Subgroup analysis plans\n- Sensitivity analysis methods\n- Publication bias assessment"
         }
         return prompts.get(section_name)
 
@@ -128,7 +129,8 @@ class TemplateSectionGenerator:
             "search_strategy": "Generate the Search Strategy section for identifying studies to include in the meta-analysis.",
             "selection_criteria": "Generate the Selection Criteria section for study inclusion in the meta-analysis.",
             "data_extraction": "Generate the Data Extraction section focusing on effect sizes and statistical data.",
-            "quality_assessment": "Generate the Quality Assessment section for evaluating study quality and bias."
+            "quality_assessment": "Generate the Quality Assessment section for evaluating study quality and bias.",
+            "statistical": "Generate the Statistical Analysis section for the meta-analysis. Include:\n- Effect size calculation methods\n- Statistical synthesis approach\n- Heterogeneity assessment\n- Publication bias evaluation\n- Sensitivity analyses"
         }
         return prompts.get(section_name)
 
@@ -137,7 +139,8 @@ class TemplateSectionGenerator:
         prompts = {
             "data_sources": "Generate the Data Sources section for a Real World Evidence study protocol.",
             "variables": "Generate the Variables section detailing primary and secondary variables of interest.",
-            "limitations": "Generate the Limitations section addressing potential biases and constraints."
+            "limitations": "Generate the Limitations section addressing potential biases and constraints.",
+            "statistical": "Generate the Statistical Analysis section for the RWE study. Include:\n- Primary analysis methods\n- Handling of confounders\n- Missing data approach\n- Sensitivity analyses"
         }
         return prompts.get(section_name)
 
@@ -174,7 +177,7 @@ class TemplateSectionGenerator:
                 'study_design': 'methods',
                 'population': 'selection_criteria',
                 'procedures': 'data_extraction',
-                'statistical': 'analysis'
+                'statistical': 'statistical'  # Keep statistical as is for SLR
             }
             
             # Check if section is required (using mapped name if necessary)
