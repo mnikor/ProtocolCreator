@@ -17,6 +17,8 @@ def generate_all_sections():
     try:
         # Initialize the generator
         generator = TemplateSectionGenerator()
+        if not generator:
+            raise ValueError("Failed to initialize TemplateSectionGenerator")
 
         # Create progress indicators
         progress = st.sidebar.progress(0)
@@ -31,23 +33,25 @@ def generate_all_sections():
         for section in sections:
             st.session_state.sections_status[section] = 'Not Started'
 
+        generated_sections = {}
         for idx, section in enumerate(sections):
             section_start = datetime.now()
             status.info(f"📝 Generating {section.replace('_', ' ').title()}...")
             st.session_state.sections_status[section] = 'In Progress'
 
             try:
-                # Generate section content
+                # Generate section content with template
                 content = generator.generate_section(
                     section_name=section,
                     study_type=st.session_state.study_type,
                     synopsis_content=st.session_state.synopsis_content,
-                    existing_sections=st.session_state.generated_sections
+                    existing_sections=generated_sections
                 )
 
                 if content and isinstance(content, str):
                     # Update session state
                     st.session_state.generated_sections[section] = content
+                    generated_sections[section] = content
                     st.session_state.sections_status[section] = 'Generated'
 
                     # Update progress
@@ -88,17 +92,7 @@ def generate_all_sections():
 
 def render_navigator():
     """Render the section navigator sidebar"""
-    # Debug information
-    with st.sidebar.expander("🔍 Debug Info", expanded=True):
-        st.write({
-            "Synopsis Present": st.session_state.get('synopsis_content') is not None,
-            "Synopsis Length": len(st.session_state.get('synopsis_content', '')) if st.session_state.get('synopsis_content') else 0,
-            "Study Type": st.session_state.get('study_type'),
-            "Sections Status": st.session_state.get('sections_status', {}),
-            "Current Section": st.session_state.get('current_section')
-        })
-
-    # Protocol Generation Section with improved styling
+    # Protocol Generation Section
     st.sidebar.markdown("## 🚀 Protocol Generation")
     
     # Check prerequisites
@@ -179,31 +173,3 @@ def render_navigator():
                     font-size: 20px;'>{indicator["icon"]}</span></div>""",
                 unsafe_allow_html=True
             )
-
-    # Retry failed sections option
-    failed_sections = [s for s, status in st.session_state.sections_status.items() 
-                      if status in ['Error', 'Not Started']]
-    if failed_sections and can_generate:
-        st.sidebar.markdown("---")
-        st.sidebar.markdown("### 🔄 Retry Failed Sections")
-        if st.sidebar.button(
-            f"Retry {len(failed_sections)} Failed Section(s)",
-            help="Retry generating failed sections",
-            use_container_width=True,
-            key='retry_failed'
-        ):
-            for section in failed_sections:
-                try:
-                    generator = TemplateSectionGenerator()
-                    content = generator.generate_section(
-                        section_name=section,
-                        study_type=st.session_state.study_type,
-                        synopsis_content=st.session_state.synopsis_content,
-                        existing_sections=st.session_state.generated_sections
-                    )
-                    st.session_state.generated_sections[section] = content
-                    st.session_state.sections_status[section] = 'Generated'
-                except Exception as e:
-                    logger.error(f"Error regenerating {section}: {str(e)}")
-                    st.session_state.sections_status[section] = 'Error'
-                    continue

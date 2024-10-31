@@ -19,19 +19,19 @@ class TemplateSectionGenerator:
             template = self.template_manager.get_section_template(study_type, section_name)
             if not template:
                 logger.warning(f"No template found for {section_name} in {study_type}")
-            
+
             # Generate content using GPT
             content = self.gpt_handler.generate_section(
                 section_name=section_name,
                 synopsis_content=synopsis_content,
                 previous_sections=existing_sections or {}
             )
-            
+
             if not content:
                 raise ValueError(f"No content generated for {section_name}")
-                
+
             return content
-            
+
         except Exception as e:
             logger.error(f"Error generating section {section_name}: {str(e)}")
             raise
