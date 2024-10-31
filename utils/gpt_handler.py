@@ -16,7 +16,7 @@ class GPTHandler:
             if not os.environ.get("OPENAI_API_KEY"):
                 logger.error("OpenAI API key not found in environment variables")
                 raise ValueError("OpenAI API key not found")
-            self.model_name = "gpt-4o-2024-08-06"
+            self.model_name = "gpt-4-1106-preview"
             self.template_manager = TemplateManager()
             self.default_analysis = {
                 'study_type_and_design': {
@@ -38,46 +38,26 @@ class GPTHandler:
             raise
 
     def _clean_generated_content(self, content):
-        """Remove AI introductory text and clean formatting"""
+        """Clean and format generated content"""
         if not content:
             return content
-
-        # Remove common AI introductory phrases
-        intro_patterns = [
-            r"^Given the provided synopsis,\s*",
-            r"^Based on the synopsis,\s*",
-            r"^Based on this synopsis,\s*",
-            r"^According to the synopsis,\s*",
-            r"^Here is the content for\s*",
-            r"^I will generate\s*",
-            r"^Let me generate\s*",
-            r"^The following content\s*",
-        ]
+            
+        # Remove markdown headers
+        content = re.sub(r'^#+\s*', '', content, flags=re.MULTILINE)
         
-        for pattern in intro_patterns:
-            content = re.sub(pattern, "", content, flags=re.IGNORECASE | re.MULTILINE)
-
-        # Remove markdown emphasis
+        # Remove markdown list markers but keep the content
+        content = re.sub(r'^\s*[-*]\s+', '• ', content, flags=re.MULTILINE)
+        
+        # Remove other markdown formatting
         content = re.sub(r'\*\*(.+?)\*\*', r'\1', content)  # Bold
         content = re.sub(r'\*(.+?)\*', r'\1', content)      # Italic
-        content = re.sub(r'_(.+?)_', r'\1', content)        # Underscore emphasis
-
+        content = re.sub(r'_(.+?)_', r'\1', content)        # Underscore
+        content = re.sub(r'`(.+?)`', r'\1', content)        # Code
+        
         # Clean up multiple newlines
         content = re.sub(r'\n{3,}', '\n\n', content)
-
-        # Ensure proper heading structure
-        lines = content.split('\n')
-        cleaned_lines = []
-        for line in lines:
-            # Remove any meta-commentary about the generation process
-            if any(phrase in line.lower() for phrase in [
-                "i will now", "here's the", "let me", "i'll provide",
-                "based on the", "according to the", "this section will"
-            ]):
-                continue
-            cleaned_lines.append(line)
-
-        return '\n'.join(cleaned_lines).strip()
+        
+        return content.strip()
 
     def analyze_synopsis(self, synopsis_text):
         try:
@@ -157,7 +137,6 @@ class GPTHandler:
                 logger.error("Invalid or empty text response")
                 return default_values
 
-            # Initialize analysis structure
             analysis = {
                 'study_type_and_design': {
                     'primary_classification': 'Not specified',
@@ -174,7 +153,6 @@ class GPTHandler:
                 'missing_information': []
             }
             
-            # Parse the text looking for key information
             lines = text.split('\n')
             current_section = None
             
