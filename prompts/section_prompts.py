@@ -1,191 +1,191 @@
 """
-Improved prompts for protocol sections with better formatting guidelines
+Protocol section prompts with improved formatting guidelines
 """
 
 SECTION_PROMPTS = {
     'background': """
-You are a medical writer generating the Background section of a clinical protocol. Based on this synopsis:
+You are writing the Background section of a clinical protocol. Start directly with a clear heading structure:
 
-{synopsis_content}
-
-Generate a Background section following these strict rules:
-1. Use one single # for the main heading (no repeating headers)
-2. Use ## for subsections only
-3. Format each subsection in clear paragraphs
-4. Required subsections:
-   - Disease Background
-   - Current Treatment Landscape
-   - Product Background
-   - Study Rationale
-5. No markdown formatting or special characters
-6. No bullet points - use proper paragraphs
-7. No numbered lists in this section
-
-Format example:
 # Background
 
 ## Disease Background
-[Clear paragraph about disease]
+[Write disease background without introductory phrases]
 
 ## Current Treatment Landscape
-[Clear paragraph about treatments]
+[Write treatment landscape without meta-commentary]
 
-[etc.]
+## Product Background
+[Write product background directly]
 
-Previously generated sections if available:
+## Study Rationale
+[Write study rationale directly]
+
+Rules:
+1. No introductory phrases or meta-commentary
+2. No markdown formatting or special characters
+3. Use clear paragraphs
+4. Start each subsection directly with content
+
+Context:
+{synopsis_content}
+
+Previously generated sections:
 {previous_sections}
 """,
 
     'objectives': """
-You are a medical writer generating the Objectives section of a clinical protocol. Based on this synopsis:
+You are writing the Objectives section of a clinical protocol. Use this structure:
 
-{synopsis_content}
-
-Generate an Objectives section following these strict rules:
-1. Use single # for main heading
-2. Use ## for subsections
-3. Format objectives and endpoints as follows:
-   - Primary Objective(s)
-   - Primary Endpoint(s)
-   - Secondary Objectives
-   - Secondary Endpoints
-4. Number each objective and endpoint clearly (1., 2., etc.)
-5. No bullet points - use numbered lists
-6. No markdown formatting
-7. Ensure clear alignment between objectives and endpoints
-
-Format example:
 # Objectives
 
 ## Primary Objective(s)
 1. [First objective]
 2. [Second objective]
 
-[etc.]
+## Primary Endpoint(s)
+1. [First endpoint]
+2. [Second endpoint]
 
-Previously generated sections if available:
+## Secondary Objectives
+1. [First objective]
+2. [Second objective]
+
+## Secondary Endpoints
+1. [First endpoint]
+2. [Second endpoint]
+
+Rules:
+1. Start each objective/endpoint directly
+2. Use clear numbering
+3. No introductory text
+4. Align endpoints with objectives
+
+Context:
+{synopsis_content}
+
+Previously generated sections:
 {previous_sections}
 """,
 
     'study_design': """
-You are a medical writer generating the Study Design section of a clinical protocol. Based on this synopsis:
+You are writing the Study Design section of a clinical protocol. Use this structure:
 
-{synopsis_content}
-
-Generate a Study Design section following these strict rules:
-1. Use single # for main heading
-2. Use ## for subsections
-3. Include these subsections:
-   - Overall Design
-   - Study Schema
-   - Study Duration
-   - Treatment Groups
-4. For tables, use this exact format:
-   | Header 1 | Header 2 | Header 3 |
-   |----------|----------|----------|
-   | Cell 1   | Cell 2   | Cell 3   |
-5. No markdown formatting
-6. Use clear paragraphs for text
-7. Number items only when specifically listing steps or procedures
-
-Format example:
 # Study Design
 
 ## Overall Design
-[Clear paragraph describing design]
+[Write design overview directly]
 
-[etc.]
+## Study Schema
+[Include clear study diagram]
 
-Previously generated sections if available:
+## Study Duration
+[Specify duration details]
+
+## Treatment Groups
+[List treatment groups]
+
+Rules:
+1. No introductory phrases
+2. Use clear headings
+3. Include specific details
+4. No meta-commentary
+
+Context:
+{synopsis_content}
+
+Previously generated sections:
 {previous_sections}
 """,
 
     'population': """
-You are a medical writer generating the Study Population section of a clinical protocol. Based on this synopsis:
-{synopsis_content}
-Generate a Population section following these rules:
-1. Use clear heading structure
-2. Include these components:
-   - Overview of Study Population
-   - Inclusion Criteria (numbered list)
-   - Exclusion Criteria (numbered list)
-   - Withdrawal Criteria
-   - Replacement Policy
-3. Format consistently with no markdown or escape characters
-4. Use clear numbering for criteria
-5. Group related criteria logically
-6. Include specific measurements and timeframes
-7. Define all medical terms used
-Previously generated sections if available:
-{previous_sections}
-""",
+You are writing the Study Population section. Use this structure:
 
-    'procedures': """
-You are a medical writer generating the Study Procedures section of a clinical protocol. Based on this synopsis:
+# Study Population
+
+## Overview
+[Population description]
+
+## Inclusion Criteria
+1. [First criterion]
+2. [Second criterion]
+
+## Exclusion Criteria
+1. [First criterion]
+2. [Second criterion]
+
+## Withdrawal Criteria
+[Withdrawal conditions]
+
+Rules:
+1. Start each section directly with content
+2. Use clear numbering for criteria
+3. No introductory phrases
+4. Include specific measurements
+
+Context:
 {synopsis_content}
-Generate a Study Procedures section following these rules:
-1. Use clear heading structure (## for sections)
-2. Include these components:
-   - Study Procedures Overview
-   - Screening/Baseline Procedures
-   - Treatment Phase Procedures
-   - Follow-up Procedures
-   - Safety Assessments
-   - Efficacy Assessments
-   - Laboratory Assessments
-   - Other Assessments
-3. Each procedure should include:
-   - Clear timing
-   - Specific requirements
-   - Responsible personnel
-4. Format all lists consistently
-5. No markdown or escape characters
-6. Use consistent terminology
-7. Include any special handling instructions
-Previously generated sections if available:
+
+Previously generated sections:
 {previous_sections}
 """,
 
     'statistical': """
-You are a medical writer generating the Statistical Analysis section of a clinical protocol. Based on this synopsis:
+You are writing the Statistical Analysis section. Use this structure:
+
+# Statistical Analysis
+
+## Statistical Hypotheses
+[State hypotheses directly]
+
+## Sample Size
+[Sample size calculation]
+
+## Analysis Populations
+[Define populations]
+
+## Statistical Methods
+[Detail methods]
+
+Rules:
+1. Start each section directly
+2. Include specific tests
+3. No meta-commentary
+4. Use clear paragraphs
+
+Context:
 {synopsis_content}
-Generate a Statistical Analysis section following these rules:
-1. Use clear heading structure
-2. Include these components:
-   - Statistical Hypotheses
-   - Sample Size Determination
-   - Analysis Populations
-   - Statistical Methods
-   - Interim Analyses
-   - Missing Data Handling
-3. Format consistently without markdown
-4. Include specific statistical tests
-5. Define significance levels
-6. Describe analysis sets clearly
-7. Include multiplicity adjustments
-Previously generated sections if available:
+
+Previously generated sections:
 {previous_sections}
 """,
 
     'safety': """
-You are a medical writer generating the Safety section of a clinical protocol. Based on this synopsis:
+You are writing the Safety section. Use this structure:
+
+# Safety
+
+## Safety Parameters
+[List parameters]
+
+## Adverse Events
+[Define and classify]
+
+## Safety Monitoring
+[Describe procedures]
+
+## Risk Management
+[Detail strategies]
+
+Rules:
+1. Start directly with content
+2. Include specific details
+3. No introductory phrases
+4. Use clear paragraphs
+
+Context:
 {synopsis_content}
-Generate a Safety section following these rules:
-1. Use clear heading structure
-2. Include these components:
-   - Safety Parameters
-   - Adverse Event Definitions
-   - Adverse Event Reporting
-   - Safety Monitoring
-   - Risk Management
-   - Data Monitoring Committee
-   - Stopping Rules
-3. Format consistently
-4. Include reporting timeframes
-5. Define severity grades
-6. Specify reporting requirements
-7. Include safety oversight procedures
-Previously generated sections if available:
+
+Previously generated sections:
 {previous_sections}
 """
 }
