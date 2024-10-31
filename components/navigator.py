@@ -2,62 +2,26 @@ import streamlit as st
 from datetime import datetime
 import logging
 from utils.template_section_generator import TemplateSectionGenerator
-from utils.gpt_handler import GPTHandler
+from utils.protocol_formatter import ProtocolFormatter
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-def _get_sections_for_study_type(study_type):
-    """Get the appropriate sections for the given study type"""
-    if not study_type:
-        return []
-        
-    default_sections = [
-        'background',
-        'objectives',
-        'study_design',
-        'population',
-        'procedures',
-        'statistical',
-        'safety'
-    ]
-    
-    study_type = study_type.lower()
-    if any(term in study_type for term in ['systematic', 'literature', 'slr']):
-        return [
-            'background',
-            'objectives',
-            'methods',
-            'search_strategy',
-            'selection_criteria',
-            'data_extraction',
-            'synthesis'
-        ]
-    elif 'meta' in study_type:
-        return [
-            'background',
-            'objectives',
-            'methods',
-            'search_strategy',
-            'selection_criteria',
-            'data_extraction',
-            'statistical_synthesis'
-        ]
-    return default_sections
-
-def _format_section_name(section_name):
-    """Format section name for display"""
-    return section_name.replace('_', ' ').title()
 
 def _initialize_sections_status():
     """Initialize or update sections status"""
     if 'sections_status' not in st.session_state:
         st.session_state.sections_status = {}
     
-    study_type = st.session_state.get('study_type')
-    if study_type:
-        sections = _get_sections_for_study_type(study_type)
+    if 'generated_sections' not in st.session_state:
+        st.session_state.generated_sections = {}
+        
+    # Get sections based on study type
+    if study_type := st.session_state.get('study_type'):
+        generator = TemplateSectionGenerator()
+        sections = generator.get_required_sections(study_type)
+        
+        # Update sections status
         for section in sections:
             if section not in st.session_state.sections_status:
                 st.session_state.sections_status[section] = 'Not Started'
@@ -86,21 +50,18 @@ def generate_all_sections():
         
         # Get sections for study type
         study_type = st.session_state.study_type
-        sections = _get_sections_for_study_type(study_type)
-        total_sections = len(sections)
+        required_sections = generator.get_required_sections(study_type)
+        total_sections = len(required_sections)
         
         # Initialize tracking
-        if 'generated_sections' not in st.session_state:
-            st.session_state.generated_sections = {}
-            
         successful_sections = 0
         generation_errors = []
         start_time = datetime.now()
 
         # Generate each section
-        for idx, section in enumerate(sections, 1):
+        for idx, section in enumerate(required_sections, 1):
             section_start = datetime.now()
-            status_text.info(f"📝 Generating {_format_section_name(section)}...")
+            status_text.info(f"📝 Generating {section.replace('_', ' ').title()}...")
             
             try:
                 # Update status to in progress
@@ -124,7 +85,7 @@ def generate_all_sections():
                     progress_bar.progress(idx / total_sections)
                     section_time = datetime.now() - section_start
                     detailed_status.success(
-                        f"✅ {_format_section_name(section)} ({section_time.total_seconds():.1f}s)"
+                        f"✅ {section.replace('_', ' ').title()} ({section_time.total_seconds():.1f}s)"
                     )
                 else:
                     raise ValueError(f"No content generated for {section}")
@@ -134,7 +95,7 @@ def generate_all_sections():
                 logger.error(error_msg)
                 generation_errors.append(error_msg)
                 st.session_state.sections_status[section] = 'Error'
-                detailed_status.error(f"❌ {_format_section_name(section)}: {str(e)}")
+                detailed_status.error(f"❌ {section.replace('_', ' ').title()}: {str(e)}")
                 continue
 
         # Final status update
@@ -164,6 +125,9 @@ def generate_all_sections():
 def render_navigator():
     """Render the section navigator sidebar"""
     st.sidebar.markdown("## 🚀 Protocol Generation")
+    
+    # Initialize sections status
+    _initialize_sections_status()
     
     # Check prerequisites
     can_generate = (
@@ -195,7 +159,38 @@ def render_navigator():
             key="generate_complete_protocol"
         ):
             with st.spinner("Generating protocol..."):
-                generate_all_sections()
+                if generate_all_sections():
+                    # If generation successful, show export options
+                    st.sidebar.success("✅ Protocol generated successfully!")
+                    
+                    # Add export format selection
+                    format_option = st.sidebar.radio("Export Format:", ["DOCX", "PDF"])
+                    
+                    if st.sidebar.button("Export Protocol", key="export_protocol"):
+                        try:
+                            formatter = ProtocolFormatter()
+                            doc = formatter.format_protocol(st.session_state.generated_sections)
+                            
+                            if format_option == "PDF":
+                                output_file = formatter.save_document("protocol", format='pdf')
+                                with open(output_file, "rb") as file:
+                                    st.sidebar.download_button(
+                                        label="Download Protocol (PDF)",
+                                        data=file,
+                                        file_name="protocol.pdf",
+                                        mime="application/pdf"
+                                    )
+                            else:  # DOCX format
+                                output_file = formatter.save_document("protocol", format='docx')
+                                with open(output_file, "rb") as file:
+                                    st.sidebar.download_button(
+                                        label="Download Protocol (DOCX)",
+                                        data=file,
+                                        file_name="protocol.docx",
+                                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                    )
+                        except Exception as e:
+                            st.sidebar.error(f"Error exporting protocol: {str(e)}")
     else:
         if not st.session_state.get('synopsis_content'):
             st.sidebar.warning("⚠️ Please upload a synopsis first")
@@ -207,11 +202,9 @@ def render_navigator():
     # Section Navigation
     st.sidebar.header("📑 Protocol Sections")
     
-    # Initialize sections status
-    _initialize_sections_status()
-    
-    if st.session_state.get('study_type'):
-        sections = _get_sections_for_study_type(st.session_state.get('study_type'))
+    if study_type := st.session_state.get('study_type'):
+        generator = TemplateSectionGenerator()
+        sections = generator.get_required_sections(study_type)
         
         # Show overall progress
         completed = sum(1 for status in st.session_state.sections_status.values() 
@@ -234,9 +227,9 @@ def render_navigator():
             
             with col1:
                 if st.button(
-                    _format_section_name(section),
+                    section.replace('_', ' ').title(),
                     key=f"nav_{section}",
-                    help=f"Edit {_format_section_name(section)} section",
+                    help=f"Edit {section.replace('_', ' ').title()} section",
                     use_container_width=True
                 ):
                     st.session_state.current_section = section
