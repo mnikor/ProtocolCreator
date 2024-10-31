@@ -145,13 +145,15 @@ def render_editor():
     # Export functionality with improved options
     if st.session_state.get('generated_sections'):
         st.markdown("---")
+        
+        # Add format selection first
+        format_option = st.radio("Export Format:", ["DOCX", "PDF"])
+        
+        # Export button that stays visible
         if st.button("Export Protocol"):
             try:
                 formatter = ProtocolFormatter()
                 doc = formatter.format_protocol(st.session_state.generated_sections)
-                
-                # Add export format selection
-                format_option = st.radio("Export Format:", ["DOCX", "PDF"])
                 
                 if format_option == "PDF":
                     output_file = formatter.save_document("protocol", format='pdf')
@@ -162,7 +164,7 @@ def render_editor():
                             file_name="protocol.pdf",
                             mime="application/pdf"
                         )
-                else:
+                else:  # DOCX format
                     output_file = formatter.save_document("protocol", format='docx')
                     with open(output_file, "rb") as file:
                         st.download_button(
