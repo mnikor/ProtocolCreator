@@ -1,8 +1,6 @@
-# template_section_generator.py
-
+import logging
 from utils.gpt_handler import GPTHandler
 from utils.template_manager import TemplateManager
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -23,16 +21,47 @@ STUDY_TYPE_CONFIG = {
         "required_sections": [
             "background",
             "objectives",
-            "study_design",
-            "statistical"
+            "methods",  # Instead of study_design
+            "search_strategy",  # New section
+            "selection_criteria",  # Instead of population
+            "data_extraction",  # Instead of procedures
+            "quality_assessment",  # New section
+            "statistical"  # For meta-analysis methods
         ]
     },
     "Meta-analysis": {
         "required_sections": [
             "background",
             "objectives",
-            "study_design",
+            "methods",
+            "search_strategy",
+            "selection_criteria",
+            "data_extraction",
+            "quality_assessment",
             "statistical"
+        ]
+    },
+    "Real World Evidence": {
+        "required_sections": [
+            "background",
+            "objectives",
+            "study_design",
+            "data_sources",  # New section
+            "population",
+            "variables",  # Instead of procedures
+            "statistical",
+            "limitations"  # New section
+        ]
+    },
+    "Consensus Method": {
+        "required_sections": [
+            "background",
+            "objectives",
+            "methods",
+            "expert_panel",  # New section
+            "consensus_process",  # New section
+            "voting_criteria",  # New section
+            "analysis"  # Instead of statistical
         ]
     }
 }
@@ -45,23 +74,85 @@ class TemplateSectionGenerator:
     def _get_required_sections(self, study_type):
         """Get required sections for the given study type"""
         study_type = study_type.strip() if study_type else "Clinical Trial"
-        if study_type not in STUDY_TYPE_CONFIG:
+        study_type_key = self._normalize_study_type(study_type)
+        
+        if study_type_key not in STUDY_TYPE_CONFIG:
             logger.warning(f"Unknown study type: {study_type}, defaulting to Clinical Trial")
             return STUDY_TYPE_CONFIG["Clinical Trial"]["required_sections"]
-        return STUDY_TYPE_CONFIG[study_type]["required_sections"]
+            
+        return STUDY_TYPE_CONFIG[study_type_key]["required_sections"]
+
+    def _normalize_study_type(self, study_type):
+        """Normalize study type string to match config keys"""
+        study_type = study_type.lower()
+        if "systematic" in study_type or "literature review" in study_type or study_type == "slr":
+            return "Systematic Literature Review"
+        elif "meta" in study_type:
+            return "Meta-analysis"
+        elif "real world" in study_type or "rwe" in study_type:
+            return "Real World Evidence"
+        elif "consensus" in study_type:
+            return "Consensus Method"
+        return "Clinical Trial"
 
     def _modify_prompt_for_study_type(self, section_name, study_type):
         """Modify the prompt based on study type"""
-        if study_type == "Systematic Literature Review":
-            return f"""You are a medical writer generating the {section_name} section for a Systematic Literature Review protocol.
-Focus only on literature review methodology and avoid any clinical trial elements."""
-        elif study_type == "Meta-analysis":
-            return f"""You are a medical writer generating the {section_name} section for a Meta-analysis protocol.
-Focus only on meta-analysis methodology and avoid any clinical trial elements."""
+        study_type = study_type.lower()
+        
+        if "systematic" in study_type or "literature review" in study_type:
+            return self._get_slr_prompt(section_name)
+        elif "meta-analysis" in study_type:
+            return self._get_meta_analysis_prompt(section_name)
+        elif "real world" in study_type:
+            return self._get_rwe_prompt(section_name)
+        elif "consensus" in study_type:
+            return self._get_consensus_prompt(section_name)
+            
         return None
 
+    def _get_slr_prompt(self, section_name):
+        """Get SLR specific prompts"""
+        prompts = {
+            "methods": "Generate the Methods section for a Systematic Literature Review protocol. Focus on the overall methodological approach, including the framework (e.g., PRISMA) and general methodology.",
+            "search_strategy": "Generate the Search Strategy section for a Systematic Literature Review protocol. Include details about database selection, search terms, and search string construction.",
+            "selection_criteria": "Generate the Selection Criteria section for a Systematic Literature Review protocol. Detail inclusion/exclusion criteria and screening process.",
+            "data_extraction": "Generate the Data Extraction section for a Systematic Literature Review protocol. Describe the data collection form and extraction process.",
+            "quality_assessment": "Generate the Quality Assessment section for a Systematic Literature Review protocol. Detail the tools and process for assessing study quality."
+        }
+        return prompts.get(section_name)
+
+    def _get_meta_analysis_prompt(self, section_name):
+        """Get Meta-analysis specific prompts"""
+        prompts = {
+            "methods": "Generate the Methods section for a Meta-analysis protocol. Focus on the statistical methodology and analysis plan.",
+            "search_strategy": "Generate the Search Strategy section for identifying studies to include in the meta-analysis.",
+            "selection_criteria": "Generate the Selection Criteria section for study inclusion in the meta-analysis.",
+            "data_extraction": "Generate the Data Extraction section focusing on effect sizes and statistical data.",
+            "quality_assessment": "Generate the Quality Assessment section for evaluating study quality and bias."
+        }
+        return prompts.get(section_name)
+
+    def _get_rwe_prompt(self, section_name):
+        """Get Real World Evidence specific prompts"""
+        prompts = {
+            "data_sources": "Generate the Data Sources section for a Real World Evidence study protocol.",
+            "variables": "Generate the Variables section detailing primary and secondary variables of interest.",
+            "limitations": "Generate the Limitations section addressing potential biases and constraints."
+        }
+        return prompts.get(section_name)
+
+    def _get_consensus_prompt(self, section_name):
+        """Get Consensus Method specific prompts"""
+        prompts = {
+            "expert_panel": "Generate the Expert Panel section detailing selection and composition.",
+            "consensus_process": "Generate the Consensus Process section describing rounds and methodology.",
+            "voting_criteria": "Generate the Voting Criteria section explaining decision-making process.",
+            "analysis": "Generate the Analysis section for consensus achievement evaluation."
+        }
+        return prompts.get(section_name)
+
     def generate_section(self, section_name, study_type, synopsis_content, existing_sections=None):
-        '''Generate content for a specific protocol section'''
+        """Generate content for a specific protocol section"""
         try:
             # Input validation
             if not synopsis_content:
@@ -69,24 +160,35 @@ Focus only on meta-analysis methodology and avoid any clinical trial elements.""
             if not section_name:
                 raise ValueError("Section name is required")
 
-            study_type = study_type.strip() if study_type else "Clinical Trial"
-
+            study_type = self._normalize_study_type(study_type)
+            
             # Log the generation attempt
             logger.info(f"Generating section {section_name} for {study_type}")
             logger.info(f"Synopsis length: {len(str(synopsis_content))}")
 
-            # Check if section is required for study type
+            # Get required sections for study type
             required_sections = self._get_required_sections(study_type)
-            if section_name not in required_sections:
-                logger.info(f"Section {section_name} not required for {study_type} - skipping")
+            
+            # Map old section names to new ones based on study type
+            section_mapping = {
+                'study_design': 'methods',
+                'population': 'selection_criteria',
+                'procedures': 'data_extraction',
+                'statistical': 'analysis'
+            }
+            
+            # Check if section is required (using mapped name if necessary)
+            mapped_section = section_mapping.get(section_name, section_name)
+            if mapped_section not in required_sections:
+                logger.info(f"Section {mapped_section} not required for {study_type} - skipping")
                 return None
 
-            # Get study type specific prompt if needed
-            modified_prompt = self._modify_prompt_for_study_type(section_name, study_type)
+            # Get study type specific prompt
+            modified_prompt = self._modify_prompt_for_study_type(mapped_section, study_type)
 
             # Generate content
             content = self.gpt_handler.generate_section(
-                section_name=section_name,
+                section_name=mapped_section,
                 synopsis_content=synopsis_content,
                 previous_sections=existing_sections or {},
                 prompt=modified_prompt
@@ -99,14 +201,13 @@ Focus only on meta-analysis methodology and avoid any clinical trial elements.""
             return None
 
     def generate_complete_protocol(self, study_type, synopsis_content):
-        '''Generate all applicable protocol sections for the given study type'''
+        """Generate all applicable protocol sections for the given study type"""
         try:
-            # Input validation
             if not synopsis_content:
                 raise ValueError("Synopsis content is required")
 
-            study_type = study_type.strip() if study_type else "Clinical Trial"
-
+            study_type = self._normalize_study_type(study_type)
+            
             # Log the generation start
             logger.info(f"Generating complete protocol for {study_type}")
             logger.info(f"Synopsis length: {len(str(synopsis_content))}")
