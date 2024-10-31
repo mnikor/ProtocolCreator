@@ -1,5 +1,3 @@
-# gpt_handler.py
-
 from openai import OpenAI
 import os
 import json
@@ -43,19 +41,35 @@ class GPTHandler:
             if not synopsis_text or not isinstance(synopsis_text, str):
                 raise ValueError("Invalid synopsis text")
                 
-            # Get GPT response
+            # Get GPT response with improved system prompt
+            messages = [
+                {
+                    "role": "system",
+                    "content": '''You are a protocol analysis assistant. Analyze the synopsis and classify the study type considering:
+- Systematic Literature Reviews (SLR)
+- Meta-analyses
+- Real World Evidence studies
+- Clinical trials and their phases
+- Consensus methods
+- Observational studies
+
+For SLRs specifically look for:
+- Mentions of systematic review methodology
+- Literature search plans
+- Evidence synthesis approach
+- Quality assessment methods
+
+Return study classification in primary_classification field.'''
+                },
+                {
+                    "role": "user", 
+                    "content": f"Analyze this synopsis:\n\n{synopsis_text}"
+                }
+            ]
+
             response = self.client.chat.completions.create(
                 model=self.model_name,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a protocol analysis assistant. Analyze the synopsis and identify key study design elements, population characteristics, and critical parameters."
-                    },
-                    {
-                        "role": "user", 
-                        "content": f"Analyze this synopsis:\n\n{synopsis_text}"
-                    }
-                ],
+                messages=messages,
                 temperature=0.3
             )
             
@@ -74,12 +88,11 @@ class GPTHandler:
 
     def _parse_structured_text(self, text, default_values):
         try:
-            # First ensure we have valid text
             if not isinstance(text, str) or not text.strip():
                 logger.error("Invalid or empty text response")
                 return default_values
-                
-            # Try to extract structured data
+
+            # Initialize analysis structure
             analysis = {
                 'study_type_and_design': {
                     'primary_classification': 'Not specified',
@@ -104,9 +117,11 @@ class GPTHandler:
                 line = line.strip()
                 if not line:
                     continue
-                    
+                
                 # Update the analysis dictionary based on the content
-                if 'study type' in line.lower() or 'design' in line.lower():
+                if 'classification' in line.lower():
+                    analysis['study_type_and_design']['primary_classification'] = line
+                elif 'study type' in line.lower() or 'design' in line.lower():
                     analysis['study_type_and_design']['design_type'] = line
                 elif 'phase' in line.lower():
                     analysis['study_type_and_design']['phase'] = line
@@ -114,7 +129,7 @@ class GPTHandler:
                     analysis['critical_parameters']['population'] = line
                 elif 'endpoint' in line.lower():
                     analysis['critical_parameters']['primary_endpoint'] = line
-                    
+                
             return analysis
             
         except Exception as e:
@@ -122,29 +137,38 @@ class GPTHandler:
             return default_values
 
     def _determine_study_phase(self, analysis):
-        """Determine study phase from analysis"""
         try:
-            if not isinstance(analysis, dict):
-                logger.error("Analysis input is not a dictionary")
-                return "phase1"
-
             study_design = analysis.get("study_type_and_design", {})
-            if not isinstance(study_design, dict):
-                logger.error("study_type_and_design is not a dictionary")
-                return "phase1"
-
+            classification = study_design.get("primary_classification", "").lower()
             phase = study_design.get("phase", "").lower()
-            logger.info(f"Detected study phase: {phase}")
-
-            if "1" in phase or "i" in phase:
-                return "phase1"
-            elif "2" in phase or "ii" in phase:
-                return "phase2"
-            elif "3" in phase or "iii" in phase:
-                return "phase3"
-            else:
-                return "phase1"
-
+            
+            # Check for special study types first
+            if any(term in classification.lower() for term in ['systematic review', 'literature review', 'slr']):
+                return "slr"
+            elif 'meta-analysis' in classification.lower():
+                return "meta"
+            elif 'real world' in classification.lower():
+                return "rwe"
+            elif 'consensus' in classification.lower():
+                return "consensus"
+            
+            # Only check phase if it's a clinical trial
+            if "phase" in phase:
+                if "1" in phase or "i" in phase:
+                    return "phase1"
+                elif "2" in phase or "ii" in phase:
+                    return "phase2"
+                elif "3" in phase or "iii" in phase:
+                    return "phase3"
+                elif "4" in phase or "iv" in phase:
+                    return "phase4"
+            
+            # Default based on study type
+            if 'observational' in classification.lower():
+                return "observational"
+                
+            return "phase1"  # Default fallback
+            
         except Exception as e:
             logger.error(f"Error determining study phase: {str(e)}")
             return "phase1"
