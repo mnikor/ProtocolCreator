@@ -5,4 +5,3 @@ beautifulsoup4
 weasyprint
 graphviz
 PyPDF2
-docx2html

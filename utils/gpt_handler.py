@@ -16,7 +16,7 @@ class GPTHandler:
             if not os.environ.get("OPENAI_API_KEY"):
                 logger.error("OpenAI API key not found in environment variables")
                 raise ValueError("OpenAI API key not found")
-            self.model_name = "gpt-4-1106-preview"
+            self.model_name = "gpt-4o-2024-08-06"
             self.template_manager = TemplateManager()
             self.default_analysis = {
                 'study_type_and_design': {
