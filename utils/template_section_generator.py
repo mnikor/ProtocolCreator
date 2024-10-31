@@ -115,54 +115,6 @@ class TemplateSectionGenerator:
             
         return None
 
-    def _get_slr_prompt(self, section_name):
-        """Get SLR specific prompts"""
-        prompts = {
-            "title": "Generate the Title section for a Systematic Literature Review protocol. Include:\n- Full study title\n- Short title or acronym if applicable\n- Protocol version and date\n- Principal investigators\n- Affiliated institutions",
-            "methods": "Generate the Methods section for a Systematic Literature Review protocol. Focus on the overall methodological approach, including the framework (e.g., PRISMA) and general methodology.",
-            "search_strategy": "Generate the Search Strategy section for a Systematic Literature Review protocol. Include details about database selection, search terms, and search string construction.",
-            "selection_criteria": "Generate the Selection Criteria section for a Systematic Literature Review protocol. Detail inclusion/exclusion criteria and screening process.",
-            "data_extraction": "Generate the Data Extraction section for a Systematic Literature Review protocol. Describe the data collection form and extraction process.",
-            "quality_assessment": "Generate the Quality Assessment section for a Systematic Literature Review protocol. Detail the tools and process for assessing study quality.",
-            "synthesis_methods": "Generate the Data Synthesis and Analysis Methods section for a Systematic Literature Review protocol. Include:\n- Approach to data synthesis\n- Methods for combining results\n- Assessment of reporting biases\n- Investigation of heterogeneity\n- Sensitivity analysis plans\n- Subgroup analyses if planned"
-        }
-        return prompts.get(section_name)
-
-    def _get_meta_analysis_prompt(self, section_name):
-        """Get Meta-analysis specific prompts"""
-        prompts = {
-            "title": "Generate the Title section for a Meta-analysis protocol. Include:\n- Full study title\n- Short title or acronym if applicable\n- Protocol version and date\n- Principal investigators\n- Affiliated institutions",
-            "methods": "Generate the Methods section for a Meta-analysis protocol. Focus on the statistical methodology and analysis plan.",
-            "search_strategy": "Generate the Search Strategy section for identifying studies to include in the meta-analysis.",
-            "selection_criteria": "Generate the Selection Criteria section for study inclusion in the meta-analysis.",
-            "data_extraction": "Generate the Data Extraction section focusing on effect sizes and statistical data.",
-            "quality_assessment": "Generate the Quality Assessment section for evaluating study quality and bias.",
-            "statistical_synthesis": "Generate the Statistical Synthesis section for the meta-analysis. Include:\n- Effect size calculation methods\n- Statistical synthesis approach\n- Heterogeneity assessment\n- Publication bias evaluation\n- Sensitivity analyses"
-        }
-        return prompts.get(section_name)
-
-    def _get_rwe_prompt(self, section_name):
-        """Get Real World Evidence specific prompts"""
-        prompts = {
-            "title": "Generate the Title section for a Real World Evidence study protocol. Include:\n- Full study title\n- Short title or acronym if applicable\n- Protocol version and date\n- Principal investigators\n- Affiliated institutions",
-            "data_sources": "Generate the Data Sources section for a Real World Evidence study protocol.",
-            "variables": "Generate the Variables section detailing primary and secondary variables of interest.",
-            "limitations": "Generate the Limitations section addressing potential biases and constraints.",
-            "analytical_methods": "Generate the Analytical Methods section for the RWE study. Include:\n- Primary analysis methods\n- Handling of confounders\n- Missing data approach\n- Sensitivity analyses"
-        }
-        return prompts.get(section_name)
-
-    def _get_consensus_prompt(self, section_name):
-        """Get Consensus Method specific prompts"""
-        prompts = {
-            "title": "Generate the Title section for a Consensus Method protocol. Include:\n- Full study title\n- Short title or acronym if applicable\n- Protocol version and date\n- Principal investigators\n- Affiliated institutions",
-            "expert_panel": "Generate the Expert Panel section detailing selection and composition.",
-            "consensus_process": "Generate the Consensus Process section describing rounds and methodology.",
-            "voting_criteria": "Generate the Voting Criteria section explaining decision-making process.",
-            "analysis": "Generate the Analysis section for consensus achievement evaluation."
-        }
-        return prompts.get(section_name)
-
     def generate_section(self, section_name, study_type, synopsis_content, existing_sections=None):
         """Generate content for a specific protocol section"""
         try:
@@ -198,15 +150,12 @@ class TemplateSectionGenerator:
                 logger.info(f"Section {mapped_section} not required for {study_type} - skipping")
                 return None
 
-            # Get study type specific prompt
-            modified_prompt = self._modify_prompt_for_study_type(mapped_section, study_type)
-
             # Generate content
             content = self.gpt_handler.generate_section(
                 section_name=mapped_section,
                 synopsis_content=synopsis_content,
                 previous_sections=existing_sections or {},
-                prompt=modified_prompt
+                prompt=None
             )
 
             return content

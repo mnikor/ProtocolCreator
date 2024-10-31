@@ -88,7 +88,6 @@ def generate_all_sections():
             st.session_state.sections_status[section] = 'In Progress'
 
             try:
-                # Generate section content with template
                 content = generator.generate_section(
                     section_name=section,
                     study_type=study_type,
