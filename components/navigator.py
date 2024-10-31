@@ -1,9 +1,33 @@
 import streamlit as st
-from utils.template_section_generator import TemplateSectionGenerator
+from utils.template_section_generator import TemplateSectionGenerator, STUDY_TYPE_CONFIG
 import logging
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+def _get_sections_for_study_type(study_type):
+    """Get the appropriate sections for the given study type"""
+    study_type_key = _normalize_study_type(study_type)
+    if study_type_key in STUDY_TYPE_CONFIG:
+        return STUDY_TYPE_CONFIG[study_type_key]["required_sections"]
+    return STUDY_TYPE_CONFIG["Clinical Trial"]["required_sections"]
+
+def _normalize_study_type(study_type):
+    """Normalize study type string to match config keys"""
+    study_type = study_type.lower() if study_type else ""
+    if "systematic" in study_type or "literature review" in study_type or study_type == "slr":
+        return "Systematic Literature Review"
+    elif "meta" in study_type:
+        return "Meta-analysis"
+    elif "real world" in study_type or "rwe" in study_type:
+        return "Real World Evidence"
+    elif "consensus" in study_type:
+        return "Consensus Method"
+    return "Clinical Trial"
+
+def _format_section_name(section_name):
+    """Format section name for display"""
+    return section_name.replace('_', ' ').title()
 
 def generate_all_sections():
     """Generate all protocol sections with enhanced progress tracking"""
@@ -25,18 +49,20 @@ def generate_all_sections():
         status = st.sidebar.empty()
         detailed_status = st.sidebar.empty()
 
-        sections = list(st.session_state.sections_status.keys())
+        # Get appropriate sections for study type
+        sections = _get_sections_for_study_type(st.session_state.study_type)
         total_sections = len(sections)
         start_time = datetime.now()
 
-        # Reset section statuses
-        for section in sections:
-            st.session_state.sections_status[section] = 'Not Started'
+        # Initialize section statuses
+        st.session_state.sections_status = {
+            section: 'Not Started' for section in sections
+        }
 
         generated_sections = {}
         for idx, section in enumerate(sections):
             section_start = datetime.now()
-            status.info(f"📝 Generating {section.replace('_', ' ').title()}...")
+            status.info(f"📝 Generating {_format_section_name(section)}...")
             st.session_state.sections_status[section] = 'In Progress'
 
             try:
@@ -58,7 +84,7 @@ def generate_all_sections():
                     section_time = datetime.now() - section_start
                     progress.progress((idx + 1) / total_sections)
                     detailed_status.success(
-                        f"✅ {section.replace('_', ' ').title()} "
+                        f"✅ {_format_section_name(section)} "
                         f"({section_time.total_seconds():.1f}s)"
                     )
                 else:
@@ -134,42 +160,56 @@ def render_navigator():
 
     # Section Navigation with improved status tracking
     st.sidebar.header("📑 Protocol Sections")
-    
-    # Progress tracking
-    total_sections = len(st.session_state.sections_status)
-    completed_sections = sum(1 for status in st.session_state.sections_status.values() 
-                           if status == 'Generated')
-    
-    # Show overall progress
-    progress = completed_sections / total_sections if total_sections > 0 else 0
-    st.sidebar.progress(progress, text=f"Progress: {completed_sections}/{total_sections} sections")
 
-    # Status indicators with tooltips
-    status_indicators = {
-        'Not Started': {'icon': '⚪', 'desc': 'Not started yet', 'color': 'gray'},
-        'In Progress': {'icon': '🟡', 'desc': 'Generation in progress', 'color': '#FFD700'},
-        'Generated': {'icon': '🟢', 'desc': 'Generated successfully', 'color': '#4CAF50'},
-        'Error': {'icon': '🔴', 'desc': 'Error in generation', 'color': '#FF0000'}
-    }
-
-    # Section navigation with status indicators
-    for section, status in st.session_state.sections_status.items():
-        col1, col2 = st.sidebar.columns([3, 1])
+    # Get sections for current study type
+    if st.session_state.get('study_type'):
+        sections = _get_sections_for_study_type(st.session_state.get('study_type'))
         
-        with col1:
-            if st.button(
-                section.replace('_', ' ').title(),
-                key=f"nav_{section}",
-                help=f"Click to edit {section} section",
-                use_container_width=True
-            ):
-                st.session_state.current_section = section
+        # Initialize sections_status if needed
+        if 'sections_status' not in st.session_state:
+            st.session_state.sections_status = {section: 'Not Started' for section in sections}
+        
+        # Add any new sections that might be missing
+        for section in sections:
+            if section not in st.session_state.sections_status:
+                st.session_state.sections_status[section] = 'Not Started'
+        
+        # Progress tracking
+        total_sections = len(sections)
+        completed_sections = sum(1 for status in st.session_state.sections_status.values() 
+                               if status == 'Generated')
+        
+        # Show overall progress
+        progress = completed_sections / total_sections if total_sections > 0 else 0
+        st.sidebar.progress(progress, text=f"Progress: {completed_sections}/{total_sections} sections")
 
-        with col2:
-            indicator = status_indicators.get(status, status_indicators['Not Started'])
-            st.markdown(
-                f"""<div style='text-align: center;'>
-                    <span title='{indicator["desc"]}' style='color: {indicator["color"]};
-                    font-size: 20px;'>{indicator["icon"]}</span></div>""",
-                unsafe_allow_html=True
-            )
+        # Status indicators with tooltips
+        status_indicators = {
+            'Not Started': {'icon': '⚪', 'desc': 'Not started yet', 'color': 'gray'},
+            'In Progress': {'icon': '🟡', 'desc': 'Generation in progress', 'color': '#FFD700'},
+            'Generated': {'icon': '🟢', 'desc': 'Generated successfully', 'color': '#4CAF50'},
+            'Error': {'icon': '🔴', 'desc': 'Error in generation', 'color': '#FF0000'}
+        }
+
+        # Section navigation with status indicators
+        for section in sections:
+            status = st.session_state.sections_status.get(section, 'Not Started')
+            col1, col2 = st.sidebar.columns([3, 1])
+            
+            with col1:
+                if st.button(
+                    _format_section_name(section),
+                    key=f"nav_{section}",
+                    help=f"Click to edit {_format_section_name(section)} section",
+                    use_container_width=True
+                ):
+                    st.session_state.current_section = section
+
+            with col2:
+                indicator = status_indicators.get(status, status_indicators['Not Started'])
+                st.markdown(
+                    f"""<div style='text-align: center;'>
+                        <span title='{indicator["desc"]}' style='color: {indicator["color"]};
+                        font-size: 20px;'>{indicator["icon"]}</span></div>""",
+                    unsafe_allow_html=True
+                )
