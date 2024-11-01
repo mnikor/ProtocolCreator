@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from utils.gpt_handler import GPTHandler
 from utils.template_manager import TemplateManager
 from utils.protocol_validator import ProtocolValidator
@@ -91,6 +92,9 @@ class TemplateSectionGenerator:
     def generate_section(self, section_name, study_type, synopsis_content, existing_sections=None):
         """Generate a single protocol section"""
         try:
+            start_time = datetime.now()
+            logger.info(f"Starting generation of {section_name} at {start_time}")
+
             if not synopsis_content:
                 raise ValueError("Synopsis content is required")
             if not section_name:
@@ -143,9 +147,16 @@ class TemplateSectionGenerator:
             
             if validation_results.get("missing_elements"):
                 logger.warning(f"Missing {guideline} elements: {validation_results['missing_elements']}")
+                
+            end_time = datetime.now()
+            generation_time = (end_time - start_time).total_seconds()
+            logger.info(f"Completed {section_name} in {generation_time:.2f}s")
 
-            logger.info(f"Successfully generated content for {section_name}")
-            return content
+            return {
+                'content': content,
+                'generation_time': generation_time,
+                'validation_results': validation_results
+            }
 
         except Exception as e:
             logger.error(f"Error generating section {section_name}: {str(e)}")
@@ -178,25 +189,21 @@ class TemplateSectionGenerator:
             for section_name in required_sections:
                 try:
                     logger.info(f"Generating section: {section_name}")
-                    content = self.generate_section(
+                    result = self.generate_section(
                         section_name=section_name,
                         study_type=study_type,
                         synopsis_content=synopsis_content,
                         existing_sections=sections
                     )
-                    if content:
-                        sections[section_name] = content
+                    
+                    if result:
+                        sections[section_name] = result['content']
                         logger.info(f"Successfully generated {section_name}")
                         
-                        # Validate section against guidelines
-                        validation = self.validator.validate_against_guidelines(
-                            content,
-                            section_name,
-                            guideline
-                        )
+                        # Store validation results
                         guideline_validations.append({
                             'section': section_name,
-                            'validation': validation
+                            'validation': result['validation_results']
                         })
                     else:
                         raise ValueError(f"No content generated for {section_name}")
@@ -222,7 +229,7 @@ class TemplateSectionGenerator:
                 "guideline_validations": guideline_validations,
                 "guideline": guideline
             }
-
+            
         except Exception as e:
             logger.error(f"Error generating protocol: {str(e)}")
             raise
