@@ -11,6 +11,29 @@ from config.validation_rules import validate_protocol_quality
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def _initialize_sections_status():
+    '''Initialize sections status in session state if not already present'''
+    if 'sections_status' not in st.session_state:
+        st.session_state.sections_status = {
+            'background': 'Not Started',
+            'objectives': 'Not Started',
+            'study_design': 'Not Started',
+            'population': 'Not Started',
+            'procedures': 'Not Started',
+            'statistical_analysis': 'Not Started',
+            'safety': 'Not Started'
+        }
+
+    # Get current study type's required sections
+    if study_type := st.session_state.get('study_type'):
+        study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
+        required_sections = study_config.get('required_sections', [])
+        
+        # Add any missing sections from study config
+        for section in required_sections:
+            if section not in st.session_state.sections_status:
+                st.session_state.sections_status[section] = 'Not Started'
+
 def export_protocol():
     """Handle protocol export with format selection"""
     try:
@@ -56,8 +79,6 @@ def export_protocol():
                 
     except Exception as e:
         st.sidebar.error(f"Error preparing protocol: {str(e)}")
-
-# Rest of the navigator.py code remains the same...
 
 def generate_all_sections():
     """Generate all protocol sections with enhanced progress tracking"""
