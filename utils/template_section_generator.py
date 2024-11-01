@@ -1,6 +1,7 @@
 import logging
 from utils.gpt_handler import GPTHandler
 from utils.template_manager import TemplateManager
+from utils.protocol_validator import ProtocolValidator
 
 logger = logging.getLogger(__name__)
 
@@ -41,119 +42,6 @@ STUDY_TYPE_CONFIG = {
             "study_procedures": "procedures",
             "procedures": "procedures"
         }
-    },
-    "phase3": {
-        "required_sections": [
-            "title",
-            "background",
-            "objectives", 
-            "study_design",
-            "population",
-            "procedures",
-            "statistical_analysis",
-            "safety"
-        ],
-        "section_aliases": {
-            "statistical": "statistical_analysis",
-            "statistical_methods": "statistical_analysis",
-            "study_procedures": "procedures",
-            "procedures": "procedures"
-        }
-    },
-    "phase4": {
-        "required_sections": [
-            "title",
-            "background",
-            "objectives", 
-            "study_design",
-            "population",
-            "procedures",
-            "statistical_analysis",
-            "safety"
-        ],
-        "section_aliases": {
-            "statistical": "statistical_analysis",
-            "statistical_methods": "statistical_analysis",
-            "study_procedures": "procedures",
-            "procedures": "procedures"
-        }
-    },
-    "rwe": {
-        "required_sections": [
-            "title",
-            "background",
-            "objectives",
-            "study_design",
-            "data_sources",
-            "population",
-            "variables",
-            "statistical_analysis",
-            "limitations"
-        ],
-        "section_aliases": {
-            "analytical_methods": "statistical_analysis",
-            "data_sources": "procedures",
-            "procedures": "data_sources"
-        }
-    },
-    "slr": {
-        "required_sections": [
-            "title",
-            "background",
-            "objectives",
-            "methods",
-            "search_strategy",
-            "selection_criteria",
-            "data_extraction",
-            "statistical_analysis",
-            "synthesis_methods"
-        ],
-        "section_aliases": {
-            "methods": "study_design",
-            "synthesis_methods": "statistical_analysis",
-            "statistical": "statistical_analysis",
-            "data_extraction": "procedures",
-            "procedures": "data_extraction"
-        }
-    },
-    "meta": {
-        "required_sections": [
-            "title",
-            "background",
-            "objectives",
-            "methods",
-            "search_strategy",
-            "selection_criteria",
-            "data_extraction",
-            "statistical_analysis",
-            "quality_assessment"
-        ],
-        "section_aliases": {
-            "methods": "study_design",
-            "statistical_synthesis": "statistical_analysis",
-            "statistical": "statistical_analysis",
-            "data_extraction": "procedures",
-            "procedures": "data_extraction"
-        }
-    },
-    "observational": {
-        "required_sections": [
-            "title",
-            "background",
-            "objectives",
-            "study_design",
-            "population",
-            "variables",
-            "data_collection",
-            "statistical_analysis",
-            "limitations"
-        ],
-        "section_aliases": {
-            "analytical_methods": "statistical_analysis",
-            "statistical": "statistical_analysis",
-            "data_collection": "procedures",
-            "procedures": "data_collection"
-        }
     }
 }
 
@@ -161,6 +49,7 @@ class TemplateSectionGenerator:
     def __init__(self):
         self.gpt_handler = GPTHandler()
         self.template_manager = TemplateManager()
+        self.validator = ProtocolValidator()
 
     def get_required_sections(self, study_type):
         '''Get required sections for a study type'''
@@ -243,18 +132,11 @@ class TemplateSectionGenerator:
             if normalized_section is None:
                 raise ValueError(f"Could not normalize section name: {section_name}")
 
-            # Log generation attempt
-            logger.info(f"Generating section {normalized_section} for {study_type}")
-
-            # Get template and study config
-            template = self.template_manager.get_section_template(study_type, normalized_section)
-
             # Generate content
             content = self.gpt_handler.generate_section(
                 section_name=normalized_section,
                 synopsis_content=synopsis_content,
-                previous_sections=existing_sections,
-                prompt=template.get('prompt') if template else None
+                previous_sections=existing_sections
             )
 
             if not content:
@@ -273,14 +155,10 @@ class TemplateSectionGenerator:
                 raise ValueError("Synopsis content is required")
 
             study_type = self._normalize_study_type(study_type)
-
-            # Get required sections
-            study_config = STUDY_TYPE_CONFIG.get(study_type, STUDY_TYPE_CONFIG["phase1"])
-            required_sections = study_config["required_sections"]
-
-            logger.info(f"Generating protocol for {study_type} with sections: {required_sections}")
-
+            required_sections = self.get_required_sections(study_type)
             sections = {}
+            
+            # Generate all sections
             for section_name in required_sections:
                 content = self.generate_section(
                     section_name=section_name,
@@ -290,9 +168,17 @@ class TemplateSectionGenerator:
                 )
                 if content:
                     sections[section_name] = content
-
-            return sections
+            
+            # Perform comprehensive validation
+            validation_results = self.validator.validate_protocol(sections, study_type)
+            validation_report = self.validator.generate_validation_report(validation_results)
+            
+            return {
+                "sections": sections,
+                "validation_results": validation_results,
+                "validation_report": validation_report
+            }
 
         except Exception as e:
-            logger.error(f"Error generating complete protocol: {str(e)}")
+            logger.error(f"Error generating protocol: {str(e)}")
             raise

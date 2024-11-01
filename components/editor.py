@@ -19,42 +19,38 @@ def generate_complete_protocol(generator):
         total_sections = len(sections)
         completed = 0
         
-        for section in sections:
-            try:
-                # Show current section being generated
-                status_text.info(f"📝 Generating {section.replace('_', ' ').title()}...")
-                st.session_state.sections_status[section] = 'In Progress'
-                sections_status.write("Current Status:")
-                for sec, status in st.session_state.sections_status.items():
-                    sections_status.write(f"{sec}: {status}")
+        result = generator.generate_complete_protocol(
+            study_type=st.session_state.study_type,
+            synopsis_content=st.session_state.synopsis_content
+        )
+        
+        # Show validation report in expandable section
+        with st.expander("📋 Protocol Validation Report", expanded=True):
+            st.markdown(result["validation_report"])
+            
+            # Show dimension scores
+            for dimension, results in result["validation_results"].items():
+                st.write(f"{dimension.replace('_', ' ').title()}: {results['score']:.2%}")
                 
-                content = generator.generate_section(
-                    section_name=section,
-                    study_type=st.session_state.study_type,
-                    synopsis_content=st.session_state.synopsis_content
-                )
-                
-                if content:
-                    st.session_state.generated_sections[section] = content
-                    st.session_state.sections_status[section] = 'Generated'
-                    completed += 1
-                    progress_bar.progress(completed / total_sections)
-                    sections_status.success(f"✅ {section.replace('_', ' ').title()} completed")
-                else:
-                    raise ValueError(f"No content generated for {section}")
-                    
-            except Exception as e:
-                logger.error(f"Error generating {section}: {str(e)}")
-                st.session_state.sections_status[section] = 'Error'
-                sections_status.error(f"❌ {section}: {str(e)}")
-                continue
-                
-        if completed == total_sections:
+                if results["missing_items"]:
+                    st.warning("Missing Items:")
+                    for item in results["missing_items"]:
+                        st.write(f"- {item}")
+                        
+                if results["recommendations"]:
+                    st.info("Recommendations:")
+                    for rec in results["recommendations"]:
+                        st.write(f"- {rec}")
+        
+        # Store generated sections
+        st.session_state.generated_sections = result["sections"]
+        
+        if len(result["sections"]) == total_sections:
             progress_placeholder.success("✅ Protocol generation completed!")
             st.balloons()
             return True
         else:
-            progress_placeholder.warning(f"⚠️ Generated {completed}/{total_sections} sections")
+            progress_placeholder.warning(f"⚠️ Generated {len(result['sections'])}/{total_sections} sections")
             return False
             
     except Exception as e:
@@ -149,12 +145,11 @@ def render_editor():
     else:
         st.info("👈 Select a section from the sidebar to begin editing")
 
-    # Export functionality with improved options and unique keys
+    # Export functionality with improved options
     if st.session_state.get('generated_sections'):
         st.markdown("---")
         st.subheader("Export Protocol")
         
-        # Add format selection with unique key
         format_option = st.radio(
             "Export Format:",
             ["DOCX", "PDF"],
