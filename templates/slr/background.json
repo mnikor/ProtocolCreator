@@ -1,0 +1,16 @@
+{
+  "title": "Background",
+  "description": "Systematic Literature Review Background",
+  "required_sections": [
+    "research_context",
+    "current_evidence",
+    "knowledge_gaps",
+    "review_objectives"
+  ],
+  "content_structure": {
+    "research_context": "Overview of research field",
+    "current_evidence": "Summary of existing evidence",
+    "knowledge_gaps": "Gaps in current literature",
+    "review_objectives": "Aims of the systematic review"
+  }
+}

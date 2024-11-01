@@ -1,0 +1,16 @@
+{
+  "title": "Background",
+  "description": "Real World Evidence Study Background",
+  "required_sections": [
+    "clinical_context",
+    "evidence_gaps",
+    "regulatory_context",
+    "study_rationale"
+  ],
+  "content_structure": {
+    "clinical_context": "Overview of current clinical practice and knowledge",
+    "evidence_gaps": "Identified gaps in current evidence",
+    "regulatory_context": "Relevant regulatory considerations",
+    "study_rationale": "Justification for RWE approach"
+  }
+}

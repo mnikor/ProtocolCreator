@@ -5,3 +5,4 @@ docx2pdf
 beautifulsoup4
 graphviz
 PyPDF2
+plotly

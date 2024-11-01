@@ -1,8 +1,63 @@
 from enum import Enum
 from typing import Dict, List
 import logging
+import re
 
 logger = logging.getLogger(__name__)
+
+# Guideline-specific validation rules
+GUIDELINE_REQUIREMENTS = {
+    'SPIRIT': {
+        'background': [
+            'scientific_background',
+            'study_rationale',
+            'risk_benefit_assessment'
+        ],
+        'objectives': [
+            'primary_objective',
+            'secondary_objectives',
+            'trial_design'
+        ],
+        'methods': [
+            'study_setting',
+            'eligibility_criteria',
+            'interventions',
+            'outcomes',
+            'sample_size',
+            'recruitment'
+        ]
+    },
+    'PRISMA': {
+        'background': [
+            'rationale',
+            'objectives',
+            'research_question'
+        ],
+        'methods': [
+            'eligibility_criteria',
+            'information_sources',
+            'search_strategy',
+            'study_selection',
+            'data_extraction',
+            'quality_assessment'
+        ]
+    },
+    'STROBE': {
+        'background': [
+            'scientific_background',
+            'study_objectives',
+            'pre_existing_hypotheses'
+        ],
+        'methods': [
+            'study_design',
+            'setting',
+            'participants',
+            'variables',
+            'data_sources',
+            'bias_assessment'
+        ]
+    }
+}
 
 class ValidationDimension(Enum):
     SCIENTIFIC_RIGOR = "scientific_rigor"
@@ -17,89 +72,51 @@ class ProtocolValidator:
         self.validation_criteria = {
             ValidationDimension.SCIENTIFIC_RIGOR: {
                 "items": [
-                    "hypothesis_clarity",          # Clear scientific hypothesis/question
-                    "endpoint_justification",      # Well-justified endpoints
-                    "sample_size_rationale",       # Statistical justification for sample size
-                    "bias_control_measures",       # Measures to control/reduce bias
-                    "analysis_plan_robustness"     # Robust statistical analysis plan
-                ],
-                "study_type_specific": {
-                    "phase2": ["dose_rationale", "ph1_data_reference"],
-                    "slr": ["search_strategy_comprehensiveness", "quality_assessment_method"],
-                    "rwe": ["data_source_validity", "confounding_control"]
-                }
+                    "hypothesis_clarity",
+                    "endpoint_justification",
+                    "sample_size_rationale",
+                    "bias_control_measures",
+                    "analysis_plan_robustness"
+                ]
             },
             ValidationDimension.METHODOLOGY: {
                 "items": [
-                    "design_appropriateness",      # Study design fits the objective
-                    "methods_completeness",        # Complete description of methods
-                    "outcome_measures",            # Clear outcome measures
-                    "data_collection_plan",        # Comprehensive data collection
-                    "quality_control_measures"     # Quality control procedures
-                ],
-                "study_type_specific": {
-                    "phase2": ["dose_modifications", "safety_monitoring"],
-                    "slr": ["data_extraction_process", "synthesis_method"],
-                    "rwe": ["variable_definitions", "data_validation"]
-                }
+                    "design_appropriateness",
+                    "methods_completeness",
+                    "outcome_measures",
+                    "data_collection_plan",
+                    "quality_control_measures"
+                ]
             },
             ValidationDimension.REGULATORY_COMPLIANCE: {
                 "items": [
-                    "ich_gcp_adherence",          # Adherence to ICH GCP
-                    "safety_reporting",            # Safety reporting procedures
-                    "protocol_structure",          # Standard protocol structure
-                    "essential_documents",         # Required regulatory documents
-                    "oversight_mechanisms"         # Study oversight description
-                ],
-                "study_type_specific": {
-                    "phase2": ["ind_requirements", "dmc_charter"],
-                    "slr": ["prospero_registration", "prisma_adherence"],
-                    "rwe": ["data_privacy", "database_qualification"]
-                }
-            },
-            ValidationDimension.OPERATIONAL_FEASIBILITY: {
-                "items": [
-                    "timeline_feasibility",        # Realistic timelines
-                    "resource_requirements",       # Required resources specified
-                    "procedure_practicality",      # Practical procedures
-                    "data_management_plan",        # Data handling procedures
-                    "site_requirements"            # Site capabilities needed
-                ],
-                "study_type_specific": {
-                    "phase2": ["drug_supply", "site_capabilities"],
-                    "slr": ["review_team", "software_tools"],
-                    "rwe": ["data_access", "computing_resources"]
-                }
-            },
-            ValidationDimension.ETHICAL_CONSIDERATIONS: {
-                "items": [
-                    "risk_benefit_assessment",     # Clear risk-benefit assessment
-                    "vulnerable_populations",      # Protection of vulnerable subjects
-                    "informed_consent",            # Informed consent process
-                    "confidentiality_measures",    # Data confidentiality
-                    "ethical_oversight"            # Ethics committee oversight
-                ],
-                "study_type_specific": {
-                    "phase2": ["stopping_rules", "subject_protection"],
-                    "slr": ["publication_bias", "conflict_of_interest"],
-                    "rwe": ["data_privacy", "consent_waiver"]
-                }
-            },
-            ValidationDimension.REPORTING_STANDARDS: {
-                "items": [
-                    "guideline_adherence",         # Relevant reporting guidelines
-                    "complete_documentation",      # Complete documentation
-                    "clarity_and_structure",       # Clear structure and writing
-                    "consistency_internal",        # Internal consistency
-                    "terminology_standard"         # Standard terminology use
-                ],
-                "study_type_specific": {
-                    "phase2": ["consort_compliance", "protocol_registration"],
-                    "slr": ["prisma_checklist", "prospero_registration"],
-                    "rwe": ["strobe_guidance", "record_statement"]
-                }
+                    "ich_gcp_adherence",
+                    "safety_reporting",
+                    "protocol_structure",
+                    "essential_documents",
+                    "oversight_mechanisms"
+                ]
             }
         }
+
+    def _check_item_presence(self, content: Dict[str, str], item: str) -> bool:
+        '''Check if an item is adequately addressed in protocol content'''
+        if not content or not isinstance(content, dict):
+            return False
+            
+        # Convert item name to search terms
+        search_terms = item.replace('_', ' ').lower().split()
+        
+        # Check each section's content
+        for section_content in content.values():
+            if not isinstance(section_content, str):
+                continue
+                
+            content_lower = section_content.lower()
+            if all(term in content_lower for term in search_terms):
+                return True
+                
+        return False
 
     def validate_protocol(self, content: Dict, study_type: str) -> Dict:
         """Validate protocol across all dimensions"""
@@ -108,7 +125,7 @@ class ProtocolValidator:
         for dimension in ValidationDimension:
             dimension_results = self._validate_dimension(
                 content, 
-                study_type, 
+                study_type,
                 dimension
             )
             validation_results[dimension.value] = dimension_results
@@ -118,7 +135,7 @@ class ProtocolValidator:
     def _validate_dimension(self, content: Dict, study_type: str, 
                           dimension: ValidationDimension) -> Dict:
         """Validate specific dimension"""
-        criteria = self.validation_criteria[dimension]
+        criteria = self.validation_criteria.get(dimension, {})
         results = {
             "missing_items": [],
             "recommendations": [],
@@ -126,94 +143,22 @@ class ProtocolValidator:
         }
 
         # Check common items
-        for item in criteria["items"]:
+        items = criteria.get("items", [])
+        for item in items:
             if not self._check_item_presence(content, item):
                 results["missing_items"].append(item)
 
-        # Check study-type specific items
-        specific_items = criteria.get("study_type_specific", {}).get(study_type, [])
-        for item in specific_items:
-            if not self._check_item_presence(content, item):
-                results["missing_items"].append(f"{study_type}-specific: {item}")
-
         # Calculate dimension score
-        total_items = len(criteria["items"]) + len(specific_items)
+        total_items = len(items)
         missing_items = len(results["missing_items"])
-        results["score"] = (total_items - missing_items) / total_items
+        results["score"] = (total_items - missing_items) / total_items if total_items > 0 else 0.0
 
         # Generate recommendations
-        results["recommendations"] = self._generate_recommendations(
-            dimension,
-            results["missing_items"]
-        )
+        results["recommendations"] = [
+            f"Add {item.replace('_', ' ')}" for item in results["missing_items"]
+        ]
 
         return results
-
-    def _check_item_presence(self, content: Dict, item: str) -> bool:
-        """Check if item is adequately addressed in protocol"""
-        if not content:
-            return False
-            
-        # Convert item name to search terms
-        search_terms = item.replace('_', ' ').lower().split()
-        
-        # Search through all sections
-        for section_content in content.values():
-            if not isinstance(section_content, str):
-                continue
-                
-            section_text = section_content.lower()
-            if all(term in section_text for term in search_terms):
-                return True
-                
-        return False
-
-    def _generate_recommendations(self, dimension: ValidationDimension, 
-                                missing_items: List[str]) -> List[str]:
-        """Generate specific recommendations for improvement"""
-        recommendations = []
-        
-        dimension_recommendations = {
-            ValidationDimension.SCIENTIFIC_RIGOR: {
-                "hypothesis_clarity": "Clearly state the scientific hypothesis",
-                "endpoint_justification": "Provide detailed justification for chosen endpoints",
-                "sample_size_rationale": "Include comprehensive sample size calculation"
-            },
-            ValidationDimension.METHODOLOGY: {
-                "design_appropriateness": "Justify the chosen study design",
-                "methods_completeness": "Ensure all methods are fully described",
-                "quality_control_measures": "Detail quality control procedures"
-            },
-            ValidationDimension.REGULATORY_COMPLIANCE: {
-                "ich_gcp_adherence": "Ensure compliance with ICH GCP guidelines",
-                "safety_reporting": "Detail safety reporting procedures",
-                "protocol_structure": "Follow standard protocol structure"
-            },
-            ValidationDimension.OPERATIONAL_FEASIBILITY: {
-                "timeline_feasibility": "Include realistic study timelines",
-                "resource_requirements": "Specify required resources",
-                "site_requirements": "Detail site requirements"
-            },
-            ValidationDimension.ETHICAL_CONSIDERATIONS: {
-                "risk_benefit_assessment": "Include comprehensive risk-benefit analysis",
-                "informed_consent": "Detail informed consent process",
-                "ethical_oversight": "Specify ethical oversight mechanisms"
-            },
-            ValidationDimension.REPORTING_STANDARDS: {
-                "guideline_adherence": "Follow relevant reporting guidelines",
-                "complete_documentation": "Ensure complete documentation",
-                "terminology_standard": "Use standard terminology"
-            }
-        }
-        
-        for item in missing_items:
-            base_item = item.split("specific: ")[-1]
-            if rec := dimension_recommendations.get(dimension, {}).get(base_item):
-                recommendations.append(rec)
-            else:
-                recommendations.append(f"Add missing element: {base_item}")
-                
-        return recommendations
 
     def generate_validation_report(self, validation_results: Dict) -> str:
         """Generate readable validation report"""
@@ -227,12 +172,12 @@ class ProtocolValidator:
         for dimension, results in validation_results.items():
             report.append(f"\n{dimension.replace('_', ' ').title()} (Score: {results['score']:.2%})")
             
-            if results["missing_items"]:
+            if results.get("missing_items"):
                 report.append("\nMissing Items:")
                 for item in results["missing_items"]:
                     report.append(f"- {item}")
                     
-            if results["recommendations"]:
+            if results.get("recommendations"):
                 report.append("\nRecommendations:")
                 for rec in results["recommendations"]:
                     report.append(f"- {rec}")
@@ -241,5 +186,59 @@ class ProtocolValidator:
 
     def _calculate_overall_score(self, validation_results: Dict) -> float:
         """Calculate overall protocol quality score"""
-        scores = [results["score"] for results in validation_results.values()]
+        scores = [results.get("score", 0.0) for results in validation_results.values()]
         return sum(scores) / len(scores) if scores else 0.0
+
+    def validate_against_guidelines(self, content: str, section_name: str, guideline: str) -> Dict:
+        """Validate section content against specific guideline requirements"""
+        try:
+            validation_results = {
+                "missing_elements": [],
+                "recommendations": [],
+                "guideline": guideline,
+                "compliance_score": 0.0
+            }
+
+            # Get guideline-specific requirements for the section
+            requirements = GUIDELINE_REQUIREMENTS.get(guideline, {}).get(section_name, [])
+            if not requirements:
+                logger.info(f"No specific {guideline} requirements for {section_name}")
+                return validation_results
+
+            # Check each required element
+            found_elements = 0
+            for element in requirements:
+                if not self._check_element_presence(content, element):
+                    validation_results["missing_elements"].append(element)
+                    validation_results["recommendations"].append(
+                        f"Add {element.replace('_', ' ')} to comply with {guideline} guidelines"
+                    )
+                else:
+                    found_elements += 1
+
+            # Calculate compliance score
+            validation_results["compliance_score"] = found_elements / len(requirements)
+            logger.info(f"{guideline} compliance score for {section_name}: {validation_results['compliance_score']:.2%}")
+
+            return validation_results
+
+        except Exception as e:
+            logger.error(f"Error in guideline validation: {str(e)}")
+            return {
+                "missing_elements": [],
+                "recommendations": [f"Error in validation: {str(e)}"],
+                "guideline": guideline,
+                "compliance_score": 0.0
+            }
+
+    def _check_element_presence(self, content: str, element: str) -> bool:
+        """Check if an element is present in the content"""
+        if not content or not isinstance(content, str):
+            return False
+
+        # Convert element name to search terms
+        search_terms = element.replace('_', ' ').lower().split()
+        content_lower = content.lower()
+
+        # Check for presence of all search terms
+        return all(term in content_lower for term in search_terms)

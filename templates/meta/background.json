@@ -1,0 +1,16 @@
+{
+  "title": "Background",
+  "description": "Meta-Analysis Background",
+  "required_sections": [
+    "research_context",
+    "existing_evidence",
+    "heterogeneity_considerations",
+    "analysis_rationale"
+  ],
+  "content_structure": {
+    "research_context": "Overview of research area",
+    "existing_evidence": "Summary of primary studies",
+    "heterogeneity_considerations": "Sources of heterogeneity",
+    "analysis_rationale": "Justification for meta-analysis"
+  }
+}

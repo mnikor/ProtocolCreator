@@ -1,0 +1,16 @@
+{
+  "title": "Background",
+  "description": "Observational Study Background",
+  "required_sections": [
+    "research_context",
+    "current_knowledge",
+    "knowledge_gaps",
+    "study_rationale"
+  ],
+  "content_structure": {
+    "research_context": "Overview of research area",
+    "current_knowledge": "Current state of knowledge",
+    "knowledge_gaps": "Identified knowledge gaps",
+    "study_rationale": "Justification for observational approach"
+  }
+}
