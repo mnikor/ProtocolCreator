@@ -4,6 +4,7 @@ from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.style import WD_STYLE_TYPE
+from docx2pdf import convert
 
 logger = logging.getLogger(__name__)
 
@@ -109,14 +110,13 @@ class ProtocolFormatter:
             
             if format.lower() == 'pdf':
                 try:
-                    from docx2pdf import convert
                     pdf_path = f"{filename}.pdf"
                     convert(docx_path, pdf_path)
                     return pdf_path
                 except Exception as pdf_error:
                     logger.error(f"Error converting to PDF: {str(pdf_error)}")
                     raise ValueError(
-                        "Could not convert to PDF. Please download as DOCX instead."
+                        "Could not convert to PDF. Please try downloading as DOCX instead."
                     )
             return docx_path
                 
