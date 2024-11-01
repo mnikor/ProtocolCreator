@@ -1,8 +1,9 @@
+# Previous imports remain the same
 import streamlit as st
 from datetime import datetime
 import logging
 from utils.template_section_generator import TemplateSectionGenerator
-from utils.protocol_formatter import ProtocolFormatter, can_convert_to_pdf
+from utils.protocol_formatter import ProtocolFormatter
 from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
 from config.validation_rules import validate_protocol_quality
 
@@ -10,40 +11,18 @@ from config.validation_rules import validate_protocol_quality
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def _initialize_sections_status():
-    """Initialize or update sections status"""
-    if 'sections_status' not in st.session_state:
-        st.session_state.sections_status = {}
-    
-    if 'generated_sections' not in st.session_state:
-        st.session_state.generated_sections = {}
-        
-    # Get sections based on study type
-    if study_type := st.session_state.get('study_type'):
-        study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
-        sections = study_config.get('required_sections', [])
-        
-        # Update sections status
-        for section in sections:
-            if section not in st.session_state.sections_status:
-                st.session_state.sections_status[section] = 'Not Started'
-
 def export_protocol():
     """Handle protocol export with format selection"""
     try:
         formatter = ProtocolFormatter()
         doc = formatter.format_protocol(st.session_state.generated_sections)
         
-        # Check PDF conversion capability
-        if can_convert_to_pdf():
-            format_option = st.sidebar.radio(
-                "Export Format:",
-                ["DOCX", "PDF"],
-                key="nav_export_format"
-            )
-        else:
-            st.sidebar.info("Note: PDF export is not available in this environment. Documents will be exported as DOCX.")
-            format_option = "DOCX"
+        # Simple format selection without environment check
+        format_option = st.sidebar.radio(
+            "Export Format:",
+            ["DOCX", "PDF"],
+            key="nav_export_format"
+        )
         
         if st.sidebar.button("Export Protocol", key="nav_export_button"):
             try:
@@ -77,6 +56,8 @@ def export_protocol():
                 
     except Exception as e:
         st.sidebar.error(f"Error preparing protocol: {str(e)}")
+
+# Rest of the navigator.py code remains the same...
 
 def generate_all_sections():
     """Generate all protocol sections with enhanced progress tracking"""

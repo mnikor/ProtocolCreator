@@ -7,17 +7,6 @@ from docx.enum.style import WD_STYLE_TYPE
 
 logger = logging.getLogger(__name__)
 
-def can_convert_to_pdf():
-    '''Check if PDF conversion is possible in current environment'''
-    try:
-        import platform
-        system = platform.system().lower()
-        if system == 'linux':
-            return False
-        return True
-    except:
-        return False
-
 class ProtocolFormatter:
     def __init__(self):
         self.doc = Document()
@@ -119,12 +108,6 @@ class ProtocolFormatter:
             self.doc.save(docx_path)
             
             if format.lower() == 'pdf':
-                if not can_convert_to_pdf():
-                    logger.warning("PDF conversion not available in current environment")
-                    raise ValueError(
-                        "PDF export is not available in this environment. Please download as DOCX instead."
-                    )
-                    
                 try:
                     from docx2pdf import convert
                     pdf_path = f"{filename}.pdf"
