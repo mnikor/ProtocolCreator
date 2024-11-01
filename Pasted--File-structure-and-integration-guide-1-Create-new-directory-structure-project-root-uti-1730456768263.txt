@@ -1,0 +1,163 @@
+# File structure and integration guide
+
+1. Create new directory structure:
+```
+project_root/
+├── utils/
+│   ├── __init__.py
+│   ├── gpt_handler.py
+│   ├── template_manager.py
+│   └── template_section_generator.py
+├── config/
+│   ├── __init__.py
+│   ├── study_type_definitions.py    # New comprehensive study configs
+│   ├── validation_rules.py          # New validation rules
+│   └── section_prompts.py           # Existing prompts file
+├── templates/
+│   ├── phase1/
+│   ├── phase2/
+│   ├── slr/
+│   └── ...
+```
+
+2. Modify template_section_generator.py:
+
+```python
+from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
+from config.validation_rules import QUALITY_VALIDATION_RULES, validate_protocol_quality
+
+class TemplateSectionGenerator:
+    def __init__(self):
+        self.gpt_handler = GPTHandler()
+        self.template_manager = TemplateManager()
+        self.study_configs = COMPREHENSIVE_STUDY_CONFIGS
+        self.validation_rules = QUALITY_VALIDATION_RULES
+
+    def _validate_section_requirements(self, section_name, study_type, content):
+        """Validate section content against requirements"""
+        if study_type not in self.study_configs:
+            return True
+
+        study_config = self.study_configs[study_type]
+        required_subsections = study_config.get("subsections", {}).get(section_name, [])
+        
+        validation_results = {
+            "missing_subsections": [],
+            "recommendations": []
+        }
+
+        for subsection in required_subsections:
+            if not self._check_subsection_presence(content, subsection):
+                validation_results["missing_subsections"].append(subsection)
+
+        return validation_results
+
+    def generate_section(self, section_name, study_type, synopsis_content, existing_sections=None):
+        try:
+            # Existing validation and normalization code...
+
+            # Generate content
+            content = self.gpt_handler.generate_section(...)
+
+            # Validate content against requirements
+            validation_results = self._validate_section_requirements(
+                section_name, 
+                study_type, 
+                content
+            )
+
+            if validation_results["missing_subsections"]:
+                logger.warning(f"Missing required subsections: {validation_results['missing_subsections']}")
+                # Consider regenerating or enhancing content
+
+            return content
+
+        except Exception as e:
+            logger.error(f"Error generating section {section_name}: {str(e)}")
+            raise
+
+    def generate_complete_protocol(self, study_type, synopsis_content):
+        try:
+            # Generate sections
+            sections = super().generate_complete_protocol(study_type, synopsis_content)
+
+            # Validate complete protocol
+            validation_results = validate_protocol_quality(study_type, sections)
+
+            if validation_results["missing_elements"] or not validation_results["guideline_adherence"]:
+                logger.warning("Protocol validation found issues:", validation_results)
+
+            return {
+                "sections": sections,
+                "validation_results": validation_results
+            }
+
+        except Exception as e:
+            logger.error(f"Error generating protocol: {str(e)}")
+            raise
+```
+
+3. Update section_prompts.py to include study-type specific prompts:
+
+```python
+from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
+
+def get_section_prompt(section_name, study_type):
+    """Get appropriate prompt for section and study type"""
+    base_prompt = SECTION_PROMPTS.get(section_name, "")
+    
+    # Get study-specific subsections
+    study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
+    required_subsections = study_config.get("subsections", {}).get(section_name, [])
+    
+    if required_subsections:
+        subsection_text = "\n".join(f"## {subsection.replace('_', ' ').title()}"
+                                  for subsection in required_subsections)
+        base_prompt = f"{base_prompt}\n\nRequired subsections:\n{subsection_text}"
+
+    return base_prompt
+```
+
+4. Update template_manager.py to use new configurations:
+
+```python
+from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
+
+class TemplateManager:
+    def __init__(self):
+        self.study_configs = COMPREHENSIVE_STUDY_CONFIGS
+        self.template_dir = os.path.join(os.path.dirname(__file__), '..', 'templates')
+        self._load_templates()
+
+    def get_section_template(self, study_type, section_name):
+        """Get template with study type specific requirements"""
+        template = super().get_section_template(study_type, section_name)
+        
+        # Add study-specific requirements
+        study_config = self.study_configs.get(study_type, {})
+        if study_config and section_name in study_config.get("subsections", {}):
+            template["required_subsections"] = study_config["subsections"][section_name]
+
+        return template
+```
+
+Usage in your Streamlit app:
+
+```python
+def generate_protocol():
+    generator = TemplateSectionGenerator()
+    
+    result = generator.generate_complete_protocol(
+        study_type=st.session_state.study_type,
+        synopsis_content=st.session_state.synopsis_content
+    )
+    
+    # Show validation results
+    if result["validation_results"]["missing_elements"]:
+        st.warning("Protocol is missing some recommended elements:")
+        for missing in result["validation_results"]["missing_elements"]:
+            st.write(f"- {missing['category']}: {missing['element']}")
+
+    # Store generated sections
+    st.session_state.generated_sections = result["sections"]
+```

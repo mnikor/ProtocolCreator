@@ -3,6 +3,8 @@ from datetime import datetime
 import logging
 from utils.template_section_generator import TemplateSectionGenerator
 from utils.protocol_formatter import ProtocolFormatter
+from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
+from config.validation_rules import validate_protocol_quality
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -18,8 +20,8 @@ def _initialize_sections_status():
         
     # Get sections based on study type
     if study_type := st.session_state.get('study_type'):
-        generator = TemplateSectionGenerator()
-        sections = generator.get_required_sections(study_type)
+        study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
+        sections = study_config.get('required_sections', [])
         
         # Update sections status
         for section in sections:
@@ -38,7 +40,8 @@ def generate_all_sections():
         
         # Get sections for study type
         study_type = st.session_state.study_type
-        required_sections = generator.get_required_sections(study_type)
+        study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
+        required_sections = study_config.get('required_sections', [])
         total_sections = len(required_sections)
         
         # Initialize tracking
@@ -87,10 +90,21 @@ def generate_all_sections():
                 sections_status.error(f"❌ {section}: {str(e)}")
                 continue
 
+        # Validate complete protocol
+        validation_results = validate_protocol_quality(study_type, st.session_state.generated_sections)
+        
         # Final status update
         total_time = datetime.now() - start_time
         if successful_sections == total_sections:
             progress_placeholder.success(f"✅ Protocol generated successfully! ({total_time.total_seconds():.1f}s)")
+            
+            # Show validation results if there are any issues
+            if validation_results["missing_elements"]:
+                with st.expander("📋 Protocol Quality Check"):
+                    st.warning("Some recommended elements are missing:")
+                    for missing in validation_results["missing_elements"]:
+                        st.write(f"- {missing['category']}: {missing['element']}")
+            
             st.balloons()
             return True
         else:
@@ -195,8 +209,8 @@ def render_navigator():
     
     # Show section navigation
     if study_type := st.session_state.get('study_type'):
-        generator = TemplateSectionGenerator()
-        sections = generator.get_required_sections(study_type)
+        study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
+        sections = study_config.get('required_sections', [])
         
         # Show overall progress
         completed = sum(1 for status in st.session_state.sections_status.values() 
