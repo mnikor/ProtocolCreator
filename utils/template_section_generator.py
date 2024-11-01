@@ -9,38 +9,96 @@ logger = logging.getLogger(__name__)
 STUDY_TYPE_CONFIG = {
     "phase1": {
         "required_sections": [
-            "title",
-            "background",
-            "objectives", 
-            "study_design",
-            "population",
-            "procedures",
-            "statistical_analysis",
-            "safety"
+            "title", "background", "objectives", "study_design", 
+            "population", "procedures", "statistical_analysis", "safety"
         ],
         "section_aliases": {
             "statistical": "statistical_analysis",
             "statistical_methods": "statistical_analysis",
-            "study_procedures": "procedures",
-            "procedures": "procedures"
+            "study_procedures": "procedures"
         }
     },
     "phase2": {
         "required_sections": [
-            "title",
-            "background",
-            "objectives", 
-            "study_design",
-            "population",
-            "procedures",
-            "statistical_analysis",
-            "safety"
+            "title", "background", "objectives", "study_design", 
+            "population", "procedures", "statistical_analysis", "safety"
+        ],
+        "section_aliases": {
+            "statistical": "statistical_analysis",
+            "statistical_methods": "statistical_analysis",
+            "study_procedures": "procedures"
+        }
+    },
+    "phase3": {
+        "required_sections": [
+            "title", "background", "objectives", "study_design", 
+            "population", "procedures", "statistical_analysis", "safety"
+        ],
+        "section_aliases": {
+            "statistical": "statistical_analysis",
+            "statistical_methods": "statistical_analysis",
+            "study_procedures": "procedures"
+        }
+    },
+    "phase4": {
+        "required_sections": [
+            "title", "background", "objectives", "study_design", 
+            "population", "procedures", "statistical_analysis", "safety",
+            "pharmacoeconomics"
         ],
         "section_aliases": {
             "statistical": "statistical_analysis",
             "statistical_methods": "statistical_analysis",
             "study_procedures": "procedures",
-            "procedures": "procedures"
+            "economics": "pharmacoeconomics"
+        }
+    },
+    "rwe": {
+        "required_sections": [
+            "title", "background", "objectives", "study_design", 
+            "data_sources", "population", "variables", 
+            "statistical_analysis", "limitations"
+        ],
+        "section_aliases": {
+            "statistical": "statistical_analysis",
+            "methods": "study_design",
+            "data": "data_sources"
+        }
+    },
+    "slr": {
+        "required_sections": [
+            "title", "background", "objectives", "methods",
+            "search_strategy", "data_extraction", "quality_assessment",
+            "data_synthesis"
+        ],
+        "section_aliases": {
+            "methodology": "methods",
+            "extraction": "data_extraction",
+            "synthesis": "data_synthesis"
+        }
+    },
+    "meta": {
+        "required_sections": [
+            "title", "background", "objectives", "methods",
+            "search_strategy", "data_extraction", "statistical_analysis",
+            "quality_assessment"
+        ],
+        "section_aliases": {
+            "methodology": "methods",
+            "extraction": "data_extraction",
+            "statistical": "statistical_analysis"
+        }
+    },
+    "observational": {
+        "required_sections": [
+            "title", "background", "objectives", "study_design",
+            "population", "variables", "data_collection",
+            "statistical_analysis", "limitations"
+        ],
+        "section_aliases": {
+            "methods": "study_design",
+            "outcomes": "variables",
+            "statistical": "statistical_analysis"
         }
     }
 }
@@ -50,6 +108,41 @@ class TemplateSectionGenerator:
         self.gpt_handler = GPTHandler()
         self.template_manager = TemplateManager()
         self.validator = ProtocolValidator()
+
+    def _normalize_study_type(self, study_type):
+        """Normalize study type string to match config keys"""
+        if not study_type:
+            return "phase1"
+
+        study_type = study_type.lower().strip()
+        
+        # Direct mappings
+        direct_mappings = {
+            "rwe": "rwe",
+            "slr": "slr",
+            "meta": "meta",
+            "observational": "observational"
+        }
+        
+        if study_type in direct_mappings:
+            return direct_mappings[study_type]
+        
+        # Check phase studies
+        if "phase" in study_type:
+            phase = ''.join(filter(str.isdigit, study_type))
+            return f"phase{phase}" if phase in ['1','2','3','4'] else "phase1"
+        
+        # Check composite terms
+        if "real world" in study_type or "real-world" in study_type:
+            return "rwe"
+        if "systematic" in study_type and "review" in study_type:
+            return "slr"
+        if "meta" in study_type and "analysis" in study_type:
+            return "meta"
+        if "observation" in study_type:
+            return "observational"
+            
+        return "phase1"  # Default fallback
 
     def get_required_sections(self, study_type):
         '''Get required sections for a study type'''
@@ -67,58 +160,34 @@ class TemplateSectionGenerator:
             logger.error(f"Error getting required sections: {str(e)}")
             return STUDY_TYPE_CONFIG["phase1"]["required_sections"]
 
-    def _normalize_study_type(self, study_type):
-        """Normalize study type string to match config keys"""
-        if not study_type:
-            return "phase1"
-
-        study_type = study_type.lower().strip()
-
-        # Define mappings for various study type names
-        type_mappings = {
-            ("systematic", "literature", "review"): "slr",
-            ("slr",): "slr",
-            ("meta",): "meta",
-            ("meta-analysis", "metaanalysis"): "meta",
-            ("real world", "rwe", "real-world"): "rwe",
-            ("observational",): "observational"
-        }
-
-        # Check phase studies first
-        if "phase" in study_type:
-            phase = ''.join(filter(str.isdigit, study_type))
-            return f"phase{phase}" if phase in ['1','2','3','4'] else "phase1"
-
-        # Check other study types
-        for keywords, mapped_type in type_mappings.items():
-            if any(all(word in study_type for word in keyword_tuple) for keyword_tuple in [keywords]):
-                return mapped_type
-
-        return "phase1"
-
     def _get_normalized_section_name(self, section_name, study_type):
         """Get normalized section name using aliases"""
-        study_config = STUDY_TYPE_CONFIG.get(study_type, {})
-        aliases = study_config.get("section_aliases", {})
-        
-        # First check if section name is already in required sections
-        if section_name in study_config.get("required_sections", []):
-            return section_name
-        
-        # Then check aliases
-        normalized_name = aliases.get(section_name, section_name)
-        
-        # Verify the normalized name is in required sections
-        if normalized_name not in study_config.get("required_sections", []):
-            logger.error(f"Normalized section name {normalized_name} not in required sections")
+        try:
+            study_config = STUDY_TYPE_CONFIG.get(study_type, {})
+            aliases = study_config.get("section_aliases", {})
+            
+            # First check if section name is already in required sections
+            if section_name in study_config.get("required_sections", []):
+                return section_name
+            
+            # Then check aliases
+            normalized_name = aliases.get(section_name.lower(), section_name)
+            
+            # Verify the normalized name is in required sections
+            if normalized_name in study_config.get("required_sections", []):
+                if normalized_name != section_name:
+                    logger.info(f"Normalized section name from {section_name} to {normalized_name}")
+                return normalized_name
+            
+            logger.error(f"Section name {section_name} not found in required sections or aliases")
             return None
-        
-        if normalized_name != section_name:
-            logger.info(f"Normalized section name from {section_name} to {normalized_name}")
-        
-        return normalized_name
+            
+        except Exception as e:
+            logger.error(f"Error normalizing section name: {str(e)}")
+            return None
 
     def generate_section(self, section_name, study_type, synopsis_content, existing_sections=None):
+        """Generate a single protocol section"""
         try:
             if not synopsis_content:
                 raise ValueError("Synopsis content is required")
