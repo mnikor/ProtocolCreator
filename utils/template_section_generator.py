@@ -18,7 +18,7 @@ STUDY_TYPE_CONFIG = {
             "safety"
         ],
         "section_aliases": {
-            "statistical_analysis": "statistical",
+            "statistical": "statistical_analysis",
             "study_procedures": "procedures"
         }
     },
@@ -34,7 +34,7 @@ STUDY_TYPE_CONFIG = {
             "safety"
         ],
         "section_aliases": {
-            "statistical_analysis": "statistical",
+            "statistical": "statistical_analysis",
             "study_procedures": "procedures"
         }
     },
@@ -50,7 +50,7 @@ STUDY_TYPE_CONFIG = {
             "safety"
         ],
         "section_aliases": {
-            "statistical_analysis": "statistical",
+            "statistical": "statistical_analysis",
             "study_procedures": "procedures"
         }
     },
@@ -66,7 +66,7 @@ STUDY_TYPE_CONFIG = {
             "safety"
         ],
         "section_aliases": {
-            "statistical_analysis": "statistical",
+            "statistical": "statistical_analysis",
             "study_procedures": "procedures"
         }
     },
@@ -83,7 +83,7 @@ STUDY_TYPE_CONFIG = {
             "limitations"
         ],
         "section_aliases": {
-            "analytical_methods": "statistical",
+            "analytical_methods": "statistical_analysis",
             "data_sources": "procedures"
         }
     },
@@ -101,7 +101,7 @@ STUDY_TYPE_CONFIG = {
         ],
         "section_aliases": {
             "methods": "study_design",
-            "synthesis_methods": "statistical",
+            "synthesis_methods": "statistical_analysis",
             "data_extraction": "procedures"
         }
     },
@@ -119,7 +119,7 @@ STUDY_TYPE_CONFIG = {
         ],
         "section_aliases": {
             "methods": "study_design",
-            "statistical_synthesis": "statistical",
+            "statistical_synthesis": "statistical_analysis",
             "data_extraction": "procedures"
         }
     },
@@ -136,7 +136,7 @@ STUDY_TYPE_CONFIG = {
             "limitations"
         ],
         "section_aliases": {
-            "analytical_methods": "statistical",
+            "analytical_methods": "statistical_analysis",
             "data_collection": "procedures"
         }
     }
@@ -196,14 +196,19 @@ class TemplateSectionGenerator:
         """Get normalized section name using aliases"""
         study_config = STUDY_TYPE_CONFIG.get(study_type, {})
         aliases = study_config.get("section_aliases", {})
-
-        # Check if section has an alias
+        
+        # Check both ways - original to alias and alias to original
         normalized_name = aliases.get(section_name, section_name)
-
-        # Log the normalization
+        
+        # Check reverse mapping
+        for original, alias in aliases.items():
+            if section_name == alias:
+                normalized_name = original
+                break
+        
         if normalized_name != section_name:
             logger.info(f"Normalized section name from {section_name} to {normalized_name}")
-
+        
         return normalized_name
 
     def generate_section(self, section_name, study_type, synopsis_content, existing_sections=None):
