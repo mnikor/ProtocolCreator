@@ -1,5 +1,6 @@
 import os
 import logging
+import re
 from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -54,43 +55,92 @@ class ProtocolFormatter:
                 
                 if props.get('align') == 'CENTER':
                     para_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    
+
     def format_protocol(self, sections):
-        """Format complete protocol document"""
+        """Format complete protocol document with post-processing"""
         try:
-            # Add title page
-            title = self.doc.add_paragraph('Clinical Trial Protocol')
-            title.style = self.doc.styles['CustomTitle']
+            # Combine all sections first
+            combined_content = self._combine_sections(sections)
             
-            # Add each section with proper heading levels
-            for section_name, content in sections.items():
-                # Add section heading with proper style
-                heading = self.doc.add_paragraph(section_name.replace('_', ' ').title())
-                heading.style = self.doc.styles['CustomHeading1']
-                
-                # Split content into subsections if needed
-                subsections = content.split('\n\n')
-                for subsection in subsections:
-                    if subsection.strip():
-                        # Check if it's a subsection heading
-                        if ':' in subsection and len(subsection.split(':')[0]) < 50:
-                            subheading = self.doc.add_paragraph(subsection.split(':')[0])
-                            subheading.style = self.doc.styles['CustomHeading2']
-                            content_text = ':'.join(subsection.split(':')[1:])
-                        else:
-                            content_text = subsection
-                            
-                        # Add content with proper body style
-                        if content_text.strip():
-                            para = self.doc.add_paragraph(content_text.strip())
-                            para.style = self.doc.styles['BodyText']
+            # Post-process the combined content
+            processed_content = self._post_process_content(combined_content)
+            
+            # Format into document
+            self._format_into_document(processed_content)
             
             return self.doc
             
         except Exception as e:
             logger.error(f"Error formatting protocol: {str(e)}")
             raise
+
+    def _combine_sections(self, sections):
+        """Combine all sections with proper numbering"""
+        combined = []
+        section_number = 1
+        
+        for section_name, content in sections.items():
+            # Add section heading with number
+            heading = f"{section_number}. {section_name.replace('_', ' ').title()}"
+            combined.append(heading)
             
+            # Process subsections
+            subsections = content.split('\n\n')
+            subsection_number = 1
+            for subsection in subsections:
+                if subsection.strip():
+                    # Check if it's a subsection heading
+                    if ':' in subsection and len(subsection.split(':')[0]) < 50:
+                        # Add subsection number
+                        sub_heading = f"{section_number}.{subsection_number}. {subsection.split(':')[0]}"
+                        combined.append(sub_heading)
+                        combined.append(':'.join(subsection.split(':')[1:]))
+                        subsection_number += 1
+                    else:
+                        combined.append(subsection)
+                        
+            section_number += 1
+            combined.append('')  # Add separator
+            
+        return '\n\n'.join(combined)
+
+    def _post_process_content(self, content):
+        """Clean up and format content"""
+        # Clean up formatting
+        content = re.sub(r'\n{3,}', '\n\n', content)
+        content = re.sub(r'^\s+', '', content, flags=re.MULTILINE)
+        
+        # Fix list numbering
+        content = re.sub(r'^\d+\.\s*', '', content, flags=re.MULTILINE)
+        
+        return content
+
+    def _format_into_document(self, content):
+        """Format content into document with proper styles"""
+        # Add title page
+        title = self.doc.add_paragraph('Clinical Trial Protocol')
+        title.style = self.doc.styles['CustomTitle']
+        
+        # Add content with proper styles
+        current_section = None
+        for paragraph in content.split('\n\n'):
+            if not paragraph.strip():
+                continue
+                
+            # Detect heading levels
+            if re.match(r'^\d+\.\s', paragraph):
+                # Main section heading
+                p = self.doc.add_paragraph(paragraph)
+                p.style = self.doc.styles['CustomHeading1']
+            elif re.match(r'^\d+\.\d+\.\s', paragraph):
+                # Subsection heading
+                p = self.doc.add_paragraph(paragraph)
+                p.style = self.doc.styles['CustomHeading2']
+            else:
+                # Regular content
+                p = self.doc.add_paragraph(paragraph)
+                p.style = self.doc.styles['BodyText']
+
     def save_document(self, filename, format='docx'):
         """Save document in specified format"""
         try:

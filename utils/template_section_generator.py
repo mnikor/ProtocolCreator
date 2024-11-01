@@ -14,7 +14,7 @@ STUDY_TYPE_CONFIG = {
             "study_design",
             "population",
             "procedures",
-            "statistical_analysis",  # Renamed from statistical
+            "statistical_analysis",
             "safety"
         ]
     },
@@ -26,7 +26,7 @@ STUDY_TYPE_CONFIG = {
             "study_design",
             "population",
             "procedures",
-            "statistical_analysis",  # Renamed from statistical
+            "statistical_analysis",
             "safety"
         ]
     },
@@ -38,7 +38,7 @@ STUDY_TYPE_CONFIG = {
             "study_design",
             "population",
             "procedures",
-            "statistical_analysis",  # Renamed from statistical
+            "statistical_analysis",
             "safety"
         ]
     },
@@ -50,7 +50,7 @@ STUDY_TYPE_CONFIG = {
             "study_design",
             "population",
             "procedures",
-            "statistical_analysis",  # Renamed from statistical
+            "statistical_analysis",
             "safety"
         ]
     },
@@ -151,30 +151,25 @@ class TemplateSectionGenerator:
             logger.info(f"Generating section {section_name} for {study_type}")
             logger.info(f"Synopsis length: {len(str(synopsis_content))}")
 
-            # Get required sections
-            required_sections = self.get_required_sections(study_type)
+            # Get template for section
+            template = self.template_manager.get_section_template(study_type, section_name)
             
-            # Check if section is required
-            if section_name not in required_sections:
-                logger.info(f"Section {section_name} not required for {study_type} - skipping")
-                return None
-
-            # Generate content
+            # Generate content with template context
             content = self.gpt_handler.generate_section(
                 section_name=section_name,
                 synopsis_content=synopsis_content,
-                previous_sections=existing_sections or {},
-                prompt=None
+                previous_sections=existing_sections,
+                prompt=template.get('prompt') if template else None
             )
 
             return content
 
         except Exception as e:
             logger.error(f"Error generating section {section_name}: {str(e)}")
-            return None
+            raise
 
     def generate_complete_protocol(self, study_type, synopsis_content):
-        """Generate all applicable protocol sections"""
+        """Generate complete protocol with all sections"""
         try:
             if not synopsis_content:
                 raise ValueError("Synopsis content is required")
@@ -185,23 +180,20 @@ class TemplateSectionGenerator:
             logger.info(f"Generating complete protocol for {study_type}")
             logger.info(f"Synopsis length: {len(str(synopsis_content))}")
 
-            required_sections = self.get_required_sections(study_type)
-            logger.info(f"Required sections: {required_sections}")
-
             sections = {}
-            for section_name in required_sections:
+            for section_name in self.get_required_sections(study_type):
                 logger.info(f"Generating section: {section_name}")
-                section_content = self.generate_section(
+                content = self.generate_section(
                     section_name=section_name,
                     study_type=study_type,
                     synopsis_content=synopsis_content,
                     existing_sections=sections
                 )
-                if section_content:
-                    sections[section_name] = section_content
-
+                if content:
+                    sections[section_name] = content
+            
             return sections
-
+            
         except Exception as e:
             logger.error(f"Error generating complete protocol: {str(e)}")
             raise
