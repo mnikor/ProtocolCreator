@@ -4,8 +4,8 @@ import logging
 import time
 from utils.template_section_generator import TemplateSectionGenerator
 from utils.protocol_formatter import ProtocolFormatter
+from utils.protocol_validator import ProtocolValidator
 from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
-from config.validation_rules import validate_protocol_quality
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ def generate_all_sections():
     """Generate all protocol sections with enhanced validation and retry logic"""
     max_retries = 3
     retry_count = 0
+    start_time = datetime.now()
     
     while retry_count < max_retries:
         try:
@@ -55,8 +56,6 @@ def generate_all_sections():
             
             # Initialize tracking
             successful_sections = 0
-            generation_errors = []
-            start_time = datetime.now()
             
             # Generate complete protocol
             status_text.info("🔄 Generating protocol sections...")
@@ -66,12 +65,13 @@ def generate_all_sections():
                     synopsis_content=st.session_state.synopsis_content
                 )
                 
-                # Update section statuses
+                # Update section statuses and progress
                 sections = result.get("sections", {})
                 for section in required_sections:
                     if section in sections:
                         st.session_state.sections_status[section] = 'Generated'
                         successful_sections += 1
+                        progress_bar.progress(successful_sections / total_sections)
                     else:
                         st.session_state.sections_status[section] = 'Error'
                     
@@ -93,7 +93,7 @@ def generate_all_sections():
                     )
                     if result.get("generation_errors"):
                         for error in result["generation_errors"]:
-                            st.error(error)
+                            st.error(f"Generation Error: {error}")
                     return False
                     
             except ConnectionError as ce:
@@ -142,7 +142,8 @@ def export_protocol():
                                 "Download Protocol (PDF)",
                                 file,
                                 file_name="protocol.pdf",
-                                mime="application/pdf"
+                                mime="application/pdf",
+                                key="nav_download_pdf"
                             )
                     else:  # DOCX format
                         output_file = formatter.save_document("protocol", format='docx')
@@ -151,7 +152,8 @@ def export_protocol():
                                 "Download Protocol (DOCX)",
                                 file,
                                 file_name="protocol.docx",
-                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                key="nav_download_docx"
                             )
                     st.sidebar.success(f"✅ Protocol exported as {format_option}")
                     
@@ -207,6 +209,9 @@ def render_navigator():
             with st.spinner("Generating protocol..."):
                 if generate_all_sections():
                     st.sidebar.success("✅ Protocol generated successfully!")
+                    # Show export options if generation successful
+                    st.sidebar.markdown("---")
+                    st.sidebar.markdown("### 📥 Export Protocol")
                     export_protocol()
     else:
         if not st.session_state.get('synopsis_content'):

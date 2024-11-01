@@ -1,6 +1,7 @@
 import streamlit as st
 from utils.template_section_generator import TemplateSectionGenerator
 from utils.protocol_formatter import ProtocolFormatter
+from utils.protocol_improver import ProtocolImprover
 import logging
 
 # Configure logging
@@ -94,19 +95,15 @@ def render_editor():
     if validation_results := st.session_state.get('validation_results'):
         st.markdown("## 📊 Protocol Quality Assessment")
         
-        # Overall score - Updated calculation
-        if isinstance(validation_results, dict):
-            overall_score = validation_results.get('quality_score', 0.0) / 100.0  # Convert percentage to decimal
-        else:
-            overall_score = 0.0
-            
+        # Overall score calculation
+        overall_score = validation_results.get('quality_score', 0.0)
         st.metric(
             "Overall Quality Score",
-            f"{overall_score:.2%}",
-            f"{(overall_score-0.8)*100:.1f}% from target" if overall_score < 0.8 else "Meets target"
+            f"{overall_score:.2f}%",
+            f"{(overall_score/100-0.8)*100:.1f}% from target" if overall_score/100 < 0.8 else "Meets target"
         )
         
-        # Bar chart of dimension scores - Updated data structure handling
+        # Bar chart of dimension scores
         scores_data = {}
         for dim, results in validation_results.items():
             if isinstance(results, dict) and 'score' in results:
@@ -132,6 +129,54 @@ def render_editor():
                     st.info("Recommendations:")
                     for rec in results["recommendations"]:
                         st.write(f"- {rec}")
+        
+        # Protocol Improvement Section
+        st.markdown("### 🔄 Improve Protocol")
+        if st.button("Apply Recommendations & Regenerate"):
+            with st.spinner("Improving protocol based on recommendations..."):
+                try:
+                    generator = TemplateSectionGenerator()
+                    improver = ProtocolImprover(generator.gpt_handler)
+                    
+                    # Improve each section with issues
+                    improved_sections = {}
+                    for section_name, content in st.session_state.generated_sections.items():
+                        section_results = validation_results.get(section_name, {})
+                        if section_results.get('missing_items') or section_results.get('recommendations'):
+                            improved_content = improver.improve_section(
+                                section_name,
+                                content,
+                                section_results
+                            )
+                            improved_sections[section_name] = improved_content
+                        else:
+                            improved_sections[section_name] = content
+                    
+                    # Validate improved version
+                    new_validation = generator.validate_protocol(
+                        improved_sections,
+                        st.session_state.study_type
+                    )
+                    
+                    # Show comparison
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown("### Original Assessment")
+                        st.metric("Original Score", f"{validation_results.get('quality_score', 0):.2f}%")
+                        
+                    with col2:
+                        st.markdown("### Improved Assessment")
+                        st.metric("Improved Score", f"{new_validation.get('quality_score', 0):.2f}%")
+                    
+                    # Update protocol with improvements
+                    st.session_state.generated_sections = improved_sections
+                    st.session_state.validation_results = new_validation
+                    
+                    st.success("Protocol improved successfully!")
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"Error improving protocol: {str(e)}")
     
     # Show current section content if any
     if st.session_state.get('current_section'):
