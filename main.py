@@ -24,9 +24,8 @@ def init_session_state():
             'study_design': 'Not Started',
             'population': 'Not Started',
             'procedures': 'Not Started',
-            'statistical': 'Not Started',
+            'statistical_analysis': 'Not Started',  # Updated name
             'safety': 'Not Started'
-            # Removed references section temporarily
         }
     if 'generated_sections' not in st.session_state:
         st.session_state.generated_sections = {}

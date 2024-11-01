@@ -27,7 +27,7 @@ class ProtocolFormatter:
             "study_design": {"number": "4", "title": "Study Design"},
             "population": {"number": "5", "title": "Study Population"},
             "procedures": {"number": "6", "title": "Study Procedures"},
-            "statistical": {"number": "7", "title": "Statistical Analysis"},
+            "statistical_analysis": {"number": "7", "title": "Statistical Analysis"},  # Updated name
             "safety": {"number": "8", "title": "Safety"}
         }
 
@@ -42,40 +42,48 @@ class ProtocolFormatter:
             section.right_margin = Inches(1)
 
     def setup_custom_styles(self):
-        # Your existing style setup code...
-        pass
+        """Set up custom document styles"""
+        styles = {
+            'CustomTitle': {'name': 'Protocol Title', 'size': 24, 'bold': True, 'align': WD_ALIGN_PARAGRAPH.CENTER},
+            'CustomHeading1': {'name': 'Section Title', 'size': 16, 'bold': True},
+            'CustomHeading2': {'name': 'Subsection Title', 'size': 14, 'bold': True},
+            'CustomHeading3': {'name': 'Sub-subsection Title', 'size': 12, 'bold': True},
+            'CustomBody': {'name': 'Body Text', 'size': 11},
+            'CustomTableText': {'name': 'Table Text', 'size': 10},
+            'CustomTableHeader': {'name': 'Table Header', 'size': 10, 'bold': True},
+            'CustomCaption': {'name': 'Figure Caption', 'size': 10, 'italic': True}
+        }
 
-    def _clean_content(self, content):
-        """Clean and deduplicate content"""
+        for style_name, props in styles.items():
+            try:
+                if style_name not in self.doc.styles:
+                    style = self.doc.styles.add_style(style_name, WD_STYLE_TYPE.PARAGRAPH)
+                else:
+                    style = self.doc.styles[style_name]
+                
+                font = style.font
+                font.name = 'Arial'
+                font.size = Pt(props['size'])
+                font.bold = props.get('bold', False)
+                font.italic = props.get('italic', False)
+                
+                para_format = style.paragraph_format
+                para_format.space_before = Pt(6)
+                para_format.space_after = Pt(6)
+                para_format.line_spacing = 1.15
+                
+                if props.get('align'):
+                    para_format.alignment = props['align']
+                    
+            except Exception as e:
+                logger.error(f"Error setting up style {style_name}: {str(e)}")
+
+    def _clean_section_content(self, content):
+        """Clean up section content"""
         if not content:
             return ""
-
-        # Split into paragraphs
-        paragraphs = content.split('\n\n')
-        cleaned_paragraphs = []
-        seen_content = set()
-        current_section = None
-
-        for para in paragraphs:
-            para = para.strip()
-            if not para:
-                continue
-
-            # Clean up section headings
-            if re.match(r'^#+\s+|^\d+\.[\d\.]*\s+|^[A-Z][A-Z\s]+$', para):
-                # Remove existing numbers and hashes
-                cleaned_para = re.sub(r'^#+\s+|^\d+\.[\d\.]*\s+', '', para)
-                # Store as current section
-                current_section = cleaned_para.strip().lower()
-                cleaned_paragraphs.append(cleaned_para)
-            else:
-                # Hash content (ignoring numbers) to detect duplicates
-                content_hash = re.sub(r'\d+', '', para.lower())
-                if content_hash not in seen_content:
-                    seen_content.add(content_hash)
-                    cleaned_paragraphs.append(para)
-
-        return '\n\n'.join(cleaned_paragraphs)
+            
+        return re.sub(r'\n{3,}', '\n\n', content.strip())
 
     def _format_section(self, section_name, content, parent_number):
         """Format a single section with proper numbering"""
@@ -98,54 +106,52 @@ class ProtocolFormatter:
 
             # Check if it's a heading
             if re.match(r'^#+\s+|^\d+\.[\d\.]*\s+|^[A-Z][A-Z\s]+$', para):
-                # Clean up the heading text
+                # Clean up heading text
                 heading_text = re.sub(r'^#+\s+|^\d+\.[\d\.]*\s+', '', para)
 
-                # Determine heading level
+                # Determine heading level and add with proper style
                 if current_level == 1:
-                    self.doc.add_heading(
+                    heading = self.doc.add_paragraph(
                         f"{parent_number} {heading_text}",
-                        level=1
+                        style='CustomHeading1'
                     )
                 else:
-                    self.doc.add_heading(
+                    heading = self.doc.add_paragraph(
                         f"{parent_number}.{subsection_number} {heading_text}",
-                        level=2
+                        style='CustomHeading2'
                     )
                     subsection_number += 1
 
             # Handle bullet points and numbered lists
             elif para.startswith('•') or para.startswith('-'):
-                p = self.doc.add_paragraph(style='List Bullet')
-                p.text = para.lstrip('•- ')
-            elif re.match(r'^\d+\.\s', para):
-                p = self.doc.add_paragraph(style='List Number')
-                p.text = para
+                p = self.doc.add_paragraph(style='CustomBody')
+                p.add_run('• ').bold = True
+                p.add_run(para[1:].strip())
+            elif re.match(r'^\d+\.', para):
+                p = self.doc.add_paragraph(para, style='CustomBody')
             else:
                 # Regular paragraph
-                p = self.doc.add_paragraph()
-                p.text = para
+                p = self.doc.add_paragraph(para, style='CustomBody')
 
     def format_protocol(self, sections):
         """Format complete protocol with proper structure"""
         try:
             # Add title page
-            self.doc.add_heading("Clinical Trial Protocol", 0)
+            title = self.doc.add_paragraph('Clinical Trial Protocol')
+            title.style = self.doc.styles['CustomTitle']
             self.doc.add_page_break()
 
             # Add table of contents
-            self.doc.add_heading("Table of Contents", 1)
+            toc_heading = self.doc.add_paragraph("Table of Contents")
+            toc_heading.style = self.doc.styles['CustomHeading1']
             self.doc.add_paragraph()  # Placeholder for TOC
             self.doc.add_page_break()
 
             # Process sections in order
             for section_name, section_info in self.section_structure.items():
                 if section_name in sections:
-                    # Clean and deduplicate content
-                    content = self._clean_content(sections[section_name])
-
+                    content = self._clean_section_content(sections[section_name])
                     if content:
-                        # Format section with proper numbering
                         self._format_section(
                             section_name,
                             content,

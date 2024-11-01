@@ -14,11 +14,12 @@ STUDY_TYPE_CONFIG = {
             "study_design",
             "population",
             "procedures",
-            "statistical_analysis",
+            "statistical_analysis",  # Keep consistent name
             "safety"
         ],
         "section_aliases": {
-            "statistical": "statistical_analysis",
+            "statistical": "statistical_analysis",  # Add alias mapping
+            "statistical_methods": "statistical_analysis",  # Additional alias
             "study_procedures": "procedures"
         }
     },
@@ -35,6 +36,7 @@ STUDY_TYPE_CONFIG = {
         ],
         "section_aliases": {
             "statistical": "statistical_analysis",
+            "statistical_methods": "statistical_analysis",
             "study_procedures": "procedures"
         }
     },
@@ -51,6 +53,7 @@ STUDY_TYPE_CONFIG = {
         ],
         "section_aliases": {
             "statistical": "statistical_analysis",
+            "statistical_methods": "statistical_analysis",
             "study_procedures": "procedures"
         }
     },
@@ -67,6 +70,7 @@ STUDY_TYPE_CONFIG = {
         ],
         "section_aliases": {
             "statistical": "statistical_analysis",
+            "statistical_methods": "statistical_analysis",
             "study_procedures": "procedures"
         }
     },
@@ -79,7 +83,7 @@ STUDY_TYPE_CONFIG = {
             "data_sources",
             "population",
             "variables",
-            "analytical_methods",
+            "statistical_analysis",  # Updated for consistency
             "limitations"
         ],
         "section_aliases": {
@@ -96,7 +100,7 @@ STUDY_TYPE_CONFIG = {
             "search_strategy",
             "selection_criteria",
             "data_extraction",
-            "quality_assessment",
+            "statistical_analysis",  # Updated for consistency
             "synthesis_methods"
         ],
         "section_aliases": {
@@ -114,8 +118,8 @@ STUDY_TYPE_CONFIG = {
             "search_strategy",
             "selection_criteria",
             "data_extraction",
-            "quality_assessment",
-            "statistical_synthesis"
+            "statistical_analysis",  # Updated for consistency
+            "quality_assessment"
         ],
         "section_aliases": {
             "methods": "study_design",
@@ -132,7 +136,7 @@ STUDY_TYPE_CONFIG = {
             "population",
             "variables",
             "data_collection",
-            "analytical_methods",
+            "statistical_analysis",  # Updated for consistency
             "limitations"
         ],
         "section_aliases": {
