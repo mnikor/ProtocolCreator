@@ -5,7 +5,6 @@ from utils.protocol_validator import ProtocolValidator
 
 logger = logging.getLogger(__name__)
 
-# Define unified study type configuration
 STUDY_TYPE_CONFIG = {
     "phase1": {
         "required_sections": [
@@ -116,7 +115,6 @@ class TemplateSectionGenerator:
 
         study_type = study_type.lower().strip()
         
-        # Direct mappings
         direct_mappings = {
             "rwe": "rwe",
             "slr": "slr",
@@ -127,12 +125,10 @@ class TemplateSectionGenerator:
         if study_type in direct_mappings:
             return direct_mappings[study_type]
         
-        # Check phase studies
         if "phase" in study_type:
             phase = ''.join(filter(str.isdigit, study_type))
             return f"phase{phase}" if phase in ['1','2','3','4'] else "phase1"
         
-        # Check composite terms
         if "real world" in study_type or "real-world" in study_type:
             return "rwe"
         if "systematic" in study_type and "review" in study_type:
@@ -142,74 +138,43 @@ class TemplateSectionGenerator:
         if "observation" in study_type:
             return "observational"
             
-        return "phase1"  # Default fallback
+        return "phase1"
 
     def get_required_sections(self, study_type):
         '''Get required sections for a study type'''
         try:
-            # Normalize study type
             study_type = self._normalize_study_type(study_type)
-            
-            # Get study config
             study_config = STUDY_TYPE_CONFIG.get(study_type, STUDY_TYPE_CONFIG["phase1"])
-            
-            # Return required sections
             return study_config["required_sections"]
-            
         except Exception as e:
             logger.error(f"Error getting required sections: {str(e)}")
             return STUDY_TYPE_CONFIG["phase1"]["required_sections"]
 
-    def _get_normalized_section_name(self, section_name, study_type):
-        """Get normalized section name using aliases"""
-        try:
-            study_config = STUDY_TYPE_CONFIG.get(study_type, {})
-            aliases = study_config.get("section_aliases", {})
-            
-            # First check if section name is already in required sections
-            if section_name in study_config.get("required_sections", []):
-                return section_name
-            
-            # Then check aliases
-            normalized_name = aliases.get(section_name.lower(), section_name)
-            
-            # Verify the normalized name is in required sections
-            if normalized_name in study_config.get("required_sections", []):
-                if normalized_name != section_name:
-                    logger.info(f"Normalized section name from {section_name} to {normalized_name}")
-                return normalized_name
-            
-            logger.error(f"Section name {section_name} not found in required sections or aliases")
-            return None
-            
-        except Exception as e:
-            logger.error(f"Error normalizing section name: {str(e)}")
-            return None
-
     def generate_section(self, section_name, study_type, synopsis_content, existing_sections=None):
-        """Generate a single protocol section"""
         try:
             if not synopsis_content:
                 raise ValueError("Synopsis content is required")
             if not section_name:
                 raise ValueError("Section name is required")
 
-            # Normalize study type and section name
             study_type = self._normalize_study_type(study_type)
-            normalized_section = self._get_normalized_section_name(section_name, study_type)
+            
+            study_config = STUDY_TYPE_CONFIG.get(study_type)
+            if not study_config:
+                logger.warning(f"No config found for study type {study_type}, using phase1")
+                study_config = STUDY_TYPE_CONFIG["phase1"]
+                
+            if section_name not in study_config["required_sections"]:
+                raise ValueError(f"Section {section_name} not required for study type {study_type}")
 
-            if normalized_section is None:
-                raise ValueError(f"Could not normalize section name: {section_name}")
-
-            # Generate content
             content = self.gpt_handler.generate_section(
-                section_name=normalized_section,
+                section_name=section_name,
                 synopsis_content=synopsis_content,
                 previous_sections=existing_sections
             )
 
             if not content:
-                raise ValueError(f"No content generated for {normalized_section}")
+                raise ValueError(f"No content generated for {section_name}")
 
             return content
 
@@ -218,27 +183,33 @@ class TemplateSectionGenerator:
             raise
 
     def generate_complete_protocol(self, study_type, synopsis_content):
-        """Generate complete protocol with all sections"""
         try:
             if not synopsis_content:
                 raise ValueError("Synopsis content is required")
 
             study_type = self._normalize_study_type(study_type)
-            required_sections = self.get_required_sections(study_type)
+            study_config = STUDY_TYPE_CONFIG.get(study_type)
+            if not study_config:
+                logger.warning(f"No config found for study type {study_type}, using phase1")
+                study_config = STUDY_TYPE_CONFIG["phase1"]
+                
+            required_sections = study_config["required_sections"]
             sections = {}
             
-            # Generate all sections
             for section_name in required_sections:
-                content = self.generate_section(
-                    section_name=section_name,
-                    study_type=study_type,
-                    synopsis_content=synopsis_content,
-                    existing_sections=sections
-                )
-                if content:
-                    sections[section_name] = content
+                try:
+                    content = self.generate_section(
+                        section_name=section_name,
+                        study_type=study_type,
+                        synopsis_content=synopsis_content,
+                        existing_sections=sections
+                    )
+                    if content:
+                        sections[section_name] = content
+                except Exception as e:
+                    logger.error(f"Error generating section {section_name}: {str(e)}")
+                    continue
             
-            # Perform comprehensive validation
             validation_results = self.validator.validate_protocol(sections, study_type)
             validation_report = self.validator.generate_validation_report(validation_results)
             
