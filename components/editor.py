@@ -152,8 +152,8 @@ def render_editor():
                         else:
                             improved_sections[section_name] = content
                     
-                    # Validate improved version
-                    new_validation = generator.validate_protocol(
+                    # Validate improved version using the validator instance
+                    new_validation = generator.validator.validate_protocol(
                         improved_sections,
                         st.session_state.study_type
                     )
@@ -216,7 +216,7 @@ def render_editor():
             st.info("Section not yet generated. Use the generate button above to create content.")
     else:
         st.info("👈 Select a section from the sidebar to begin editing")
-
+    
     # Export functionality at the bottom
     if st.session_state.get('generated_sections'):
         st.markdown("---")
