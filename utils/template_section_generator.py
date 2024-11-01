@@ -2,111 +2,16 @@ import logging
 from utils.gpt_handler import GPTHandler
 from utils.template_manager import TemplateManager
 from utils.protocol_validator import ProtocolValidator
+from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS as STUDY_TYPE_CONFIG
 
 logger = logging.getLogger(__name__)
-
-STUDY_TYPE_CONFIG = {
-    "phase1": {
-        "required_sections": [
-            "title", "background", "objectives", "study_design", 
-            "population", "procedures", "statistical_analysis", "safety"
-        ],
-        "section_aliases": {
-            "statistical": "statistical_analysis",
-            "statistical_methods": "statistical_analysis",
-            "study_procedures": "procedures"
-        }
-    },
-    "phase2": {
-        "required_sections": [
-            "title", "background", "objectives", "study_design", 
-            "population", "procedures", "statistical_analysis", "safety"
-        ],
-        "section_aliases": {
-            "statistical": "statistical_analysis",
-            "statistical_methods": "statistical_analysis",
-            "study_procedures": "procedures"
-        }
-    },
-    "phase3": {
-        "required_sections": [
-            "title", "background", "objectives", "study_design", 
-            "population", "procedures", "statistical_analysis", "safety"
-        ],
-        "section_aliases": {
-            "statistical": "statistical_analysis",
-            "statistical_methods": "statistical_analysis",
-            "study_procedures": "procedures"
-        }
-    },
-    "phase4": {
-        "required_sections": [
-            "title", "background", "objectives", "study_design", 
-            "population", "procedures", "statistical_analysis", "safety",
-            "pharmacoeconomics"
-        ],
-        "section_aliases": {
-            "statistical": "statistical_analysis",
-            "statistical_methods": "statistical_analysis",
-            "study_procedures": "procedures",
-            "economics": "pharmacoeconomics"
-        }
-    },
-    "rwe": {
-        "required_sections": [
-            "title", "background", "objectives", "study_design", 
-            "data_sources", "population", "variables", 
-            "statistical_analysis", "limitations"
-        ],
-        "section_aliases": {
-            "statistical": "statistical_analysis",
-            "methods": "study_design",
-            "data": "data_sources"
-        }
-    },
-    "slr": {
-        "required_sections": [
-            "title", "background", "objectives", "methods",
-            "search_strategy", "data_extraction", "quality_assessment",
-            "data_synthesis"
-        ],
-        "section_aliases": {
-            "methodology": "methods",
-            "extraction": "data_extraction",
-            "synthesis": "data_synthesis"
-        }
-    },
-    "meta": {
-        "required_sections": [
-            "title", "background", "objectives", "methods",
-            "search_strategy", "data_extraction", "statistical_analysis",
-            "quality_assessment"
-        ],
-        "section_aliases": {
-            "methodology": "methods",
-            "extraction": "data_extraction",
-            "statistical": "statistical_analysis"
-        }
-    },
-    "observational": {
-        "required_sections": [
-            "title", "background", "objectives", "study_design",
-            "population", "variables", "data_collection",
-            "statistical_analysis", "limitations"
-        ],
-        "section_aliases": {
-            "methods": "study_design",
-            "outcomes": "variables",
-            "statistical": "statistical_analysis"
-        }
-    }
-}
 
 class TemplateSectionGenerator:
     def __init__(self):
         self.gpt_handler = GPTHandler()
         self.template_manager = TemplateManager()
         self.validator = ProtocolValidator()
+        self.study_configs = STUDY_TYPE_CONFIG  # Use imported config
 
     def _normalize_study_type(self, study_type):
         """Normalize study type string to match config keys"""
@@ -144,11 +49,11 @@ class TemplateSectionGenerator:
         '''Get required sections for a study type'''
         try:
             study_type = self._normalize_study_type(study_type)
-            study_config = STUDY_TYPE_CONFIG.get(study_type, STUDY_TYPE_CONFIG["phase1"])
+            study_config = self.study_configs.get(study_type, self.study_configs["phase1"])
             return study_config["required_sections"]
         except Exception as e:
             logger.error(f"Error getting required sections: {str(e)}")
-            return STUDY_TYPE_CONFIG["phase1"]["required_sections"]
+            return self.study_configs["phase1"]["required_sections"]
 
     def generate_section(self, section_name, study_type, synopsis_content, existing_sections=None):
         try:
@@ -159,14 +64,17 @@ class TemplateSectionGenerator:
 
             study_type = self._normalize_study_type(study_type)
             
-            study_config = STUDY_TYPE_CONFIG.get(study_type)
+            # Get study config using class property
+            study_config = self.study_configs.get(study_type)
             if not study_config:
                 logger.warning(f"No config found for study type {study_type}, using phase1")
-                study_config = STUDY_TYPE_CONFIG["phase1"]
+                study_config = self.study_configs["phase1"]
                 
+            # Check if section is required for this study type
             if section_name not in study_config["required_sections"]:
                 raise ValueError(f"Section {section_name} not required for study type {study_type}")
 
+            # Generate content
             content = self.gpt_handler.generate_section(
                 section_name=section_name,
                 synopsis_content=synopsis_content,
@@ -188,10 +96,10 @@ class TemplateSectionGenerator:
                 raise ValueError("Synopsis content is required")
 
             study_type = self._normalize_study_type(study_type)
-            study_config = STUDY_TYPE_CONFIG.get(study_type)
+            study_config = self.study_configs.get(study_type)
             if not study_config:
                 logger.warning(f"No config found for study type {study_type}, using phase1")
-                study_config = STUDY_TYPE_CONFIG["phase1"]
+                study_config = self.study_configs["phase1"]
                 
             required_sections = study_config["required_sections"]
             sections = {}
