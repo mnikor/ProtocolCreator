@@ -5,6 +5,7 @@ import time
 from utils.template_section_generator import TemplateSectionGenerator
 from utils.protocol_formatter import ProtocolFormatter
 from utils.protocol_validator import ProtocolValidator
+from utils.protocol_quality_ui import render_quality_assessment
 from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ def _initialize_sections_status():
                 st.session_state.sections_status[section] = 'Not Started'
 
 def generate_all_sections():
-    """Generate all protocol sections with enhanced validation and error handling"""
+    """Generate all protocol sections with enhanced validation and progress tracking"""
     max_retries = 3
     retry_count = 0
     start_time = datetime.now()
@@ -52,6 +53,10 @@ def generate_all_sections():
             study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
             required_sections = study_config.get('required_sections', [])
             total_sections = len(required_sections)
+            
+            # Store original versions for comparison
+            original_sections = st.session_state.get('generated_sections', {}).copy()
+            original_validation = st.session_state.get('validation_results', {}).copy()
             
             # Generate complete protocol with enhanced error handling
             status_text.info("🔄 Generating protocol sections...")
@@ -77,18 +82,58 @@ def generate_all_sections():
                 st.session_state.generated_sections = sections
                 st.session_state.validation_results = validation_results
                 
-                # Display validation summary
-                if validation_results:
-                    quality_score = validation_results.get('quality_score', 0)
-                    st.info(f"Protocol Quality Score: {quality_score:.2f}%")
+                # Show comparison if regenerating
+                if original_sections:
+                    st.markdown("### Protocol Improvements")
                     
-                    # Show critical issues if any
-                    critical_issues = [i for i in validation_results.get("issues", []) 
-                                    if i.get("severity") == "critical"]
-                    if critical_issues:
-                        st.warning("Critical Issues Found:")
-                        for issue in critical_issues:
-                            st.write(f"- {issue.get('message')}")
+                    # Quality score comparison
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown("#### Original Version")
+                        st.metric(
+                            "Original Score",
+                            f"{original_validation.get('overall_score', 0):.2f}%"
+                        )
+                    with col2:
+                        st.markdown("#### Improved Version")
+                        st.metric(
+                            "Improved Score",
+                            f"{validation_results.get('overall_score', 0):.2f}%"
+                        )
+                    
+                    # Section-by-section comparison
+                    st.markdown("### Section Changes")
+                    for section_name in original_sections.keys():
+                        with st.expander(f"📑 {section_name.replace('_', ' ').title()}"):
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.markdown("**Original Version**")
+                                st.text_area(
+                                    "Original content",
+                                    original_sections[section_name],
+                                    height=200,
+                                    disabled=True,
+                                    key=f"orig_{section_name}"
+                                )
+                            with col2:
+                                st.markdown("**Improved Version**")
+                                st.text_area(
+                                    "Improved content",
+                                    sections[section_name],
+                                    height=200,
+                                    disabled=True,
+                                    key=f"impr_{section_name}"
+                                )
+                    
+                    # Option to revert changes
+                    if st.button("↩️ Revert to Original Version"):
+                        st.session_state.generated_sections = original_sections
+                        st.session_state.validation_results = original_validation
+                        st.rerun()
+                
+                # Display validation summary
+                st.markdown("### Quality Assessment")
+                render_quality_assessment(validation_results)
                 
                 # Generation summary
                 total_time = datetime.now() - start_time
@@ -198,7 +243,7 @@ def render_navigator():
         
         # Add quality score if available
         if validation_results := st.session_state.get('validation_results'):
-            quality_score = validation_results.get('quality_score', 0)
+            quality_score = validation_results.get('overall_score', 0)
             st.sidebar.progress(progress, text=f"Progress: {completed}/{total} sections (Quality: {quality_score:.1f}%)")
         else:
             st.sidebar.progress(progress, text=f"Progress: {completed}/{total} sections")
