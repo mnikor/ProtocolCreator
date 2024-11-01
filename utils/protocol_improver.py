@@ -10,47 +10,62 @@ class ProtocolImprover:
     def improve_section(self, section_name: str, content: str, issues: Dict) -> str:
         """Improve section based on validation issues"""
         try:
+            logger.info(f"Starting improvement for section: {section_name}")
             improvement_prompt = self._create_improvement_prompt(section_name, content, issues)
+            
+            # Generate improved content
             improved_content = self.gpt_handler.generate_section(
                 section_name=section_name,
                 synopsis_content=content,  # Use existing content as context
                 prompt=improvement_prompt
             )
+            
+            if not improved_content:
+                logger.warning(f"No improved content generated for {section_name}")
+                return content
+                
+            logger.info(f"Successfully improved section: {section_name}")
             return improved_content
+            
         except Exception as e:
             logger.error(f"Error improving section {section_name}: {str(e)}")
             return content
 
     def _create_improvement_prompt(self, section_name: str, content: str, issues: Dict) -> str:
-        """Create improvement prompt based on validation issues"""
-        missing_items = issues.get('missing_items', [])
-        recommendations = issues.get('recommendations', [])
-        
-        prompt_parts = [
-            f"Improve this {section_name} section while maintaining existing content structure.",
-            "\nRequired improvements:"
-        ]
-        
-        if missing_items:
-            prompt_parts.append("\nAdd missing elements:")
-            for item in missing_items:
-                prompt_parts.append(f"- {item}")
-                
-        if recommendations:
-            prompt_parts.append("\nAddress recommendations:")
-            for rec in recommendations:
-                prompt_parts.append(f"- {rec}")
-                
-        prompt_parts.extend([
-            "\nRequirements:",
-            "1. Preserve all existing valid content",
-            "2. Maintain document structure and formatting",
-            "3. Ensure compliance with protocol standards",
-            "4. Use clear, precise language",
-            "5. Add specific details for each missing element",
+        """Create detailed improvement prompt based on validation issues"""
+        try:
+            missing_items = issues.get('missing_items', [])
+            recommendations = issues.get('recommendations', [])
             
-            "\nOriginal content:",
-            content
-        ])
-        
-        return "\n".join(prompt_parts)
+            prompt_parts = [
+                f"Improve this {section_name} section while maintaining existing content structure.",
+                "\nRequired improvements:"
+            ]
+            
+            if missing_items:
+                prompt_parts.append("\nAdd missing elements:")
+                for item in missing_items:
+                    prompt_parts.append(f"- {item}")
+                    
+            if recommendations:
+                prompt_parts.append("\nAddress recommendations:")
+                for rec in recommendations:
+                    prompt_parts.append(f"- {rec}")
+                    
+            prompt_parts.extend([
+                "\nRequirements:",
+                "1. Preserve all existing valid content",
+                "2. Maintain document structure and formatting",
+                "3. Ensure compliance with protocol standards",
+                "4. Use clear, precise language",
+                "5. Add specific details for each missing element",
+                
+                "\nOriginal content:",
+                content
+            ])
+            
+            return "\n".join(prompt_parts)
+            
+        except Exception as e:
+            logger.error(f"Error creating improvement prompt: {str(e)}")
+            return f"Improve {section_name} content while maintaining structure:\n\n{content}"

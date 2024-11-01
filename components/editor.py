@@ -112,6 +112,70 @@ def render_editor():
         if scores_data:
             st.bar_chart(data=scores_data, use_container_width=True)
         
+        # Protocol Improvement Section
+        st.markdown("### 🔄 Improve Protocol")
+        if st.button("Apply Recommendations & Regenerate"):
+            with st.spinner("Improving protocol based on recommendations..."):
+                try:
+                    generator = TemplateSectionGenerator()
+                    improver = ProtocolImprover(generator.gpt_handler)
+                    
+                    # Get validation issues for improvement
+                    validation_issues = {}
+                    for dimension, results in st.session_state.validation_results.items():
+                        if isinstance(results, dict):
+                            validation_issues.update({
+                                "missing_items": results.get("missing_items", []),
+                                "recommendations": results.get("recommendations", [])
+                            })
+                    
+                    # Improve each section
+                    improved_sections = {}
+                    for section_name, content in st.session_state.generated_sections.items():
+                        try:
+                            improved_content = improver.improve_section(
+                                section_name=section_name,
+                                content=content,
+                                issues=validation_issues
+                            )
+                            improved_sections[section_name] = improved_content
+                        except Exception as e:
+                            logger.error(f"Error improving section {section_name}: {str(e)}")
+                            improved_sections[section_name] = content
+                    
+                    # Validate improved version
+                    new_validation = generator.validator.validate_protocol(
+                        improved_sections,
+                        st.session_state.study_type
+                    )
+                    
+                    # Show comparison
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown("### Original Assessment")
+                        st.metric(
+                            "Original Score",
+                            f"{st.session_state.validation_results.get('quality_score', 0):.2f}%"
+                        )
+                        
+                    with col2:
+                        st.markdown("### Improved Assessment")
+                        st.metric(
+                            "Improved Score",
+                            f"{new_validation.get('quality_score', 0):.2f}%"
+                        )
+                    
+                    # Update protocol with improvements
+                    st.session_state.generated_sections = improved_sections
+                    st.session_state.validation_results = new_validation
+                    
+                    st.success("Protocol improved successfully!")
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"Error improving protocol: {str(e)}")
+                    logger.error(f"Protocol improvement error: {str(e)}")
+        
         # Detailed Assessment
         st.markdown("### Detailed Assessment")
         for dimension, results in validation_results.items():
@@ -129,55 +193,7 @@ def render_editor():
                     st.info("Recommendations:")
                     for rec in results["recommendations"]:
                         st.write(f"- {rec}")
-        
-        # Protocol Improvement Section
-        st.markdown("### 🔄 Improve Protocol")
-        if st.button("Apply Recommendations & Regenerate"):
-            with st.spinner("Improving protocol based on recommendations..."):
-                try:
-                    generator = TemplateSectionGenerator()
-                    improver = ProtocolImprover(generator.gpt_handler)
-                    
-                    # Improve each section with issues
-                    improved_sections = {}
-                    for section_name, content in st.session_state.generated_sections.items():
-                        section_results = validation_results.get(section_name, {})
-                        if section_results.get('missing_items') or section_results.get('recommendations'):
-                            improved_content = improver.improve_section(
-                                section_name,
-                                content,
-                                section_results
-                            )
-                            improved_sections[section_name] = improved_content
-                        else:
-                            improved_sections[section_name] = content
-                    
-                    # Validate improved version using the validator instance
-                    new_validation = generator.validator.validate_protocol(
-                        improved_sections,
-                        st.session_state.study_type
-                    )
-                    
-                    # Show comparison
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.markdown("### Original Assessment")
-                        st.metric("Original Score", f"{validation_results.get('quality_score', 0):.2f}%")
-                        
-                    with col2:
-                        st.markdown("### Improved Assessment")
-                        st.metric("Improved Score", f"{new_validation.get('quality_score', 0):.2f}%")
-                    
-                    # Update protocol with improvements
-                    st.session_state.generated_sections = improved_sections
-                    st.session_state.validation_results = new_validation
-                    
-                    st.success("Protocol improved successfully!")
-                    st.rerun()
-                    
-                except Exception as e:
-                    st.error(f"Error improving protocol: {str(e)}")
-    
+
     # Show current section content if any
     if st.session_state.get('current_section'):
         st.markdown("---")
