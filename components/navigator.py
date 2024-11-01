@@ -26,27 +26,15 @@ def _initialize_sections_status():
             if section not in st.session_state.sections_status:
                 st.session_state.sections_status[section] = 'Not Started'
 
-def _validate_prerequisites():
-    """Validate prerequisites before generation"""
-    if not st.session_state.get('synopsis_content'):
-        st.error("⚠️ Please upload a synopsis first")
-        return False
-    if not st.session_state.get('study_type'):
-        st.error("⚠️ Please select a study type first")
-        return False
-    return True
-
 def generate_all_sections():
     """Generate all protocol sections with enhanced progress tracking"""
-    if not _validate_prerequisites():
-        return False
-
     try:
         # Initialize generator and progress tracking
         generator = TemplateSectionGenerator()
-        progress_bar = st.progress(0)
+        progress_placeholder = st.empty()
+        progress_bar = progress_placeholder.progress(0)
         status_text = st.empty()
-        detailed_status = st.empty()
+        sections_status = st.empty()
         
         # Get sections for study type
         study_type = st.session_state.study_type
@@ -66,6 +54,9 @@ def generate_all_sections():
             try:
                 # Update status to in progress
                 st.session_state.sections_status[section] = 'In Progress'
+                sections_status.write("Current Status:")
+                for sec, status in st.session_state.sections_status.items():
+                    sections_status.write(f"{sec}: {status}")
                 
                 # Generate section content
                 content = generator.generate_section(
@@ -84,9 +75,7 @@ def generate_all_sections():
                     # Update progress
                     progress_bar.progress(idx / total_sections)
                     section_time = datetime.now() - section_start
-                    detailed_status.success(
-                        f"✅ {section.replace('_', ' ').title()} ({section_time.total_seconds():.1f}s)"
-                    )
+                    sections_status.success(f"✅ {section.replace('_', ' ').title()} completed ({section_time.total_seconds():.1f}s)")
                 else:
                     raise ValueError(f"No content generated for {section}")
                     
@@ -95,21 +84,18 @@ def generate_all_sections():
                 logger.error(error_msg)
                 generation_errors.append(error_msg)
                 st.session_state.sections_status[section] = 'Error'
-                detailed_status.error(f"❌ {section.replace('_', ' ').title()}: {str(e)}")
+                sections_status.error(f"❌ {section}: {str(e)}")
                 continue
 
         # Final status update
         total_time = datetime.now() - start_time
         if successful_sections == total_sections:
-            status_text.success(
-                f"✅ Protocol generated successfully! ({total_time.total_seconds():.1f}s)"
-            )
+            progress_placeholder.success(f"✅ Protocol generated successfully! ({total_time.total_seconds():.1f}s)")
             st.balloons()
             return True
         else:
-            status_text.warning(
-                f"⚠️ Generated {successful_sections}/{total_sections} sections. "
-                f"({total_time.total_seconds():.1f}s)"
+            progress_placeholder.warning(
+                f"⚠️ Generated {successful_sections}/{total_sections} sections ({total_time.total_seconds():.1f}s)"
             )
             if generation_errors:
                 with st.expander("View Generation Errors"):
@@ -151,22 +137,26 @@ def render_navigator():
             </style>
         """, unsafe_allow_html=True)
 
-        # Add generation button
+        # Add generation button with unique key
         if st.sidebar.button(
             "🚀 Generate Complete Protocol",
             help="Generate all protocol sections from your synopsis",
             use_container_width=True,
-            key="generate_complete_protocol"
+            key="nav_generate_protocol"
         ):
             with st.spinner("Generating protocol..."):
                 if generate_all_sections():
                     # If generation successful, show export options
                     st.sidebar.success("✅ Protocol generated successfully!")
                     
-                    # Add export format selection
-                    format_option = st.sidebar.radio("Export Format:", ["DOCX", "PDF"])
+                    # Add export format selection with unique key
+                    format_option = st.sidebar.radio(
+                        "Export Format:",
+                        ["DOCX", "PDF"],
+                        key="navigator_export_format"
+                    )
                     
-                    if st.sidebar.button("Export Protocol", key="export_protocol"):
+                    if st.sidebar.button("Export Protocol", key="nav_export_button"):
                         try:
                             formatter = ProtocolFormatter()
                             doc = formatter.format_protocol(st.session_state.generated_sections)
@@ -178,7 +168,8 @@ def render_navigator():
                                         label="Download Protocol (PDF)",
                                         data=file,
                                         file_name="protocol.pdf",
-                                        mime="application/pdf"
+                                        mime="application/pdf",
+                                        key="nav_download_pdf"
                                     )
                             else:  # DOCX format
                                 output_file = formatter.save_document("protocol", format='docx')
@@ -187,7 +178,8 @@ def render_navigator():
                                         label="Download Protocol (DOCX)",
                                         data=file,
                                         file_name="protocol.docx",
-                                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                        key="nav_download_docx"
                                     )
                         except Exception as e:
                             st.sidebar.error(f"Error exporting protocol: {str(e)}")
@@ -197,11 +189,11 @@ def render_navigator():
         if not st.session_state.get('study_type'):
             st.sidebar.warning("⚠️ Please select a study type")
 
-    st.sidebar.markdown("---")
-
     # Section Navigation
+    st.sidebar.markdown("---")
     st.sidebar.header("📑 Protocol Sections")
     
+    # Show section navigation
     if study_type := st.session_state.get('study_type'):
         generator = TemplateSectionGenerator()
         sections = generator.get_required_sections(study_type)

@@ -137,6 +137,7 @@ class GPTHandler:
                 logger.error("Invalid or empty text response")
                 return default_values
 
+            # Initialize with default structure
             analysis = {
                 'study_type_and_design': {
                     'primary_classification': 'Not specified',
@@ -162,15 +163,15 @@ class GPTHandler:
                     continue
                 
                 if 'classification' in line.lower():
-                    analysis['study_type_and_design']['primary_classification'] = line
+                    analysis['study_type_and_design']['primary_classification'] = line.split(':')[-1].strip()
                 elif 'study type' in line.lower() or 'design' in line.lower():
-                    analysis['study_type_and_design']['design_type'] = line
+                    analysis['study_type_and_design']['design_type'] = line.split(':')[-1].strip()
                 elif 'phase' in line.lower():
-                    analysis['study_type_and_design']['phase'] = line
+                    analysis['study_type_and_design']['phase'] = line.split(':')[-1].strip()
                 elif 'population' in line.lower():
-                    analysis['critical_parameters']['population'] = line
+                    analysis['critical_parameters']['population'] = line.split(':')[-1].strip()
                 elif 'endpoint' in line.lower():
-                    analysis['critical_parameters']['primary_endpoint'] = line
+                    analysis['critical_parameters']['primary_endpoint'] = line.split(':')[-1].strip()
             
             return analysis
             
@@ -179,35 +180,44 @@ class GPTHandler:
             return default_values
 
     def _determine_study_phase(self, analysis):
-        """Determine study phase from analysis"""
+        """Determine study phase from analysis with improved pattern matching"""
         try:
             study_design = analysis.get("study_type_and_design", {})
             classification = study_design.get("primary_classification", "").lower()
             phase = study_design.get("phase", "").lower()
             
-            if any(term in classification.lower() for term in ['systematic review', 'literature review', 'slr']):
+            # Check for special study types first
+            if any(term in classification for term in ['systematic review', 'literature review', 'slr']):
                 return "slr"
-            elif 'meta-analysis' in classification.lower():
+            elif 'meta-analysis' in classification:
                 return "meta"
-            elif 'real world' in classification.lower():
+            elif 'real world' in classification:
                 return "rwe"
-            elif 'consensus' in classification.lower():
+            elif 'consensus' in classification:
                 return "consensus"
+            elif 'observational' in classification:
+                return "observational"
             
-            if "phase" in phase:
-                if "1" in phase or "i" in phase:
+            # Extract phase number from text
+            phase_match = re.search(r'phase\s*([1234]|i{1,3}|iv)', phase, re.IGNORECASE)
+            if phase_match:
+                phase_text = phase_match.group(1)
+                if phase_text.isdigit():
+                    return f"phase{phase_text}"
+                elif phase_text.lower() == 'i':
                     return "phase1"
-                elif "2" in phase or "ii" in phase:
+                elif phase_text.lower() == 'ii':
                     return "phase2"
-                elif "3" in phase or "iii" in phase:
+                elif phase_text.lower() == 'iii':
                     return "phase3"
-                elif "4" in phase or "iv" in phase:
+                elif phase_text.lower() == 'iv':
                     return "phase4"
             
-            if 'observational' in classification.lower():
-                return "observational"
+            # Default based on study type
+            if 'interventional' in classification.lower():
+                return "phase2"  # Most common default
                 
-            return "phase1"  # Default fallback
+            return "phase1"  # Final fallback
             
         except Exception as e:
             logger.error(f"Error determining study phase: {str(e)}")
