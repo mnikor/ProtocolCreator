@@ -5,6 +5,11 @@ import re
 
 logger = logging.getLogger(__name__)
 
+class IssueSeverity(Enum):
+    CRITICAL = "critical"
+    MAJOR = "major"
+    MINOR = "minor"
+
 class ValidationDimension(Enum):
     SCIENTIFIC_RIGOR = "scientific_rigor"
     METHODOLOGY = "methodology" 
@@ -124,7 +129,11 @@ class ProtocolValidator:
 
     def validate_protocol(self, content: Dict[str, str], study_type: str) -> Dict:
         """Validate protocol across all dimensions"""
-        validation_results = {}
+        validation_results = {
+            "issues": [],
+            "suggestions": [],
+            "quality_score": 0.0
+        }
         
         # Initialize overall metrics
         total_weighted_score = 0.0
@@ -145,7 +154,7 @@ class ProtocolValidator:
             
         # Add overall score if weights are valid
         if total_weight > 0:
-            validation_results["overall_score"] = total_weighted_score / total_weight
+            validation_results["quality_score"] = (total_weighted_score / total_weight) * 100
             
         return validation_results
 
@@ -213,3 +222,70 @@ class ProtocolValidator:
                 results["recommendations"].append(
                     "Improve adherence to reporting guidelines"
                 )
+
+    def generate_validation_report(self, validation_results: Dict) -> str:
+        '''Generate human-readable validation report'''
+        report = ["Protocol Validation Report\n"]
+        
+        # Add quality score
+        report.append(f"Overall Quality Score: {validation_results['quality_score']:.2f}%\n")
+        
+        # Critical issues
+        critical_issues = [i for i in validation_results.get("issues", []) 
+                         if i.get("severity") == IssueSeverity.CRITICAL]
+        if critical_issues:
+            report.append("\n🚫 Critical Issues:")
+            for issue in critical_issues:
+                report.append(f"- {issue['message']}")
+                if "suggestion" in issue:
+                    report.append(f"  Suggestion: {issue['suggestion']}")
+        
+        # Major issues
+        major_issues = [i for i in validation_results.get("issues", []) 
+                       if i.get("severity") == IssueSeverity.MAJOR]
+        if major_issues:
+            report.append("\n⚠️ Major Issues:")
+            for issue in major_issues:
+                report.append(f"- {issue['message']}")
+                if "suggestion" in issue:
+                    report.append(f"  Suggestion: {issue['suggestion']}")
+        
+        # Minor issues and suggestions
+        if validation_results.get("suggestions"):
+            report.append("\n💡 Suggestions for Improvement:")
+            for suggestion in validation_results["suggestions"]:
+                report.append(f"- {suggestion}")
+                
+        return "\n".join(report)
+
+    def validate_against_guidelines(self, content: str, section_name: str, guideline: str) -> Dict:
+        '''Validate content against specific guideline requirements'''
+        validation_results = {
+            "missing_elements": [],
+            "recommendations": []
+        }
+        
+        # Basic guideline validation
+        if not content:
+            validation_results["missing_elements"].append(f"{section_name} content is empty")
+            return validation_results
+            
+        # Check for guideline-specific elements
+        guideline_elements = {
+            "SPIRIT": ["objectives", "background", "methods", "population"],
+            "PRISMA": ["search_strategy", "inclusion_criteria", "data_extraction"],
+            "STROBE": ["study_design", "setting", "participants", "variables"],
+            "RECORD": ["data_sources", "population", "variables", "statistical_methods"]
+        }
+        
+        required_elements = guideline_elements.get(guideline, [])
+        for element in required_elements:
+            if element.lower() not in content.lower():
+                validation_results["missing_elements"].append(
+                    f"Missing {guideline} element: {element}"
+                )
+                validation_results["recommendations"].append(
+                    f"Add section addressing {element}"
+                )
+        
+        return validation_results
