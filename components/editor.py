@@ -94,36 +94,44 @@ def render_editor():
     if validation_results := st.session_state.get('validation_results'):
         st.markdown("## 📊 Protocol Quality Assessment")
         
-        # Overall score
-        overall_score = sum(r['score'] for r in validation_results.values()) / len(validation_results)
+        # Overall score - Updated calculation
+        if isinstance(validation_results, dict):
+            overall_score = validation_results.get('quality_score', 0.0) / 100.0  # Convert percentage to decimal
+        else:
+            overall_score = 0.0
+            
         st.metric(
             "Overall Quality Score",
             f"{overall_score:.2%}",
             f"{(overall_score-0.8)*100:.1f}% from target" if overall_score < 0.8 else "Meets target"
         )
         
-        # Bar chart of dimension scores
-        scores_data = {
-            dim.replace('_', ' ').title(): results['score'] 
-            for dim, results in validation_results.items()
-        }
-        st.bar_chart(data=scores_data, use_container_width=True)
+        # Bar chart of dimension scores - Updated data structure handling
+        scores_data = {}
+        for dim, results in validation_results.items():
+            if isinstance(results, dict) and 'score' in results:
+                scores_data[dim.replace('_', ' ').title()] = results['score']
+                
+        if scores_data:
+            st.bar_chart(data=scores_data, use_container_width=True)
         
         # Detailed Assessment
         st.markdown("### Detailed Assessment")
         for dimension, results in validation_results.items():
-            st.markdown(f"#### {dimension.replace('_', ' ').title()}")
-            st.progress(results['score'])
-            
-            if results["missing_items"]:
-                st.warning("Missing Items:")
-                for item in results["missing_items"]:
-                    st.write(f"- {item}")
-                    
-            if results["recommendations"]:
-                st.info("Recommendations:")
-                for rec in results["recommendations"]:
-                    st.write(f"- {rec}")
+            if isinstance(results, dict):
+                st.markdown(f"#### {dimension.replace('_', ' ').title()}")
+                if 'score' in results:
+                    st.progress(results['score'])
+                
+                if "missing_items" in results and results["missing_items"]:
+                    st.warning("Missing Items:")
+                    for item in results["missing_items"]:
+                        st.write(f"- {item}")
+                        
+                if "recommendations" in results and results["recommendations"]:
+                    st.info("Recommendations:")
+                    for rec in results["recommendations"]:
+                        st.write(f"- {rec}")
     
     # Show current section content if any
     if st.session_state.get('current_section'):
