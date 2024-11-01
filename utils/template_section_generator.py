@@ -14,13 +14,14 @@ STUDY_TYPE_CONFIG = {
             "study_design",
             "population",
             "procedures",
-            "statistical_analysis",  # Keep consistent name
+            "statistical_analysis",
             "safety"
         ],
         "section_aliases": {
-            "statistical": "statistical_analysis",  # Add alias mapping
-            "statistical_methods": "statistical_analysis",  # Additional alias
-            "study_procedures": "procedures"
+            "statistical": "statistical_analysis",
+            "statistical_methods": "statistical_analysis",
+            "study_procedures": "procedures",
+            "procedures": "procedures"
         }
     },
     "phase2": {
@@ -37,7 +38,8 @@ STUDY_TYPE_CONFIG = {
         "section_aliases": {
             "statistical": "statistical_analysis",
             "statistical_methods": "statistical_analysis",
-            "study_procedures": "procedures"
+            "study_procedures": "procedures",
+            "procedures": "procedures"
         }
     },
     "phase3": {
@@ -54,7 +56,8 @@ STUDY_TYPE_CONFIG = {
         "section_aliases": {
             "statistical": "statistical_analysis",
             "statistical_methods": "statistical_analysis",
-            "study_procedures": "procedures"
+            "study_procedures": "procedures",
+            "procedures": "procedures"
         }
     },
     "phase4": {
@@ -71,7 +74,8 @@ STUDY_TYPE_CONFIG = {
         "section_aliases": {
             "statistical": "statistical_analysis",
             "statistical_methods": "statistical_analysis",
-            "study_procedures": "procedures"
+            "study_procedures": "procedures",
+            "procedures": "procedures"
         }
     },
     "rwe": {
@@ -83,12 +87,13 @@ STUDY_TYPE_CONFIG = {
             "data_sources",
             "population",
             "variables",
-            "statistical_analysis",  # Updated for consistency
+            "statistical_analysis",
             "limitations"
         ],
         "section_aliases": {
             "analytical_methods": "statistical_analysis",
-            "data_sources": "procedures"
+            "data_sources": "procedures",
+            "procedures": "data_sources"
         }
     },
     "slr": {
@@ -100,13 +105,15 @@ STUDY_TYPE_CONFIG = {
             "search_strategy",
             "selection_criteria",
             "data_extraction",
-            "statistical_analysis",  # Updated for consistency
+            "statistical_analysis",
             "synthesis_methods"
         ],
         "section_aliases": {
             "methods": "study_design",
             "synthesis_methods": "statistical_analysis",
-            "data_extraction": "procedures"
+            "statistical": "statistical_analysis",
+            "data_extraction": "procedures",
+            "procedures": "data_extraction"
         }
     },
     "meta": {
@@ -118,13 +125,15 @@ STUDY_TYPE_CONFIG = {
             "search_strategy",
             "selection_criteria",
             "data_extraction",
-            "statistical_analysis",  # Updated for consistency
+            "statistical_analysis",
             "quality_assessment"
         ],
         "section_aliases": {
             "methods": "study_design",
             "statistical_synthesis": "statistical_analysis",
-            "data_extraction": "procedures"
+            "statistical": "statistical_analysis",
+            "data_extraction": "procedures",
+            "procedures": "data_extraction"
         }
     },
     "observational": {
@@ -136,12 +145,14 @@ STUDY_TYPE_CONFIG = {
             "population",
             "variables",
             "data_collection",
-            "statistical_analysis",  # Updated for consistency
+            "statistical_analysis",
             "limitations"
         ],
         "section_aliases": {
             "analytical_methods": "statistical_analysis",
-            "data_collection": "procedures"
+            "statistical": "statistical_analysis",
+            "data_collection": "procedures",
+            "procedures": "data_collection"
         }
     }
 }
@@ -165,7 +176,7 @@ class TemplateSectionGenerator:
             
         except Exception as e:
             logger.error(f"Error getting required sections: {str(e)}")
-            return STUDY_TYPE_CONFIG["phase1"]["required_sections"]  # Return default sections
+            return STUDY_TYPE_CONFIG["phase1"]["required_sections"]
 
     def _normalize_study_type(self, study_type):
         """Normalize study type string to match config keys"""
@@ -201,14 +212,17 @@ class TemplateSectionGenerator:
         study_config = STUDY_TYPE_CONFIG.get(study_type, {})
         aliases = study_config.get("section_aliases", {})
         
-        # Check both ways - original to alias and alias to original
+        # First check if section name is already in required sections
+        if section_name in study_config.get("required_sections", []):
+            return section_name
+        
+        # Then check aliases
         normalized_name = aliases.get(section_name, section_name)
         
-        # Check reverse mapping
-        for original, alias in aliases.items():
-            if section_name == alias:
-                normalized_name = original
-                break
+        # Verify the normalized name is in required sections
+        if normalized_name not in study_config.get("required_sections", []):
+            logger.error(f"Normalized section name {normalized_name} not in required sections")
+            return None
         
         if normalized_name != section_name:
             logger.info(f"Normalized section name from {section_name} to {normalized_name}")
@@ -216,7 +230,6 @@ class TemplateSectionGenerator:
         return normalized_name
 
     def generate_section(self, section_name, study_type, synopsis_content, existing_sections=None):
-        """Generate content for a specific protocol section"""
         try:
             if not synopsis_content:
                 raise ValueError("Synopsis content is required")
@@ -227,17 +240,14 @@ class TemplateSectionGenerator:
             study_type = self._normalize_study_type(study_type)
             normalized_section = self._get_normalized_section_name(section_name, study_type)
 
+            if normalized_section is None:
+                raise ValueError(f"Could not normalize section name: {section_name}")
+
             # Log generation attempt
             logger.info(f"Generating section {normalized_section} for {study_type}")
 
             # Get template and study config
-            study_config = STUDY_TYPE_CONFIG.get(study_type, STUDY_TYPE_CONFIG["phase1"])
             template = self.template_manager.get_section_template(study_type, normalized_section)
-
-            # Check if section is required
-            if normalized_section not in study_config["required_sections"]:
-                logger.info(f"Section {normalized_section} not required for {study_type} - skipping")
-                return None
 
             # Generate content
             content = self.gpt_handler.generate_section(
@@ -247,11 +257,14 @@ class TemplateSectionGenerator:
                 prompt=template.get('prompt') if template else None
             )
 
+            if not content:
+                raise ValueError(f"No content generated for {normalized_section}")
+
             return content
 
         except Exception as e:
             logger.error(f"Error generating section {section_name}: {str(e)}")
-            return None
+            raise
 
     def generate_complete_protocol(self, study_type, synopsis_content):
         """Generate complete protocol with all sections"""
