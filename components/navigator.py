@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import datetime
 import logging
 from utils.template_section_generator import TemplateSectionGenerator
-from utils.protocol_formatter import ProtocolFormatter
+from utils.protocol_formatter import ProtocolFormatter, can_convert_to_pdf
 from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
 from config.validation_rules import validate_protocol_quality
 
@@ -27,6 +27,56 @@ def _initialize_sections_status():
         for section in sections:
             if section not in st.session_state.sections_status:
                 st.session_state.sections_status[section] = 'Not Started'
+
+def export_protocol():
+    """Handle protocol export with format selection"""
+    try:
+        formatter = ProtocolFormatter()
+        doc = formatter.format_protocol(st.session_state.generated_sections)
+        
+        # Check PDF conversion capability
+        if can_convert_to_pdf():
+            format_option = st.sidebar.radio(
+                "Export Format:",
+                ["DOCX", "PDF"],
+                key="nav_export_format"
+            )
+        else:
+            st.sidebar.info("Note: PDF export is not available in this environment. Documents will be exported as DOCX.")
+            format_option = "DOCX"
+        
+        if st.sidebar.button("Export Protocol", key="nav_export_button"):
+            try:
+                if format_option == "PDF":
+                    output_file = formatter.save_document("protocol", format='pdf')
+                    with open(output_file, "rb") as file:
+                        st.sidebar.download_button(
+                            label="Download Protocol (PDF)",
+                            data=file,
+                            file_name="protocol.pdf",
+                            mime="application/pdf",
+                            key="nav_download_pdf"
+                        )
+                else:  # DOCX format
+                    output_file = formatter.save_document("protocol", format='docx')
+                    with open(output_file, "rb") as file:
+                        st.sidebar.download_button(
+                            label="Download Protocol (DOCX)",
+                            data=file,
+                            file_name="protocol.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            key="nav_download_docx"
+                        )
+                        
+                st.sidebar.success(f"Protocol exported successfully as {format_option}!")
+                
+            except ValueError as ve:
+                st.sidebar.warning(str(ve))
+            except Exception as e:
+                st.sidebar.error(f"Error exporting protocol: {str(e)}")
+                
+    except Exception as e:
+        st.sidebar.error(f"Error preparing protocol: {str(e)}")
 
 def generate_all_sections():
     """Generate all protocol sections with enhanced progress tracking"""
@@ -160,43 +210,8 @@ def render_navigator():
         ):
             with st.spinner("Generating protocol..."):
                 if generate_all_sections():
-                    # If generation successful, show export options
                     st.sidebar.success("✅ Protocol generated successfully!")
-                    
-                    # Add export format selection with unique key
-                    format_option = st.sidebar.radio(
-                        "Export Format:",
-                        ["DOCX", "PDF"],
-                        key="navigator_export_format"
-                    )
-                    
-                    if st.sidebar.button("Export Protocol", key="nav_export_button"):
-                        try:
-                            formatter = ProtocolFormatter()
-                            doc = formatter.format_protocol(st.session_state.generated_sections)
-                            
-                            if format_option == "PDF":
-                                output_file = formatter.save_document("protocol", format='pdf')
-                                with open(output_file, "rb") as file:
-                                    st.sidebar.download_button(
-                                        label="Download Protocol (PDF)",
-                                        data=file,
-                                        file_name="protocol.pdf",
-                                        mime="application/pdf",
-                                        key="nav_download_pdf"
-                                    )
-                            else:  # DOCX format
-                                output_file = formatter.save_document("protocol", format='docx')
-                                with open(output_file, "rb") as file:
-                                    st.sidebar.download_button(
-                                        label="Download Protocol (DOCX)",
-                                        data=file,
-                                        file_name="protocol.docx",
-                                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                        key="nav_download_docx"
-                                    )
-                        except Exception as e:
-                            st.sidebar.error(f"Error exporting protocol: {str(e)}")
+                    export_protocol()
     else:
         if not st.session_state.get('synopsis_content'):
             st.sidebar.warning("⚠️ Please upload a synopsis first")

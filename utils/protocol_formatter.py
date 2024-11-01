@@ -7,6 +7,17 @@ from docx.enum.style import WD_STYLE_TYPE
 
 logger = logging.getLogger(__name__)
 
+def can_convert_to_pdf():
+    '''Check if PDF conversion is possible in current environment'''
+    try:
+        import platform
+        system = platform.system().lower()
+        if system == 'linux':
+            return False
+        return True
+    except:
+        return False
+
 class ProtocolFormatter:
     def __init__(self):
         self.doc = Document()
@@ -70,42 +81,6 @@ class ProtocolFormatter:
         except Exception as e:
             logger.error(f"Error in setup_custom_styles: {str(e)}")
 
-    def _clean_section_content(self, content):
-        """Clean section content to remove duplicates and normalize formatting"""
-        if not content:
-            return ""
-
-        lines = content.split('\n')
-        cleaned_lines = []
-        seen_content = set()
-        in_list = False
-
-        for line in lines:
-            line = line.strip()
-            if not line:
-                if in_list:
-                    in_list = False
-                cleaned_lines.append('')
-                continue
-
-            # Remove section numbers and titles
-            line = re.sub(r'^\d+\.[\d\.]*\s+', '', line)
-            line = re.sub(r'^#+\s*', '', line)
-
-            # Handle lists
-            if line.startswith('•') or line.startswith('-'):
-                in_list = True
-                if line not in seen_content:
-                    seen_content.add(line)
-                    cleaned_lines.append(line)
-            else:
-                normalized_line = re.sub(r'\s+', ' ', line.lower())
-                if normalized_line not in seen_content:
-                    seen_content.add(normalized_line)
-                    cleaned_lines.append(line)
-
-        return '\n'.join(line for line in cleaned_lines if line)
-
     def format_protocol(self, sections):
         try:
             # Add title page with proper style
@@ -144,8 +119,13 @@ class ProtocolFormatter:
             self.doc.save(docx_path)
             
             if format.lower() == 'pdf':
+                if not can_convert_to_pdf():
+                    logger.warning("PDF conversion not available in current environment")
+                    raise ValueError(
+                        "PDF export is not available in this environment. Please download as DOCX instead."
+                    )
+                    
                 try:
-                    # Use a simpler conversion approach
                     from docx2pdf import convert
                     pdf_path = f"{filename}.pdf"
                     convert(docx_path, pdf_path)
@@ -153,10 +133,10 @@ class ProtocolFormatter:
                 except Exception as pdf_error:
                     logger.error(f"Error converting to PDF: {str(pdf_error)}")
                     raise ValueError(
-                        "Could not convert to PDF. Please try downloading as DOCX instead."
+                        "Could not convert to PDF. Please download as DOCX instead."
                     )
             return docx_path
-            
+                
         except Exception as e:
             logger.error(f"Error saving document: {str(e)}")
             raise
