@@ -1,8 +1,5 @@
-# protocol_formatter.py
-
-import os
-import logging
 import re
+import logging
 from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -16,22 +13,6 @@ class ProtocolFormatter:
         self.setup_document()
         self.setup_custom_styles()
 
-        # Track section numbers and content hashes to avoid duplication
-        self.section_numbers = {}
-        self.content_hashes = set()
-
-        # Define canonical section names and their numbers
-        self.section_structure = {
-            "title": {"number": "1", "title": "Protocol Title"},
-            "background": {"number": "2", "title": "Background"},
-            "objectives": {"number": "3", "title": "Objectives"},
-            "study_design": {"number": "4", "title": "Study Design"},
-            "population": {"number": "5", "title": "Study Population"},
-            "procedures": {"number": "6", "title": "Study Procedures"},
-            "statistical_analysis": {"number": "7", "title": "Statistical Analysis"},
-            "safety": {"number": "8", "title": "Safety"}
-        }
-
     def setup_document(self):
         """Initialize document settings"""
         # Set margins
@@ -41,9 +22,9 @@ class ProtocolFormatter:
             section.bottom_margin = Inches(1)
             section.left_margin = Inches(1)
             section.right_margin = Inches(1)
-
+    
     def setup_custom_styles(self):
-        '''Set up custom document styles'''
+        """Set up custom document styles"""
         try:
             # First ensure Normal style exists as base
             if 'Normal' not in self.doc.styles:
@@ -90,42 +71,66 @@ class ProtocolFormatter:
             logger.error(f"Error in setup_custom_styles: {str(e)}")
 
     def _clean_section_content(self, content):
-        """Clean up section content"""
+        """Clean section content to remove duplicates and normalize formatting"""
         if not content:
             return ""
-            
-        return re.sub(r'\n{3,}', '\n\n', content.strip())
+
+        lines = content.split('\n')
+        cleaned_lines = []
+        seen_content = set()
+        in_list = False
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                if in_list:
+                    in_list = False
+                cleaned_lines.append('')
+                continue
+
+            # Remove section numbers and titles
+            line = re.sub(r'^\d+\.[\d\.]*\s+', '', line)
+            line = re.sub(r'^#+\s*', '', line)
+
+            # Handle lists
+            if line.startswith('•') or line.startswith('-'):
+                in_list = True
+                if line not in seen_content:
+                    seen_content.add(line)
+                    cleaned_lines.append(line)
+            else:
+                normalized_line = re.sub(r'\s+', ' ', line.lower())
+                if normalized_line not in seen_content:
+                    seen_content.add(normalized_line)
+                    cleaned_lines.append(line)
+
+        return '\n'.join(line for line in cleaned_lines if line)
 
     def format_protocol(self, sections):
         try:
-            # Add title page
+            # Add title page with proper style
             title = self.doc.add_paragraph('Clinical Trial Protocol')
-            title.style = self.doc.styles['Title']  # Use built-in Title style
+            title.style = 'Title'  # Use built-in style
             self.doc.add_page_break()
             
-            # Add table of contents
-            toc_heading = self.doc.add_paragraph("Table of Contents")
-            toc_heading.style = self.doc.styles['Heading1']
-            self.doc.add_paragraph()  # Placeholder for TOC
-            self.doc.add_page_break()
-            
-            # Process sections
-            for section_name, section_info in self.section_structure.items():
-                if section_name in sections:
-                    content = self._clean_section_content(sections[section_name])
-                    if content:
-                        # Add section heading
-                        heading = self.doc.add_paragraph(
-                            f"{section_info['number']} {section_info['title']}"
-                        )
-                        heading.style = self.doc.styles['Heading1']
-                        
-                        # Add content with proper formatting
-                        for para in content.split('\n\n'):
-                            if para.strip():
-                                p = self.doc.add_paragraph(para.strip())
-                                p.style = self.doc.styles['Body']
-            
+            # Process sections with proper styling
+            section_number = 1
+            for section_name, content in sections.items():
+                if content:
+                    # Add section heading
+                    heading = self.doc.add_paragraph(
+                        f"{section_number}. {section_name.replace('_', ' ').title()}"
+                    )
+                    heading.style = 'Heading1'
+                    
+                    # Add content with proper formatting
+                    for para in content.split('\n\n'):
+                        if para.strip():
+                            p = self.doc.add_paragraph(para.strip())
+                            p.style = 'Normal'
+                            
+                    section_number += 1
+                    
             return self.doc
             
         except Exception as e:
@@ -133,28 +138,11 @@ class ProtocolFormatter:
             raise
 
     def save_document(self, filename, format='docx'):
-        """Save document in specified format"""
+        """Save document in DOCX format"""
         try:
-            if format.lower() == 'pdf':
-                docx_path = f"{filename}.docx"
-                pdf_path = f"{filename}.pdf"
-
-                # Save as DOCX first
-                self.doc.save(docx_path)
-
-                # Convert to PDF
-                os.system(f"libreoffice --headless --convert-to pdf {docx_path}")
-
-                if os.path.exists(pdf_path):
-                    os.remove(docx_path)
-                    return pdf_path
-                else:
-                    raise Exception("PDF conversion failed")
-            else:
-                docx_path = f"{filename}.docx"
-                self.doc.save(docx_path)
-                return docx_path
-
+            output_path = f"{filename}.{format}"
+            self.doc.save(output_path)
+            return output_path
         except Exception as e:
             logger.error(f"Error saving document: {str(e)}")
             raise

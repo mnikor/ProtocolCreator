@@ -149,38 +149,20 @@ def render_navigator():
                     # If generation successful, show export options
                     st.sidebar.success("✅ Protocol generated successfully!")
                     
-                    # Add export format selection with unique key
-                    format_option = st.sidebar.radio(
-                        "Export Format:",
-                        ["DOCX", "PDF"],
-                        key="navigator_export_format"
-                    )
-                    
-                    if st.sidebar.button("Export Protocol", key="nav_export_button"):
+                    if st.sidebar.button("Export Protocol (DOCX)", key="nav_export_button"):
                         try:
                             formatter = ProtocolFormatter()
                             doc = formatter.format_protocol(st.session_state.generated_sections)
+                            output_file = formatter.save_document("protocol", format='docx')
                             
-                            if format_option == "PDF":
-                                output_file = formatter.save_document("protocol", format='pdf')
-                                with open(output_file, "rb") as file:
-                                    st.sidebar.download_button(
-                                        label="Download Protocol (PDF)",
-                                        data=file,
-                                        file_name="protocol.pdf",
-                                        mime="application/pdf",
-                                        key="nav_download_pdf"
-                                    )
-                            else:  # DOCX format
-                                output_file = formatter.save_document("protocol", format='docx')
-                                with open(output_file, "rb") as file:
-                                    st.sidebar.download_button(
-                                        label="Download Protocol (DOCX)",
-                                        data=file,
-                                        file_name="protocol.docx",
-                                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                        key="nav_download_docx"
-                                    )
+                            with open(output_file, "rb") as file:
+                                st.sidebar.download_button(
+                                    label="Download Protocol (DOCX)",
+                                    data=file,
+                                    file_name="protocol.docx",
+                                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                    key="nav_download_docx"
+                                )
                         except Exception as e:
                             st.sidebar.error(f"Error exporting protocol: {str(e)}")
     else:
