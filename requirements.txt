@@ -1,7 +1,7 @@
 streamlit
 openai
 python-docx
+docx2pdf
 beautifulsoup4
-weasyprint
 graphviz
 PyPDF2

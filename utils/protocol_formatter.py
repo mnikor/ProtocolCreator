@@ -138,11 +138,25 @@ class ProtocolFormatter:
             raise
 
     def save_document(self, filename, format='docx'):
-        """Save document in DOCX format"""
         try:
-            output_path = f"{filename}.{format}"
-            self.doc.save(output_path)
-            return output_path
+            # Always save as DOCX first
+            docx_path = f"{filename}.docx"
+            self.doc.save(docx_path)
+            
+            if format.lower() == 'pdf':
+                try:
+                    # Use a simpler conversion approach
+                    from docx2pdf import convert
+                    pdf_path = f"{filename}.pdf"
+                    convert(docx_path, pdf_path)
+                    return pdf_path
+                except Exception as pdf_error:
+                    logger.error(f"Error converting to PDF: {str(pdf_error)}")
+                    raise ValueError(
+                        "Could not convert to PDF. Please try downloading as DOCX instead."
+                    )
+            return docx_path
+            
         except Exception as e:
             logger.error(f"Error saving document: {str(e)}")
             raise
