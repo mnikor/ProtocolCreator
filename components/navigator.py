@@ -4,7 +4,6 @@ import logging
 import time
 from utils.template_section_generator import TemplateSectionGenerator
 from utils.protocol_formatter import ProtocolFormatter
-from utils.protocol_quality_ui import render_quality_assessment
 from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
 from config.validation_rules import validate_protocol_quality
 
@@ -80,10 +79,6 @@ def generate_all_sections():
                 st.session_state.generated_sections = sections
                 st.session_state.validation_results = result.get("validation_results", {})
                 
-                # Display quality assessment
-                with st.expander("📊 Protocol Quality Assessment", expanded=True):
-                    render_quality_assessment(result["validation_results"])
-                
                 # Show generation summary
                 total_time = datetime.now() - start_time
                 if successful_sections == total_sections:
@@ -97,9 +92,8 @@ def generate_all_sections():
                         f"⚠️ Generated {successful_sections}/{total_sections} sections ({total_time.total_seconds():.1f}s)"
                     )
                     if result.get("generation_errors"):
-                        with st.expander("🔍 Generation Errors"):
-                            for error in result["generation_errors"]:
-                                st.error(error)
+                        for error in result["generation_errors"]:
+                            st.error(error)
                     return False
                     
             except ConnectionError as ce:

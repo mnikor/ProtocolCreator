@@ -24,26 +24,9 @@ def generate_complete_protocol(generator):
             synopsis_content=st.session_state.synopsis_content
         )
         
-        # Show validation report in expandable section
-        with st.expander("📋 Protocol Validation Report", expanded=True):
-            st.markdown(result["validation_report"])
-            
-            # Show dimension scores
-            for dimension, results in result["validation_results"].items():
-                st.write(f"{dimension.replace('_', ' ').title()}: {results['score']:.2%}")
-                
-                if results["missing_items"]:
-                    st.warning("Missing Items:")
-                    for item in results["missing_items"]:
-                        st.write(f"- {item}")
-                        
-                if results["recommendations"]:
-                    st.info("Recommendations:")
-                    for rec in results["recommendations"]:
-                        st.write(f"- {rec}")
-        
         # Store generated sections
         st.session_state.generated_sections = result["sections"]
+        st.session_state.validation_results = result["validation_results"]
         
         if len(result["sections"]) == total_sections:
             progress_placeholder.success("✅ Protocol generation completed!")
@@ -107,8 +90,44 @@ def render_editor():
     
     st.markdown("---")
     
+    # Quality Assessment Display
+    if validation_results := st.session_state.get('validation_results'):
+        st.markdown("## 📊 Protocol Quality Assessment")
+        
+        # Overall score
+        overall_score = sum(r['score'] for r in validation_results.values()) / len(validation_results)
+        st.metric(
+            "Overall Quality Score",
+            f"{overall_score:.2%}",
+            f"{(overall_score-0.8)*100:.1f}% from target" if overall_score < 0.8 else "Meets target"
+        )
+        
+        # Bar chart of dimension scores
+        scores_data = {
+            dim.replace('_', ' ').title(): results['score'] 
+            for dim, results in validation_results.items()
+        }
+        st.bar_chart(data=scores_data, use_container_width=True)
+        
+        # Detailed Assessment
+        st.markdown("### Detailed Assessment")
+        for dimension, results in validation_results.items():
+            st.markdown(f"#### {dimension.replace('_', ' ').title()}")
+            st.progress(results['score'])
+            
+            if results["missing_items"]:
+                st.warning("Missing Items:")
+                for item in results["missing_items"]:
+                    st.write(f"- {item}")
+                    
+            if results["recommendations"]:
+                st.info("Recommendations:")
+                for rec in results["recommendations"]:
+                    st.write(f"- {rec}")
+    
     # Show current section content if any
     if st.session_state.get('current_section'):
+        st.markdown("---")
         section = st.session_state.current_section
         st.subheader(f"Editing: {section.replace('_', ' ').title()}")
         
@@ -145,7 +164,7 @@ def render_editor():
     else:
         st.info("👈 Select a section from the sidebar to begin editing")
 
-    # Export functionality with improved options
+    # Export functionality at the bottom
     if st.session_state.get('generated_sections'):
         st.markdown("---")
         st.subheader("Export Protocol")
