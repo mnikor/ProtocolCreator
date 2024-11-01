@@ -85,26 +85,25 @@ class ProtocolValidator:
         try:
             # Normalize study type
             study_type = study_type.lower()
-            study_enum = self._get_study_type(study_type)
             
             validation_results = {}
             total_score = 0.0
             total_weight = 0.0
             
             # Scientific Rigor validation
-            scientific_results = self._validate_dimension(content, "scientific_rigor")
+            scientific_results = self._validate_dimension(content, "scientific_rigor", study_type)
             validation_results["scientific_rigor"] = scientific_results
             total_score += scientific_results["score"] * 0.4
             total_weight += 0.4
             
             # Methodology validation
-            methodology_results = self._validate_dimension(content, "methodology")
+            methodology_results = self._validate_dimension(content, "methodology", study_type)
             validation_results["methodology"] = methodology_results
             total_score += methodology_results["score"] * 0.3
             total_weight += 0.3
             
             # Compliance validation
-            compliance_results = self._validate_dimension(content, "regulatory_compliance")
+            compliance_results = self._validate_dimension(content, "regulatory_compliance", study_type)
             validation_results["regulatory_compliance"] = compliance_results
             total_score += compliance_results["score"] * 0.3
             total_weight += 0.3
@@ -118,31 +117,63 @@ class ProtocolValidator:
             logger.error(f"Error in protocol validation: {str(e)}")
             return {"overall_score": 0.0}
 
-    def _validate_dimension(self, content: Dict[str, str], dimension: str) -> Dict:
-        '''Validate a specific dimension of the protocol'''
-        dimension_scores = {
-            "scientific_rigor": {
-                "required_elements": [
-                    "objectives", "hypothesis", "endpoints", 
-                    "sample_size", "analysis", "methods"
-                ],
-                "weight": 0.4
+    def _validate_dimension(self, content: Dict[str, str], dimension: str, study_type: str = None) -> Dict:
+        '''Validate a specific dimension of the protocol based on study type'''
+        # Get study type specific validation rules
+        validation_rules = {
+            "slr": {
+                "scientific_rigor": {
+                    "required_elements": [
+                        "research_question", "search_terms", 
+                        "inclusion_criteria", "exclusion_criteria",
+                        "data_synthesis"
+                    ],
+                    "weight": 0.4
+                },
+                "methodology": {
+                    "required_elements": [
+                        "search_strategy", "study_selection",
+                        "data_extraction", "quality_assessment",
+                        "synthesis_methods"
+                    ],
+                    "weight": 0.3
+                },
+                "regulatory_compliance": {
+                    "required_elements": [
+                        "reporting_guidelines", "bias_assessment",
+                        "publication_bias", "heterogeneity"
+                    ],
+                    "weight": 0.3
+                }
             },
-            "methodology": {
-                "required_elements": [
-                    "population", "criteria", "procedures",
-                    "statistical", "data_collection"
-                ],
-                "weight": 0.3
-            },
-            "regulatory_compliance": {
-                "required_elements": [
-                    "ethical", "safety", "monitoring",
-                    "consent", "privacy"
-                ],
-                "weight": 0.3
+            "interventional": {
+                "scientific_rigor": {
+                    "required_elements": [
+                        "objectives", "hypothesis", "endpoints", 
+                        "sample_size", "analysis", "methods"
+                    ],
+                    "weight": 0.4
+                },
+                "methodology": {
+                    "required_elements": [
+                        "population", "criteria", "procedures",
+                        "statistical", "data_collection"
+                    ],
+                    "weight": 0.3
+                },
+                "regulatory_compliance": {
+                    "required_elements": [
+                        "ethical", "safety", "monitoring",
+                        "consent", "privacy"
+                    ],
+                    "weight": 0.3
+                }
             }
         }
+        
+        # Determine which rule set to use
+        study_category = "slr" if study_type and study_type.lower() in ["slr", "meta"] else "interventional"
+        dimension_scores = validation_rules[study_category]
         
         if dimension not in dimension_scores:
             return {"score": 0.0, "missing_items": [], "recommendations": []}
