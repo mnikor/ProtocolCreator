@@ -1,5 +1,3 @@
-# protocol_formatter.py
-
 import os
 import logging
 import re
@@ -92,37 +90,41 @@ class ProtocolFormatter:
             section.right_margin = Inches(1)
 
     def setup_custom_styles(self):
-        """Set up custom document styles"""
+        '''Set up custom document styles'''
         styles = {
-            'Title': {'size': 16, 'bold': True, 'align': WD_ALIGN_PARAGRAPH.CENTER},
-            'Heading1': {'size': 14, 'bold': True, 'spacing_before': 24, 'spacing_after': 12},
-            'Heading2': {'size': 12, 'bold': True, 'spacing_before': 18, 'spacing_after': 9},
-            'Heading3': {'size': 11, 'bold': True, 'spacing_before': 12, 'spacing_after': 6},
-            'Normal': {'size': 11, 'spacing_before': 6, 'spacing_after': 6},
-            'List': {'size': 11, 'spacing_before': 3, 'spacing_after': 3},
-            'Table': {'size': 10},
-            'Caption': {'size': 10, 'italic': True}
+            'CustomTitle': {'name': 'Protocol Title', 'size': 24, 'bold': True, 'align': WD_ALIGN_PARAGRAPH.CENTER},
+            'CustomHeading1': {'name': 'Section Title', 'size': 16, 'bold': True},
+            'CustomHeading2': {'name': 'Subsection Title', 'size': 14, 'bold': True},
+            'CustomHeading3': {'name': 'Sub-subsection Title', 'size': 12, 'bold': True},
+            'CustomBody': {'name': 'Body Text', 'size': 11},
+            'CustomTableText': {'name': 'Table Text', 'size': 10},
+            'CustomTableHeader': {'name': 'Table Header', 'size': 10, 'bold': True},
+            'CustomCaption': {'name': 'Figure Caption', 'size': 10, 'italic': True}
         }
 
         for style_name, props in styles.items():
-            if style_name not in self.doc.styles:
-                style = self.doc.styles.add_style(style_name + 'Custom', WD_STYLE_TYPE.PARAGRAPH)
-            else:
-                style = self.doc.styles[style_name]
-
-            font = style.font
-            font.name = 'Arial'
-            font.size = Pt(props['size'])
-            font.bold = props.get('bold', False)
-            font.italic = props.get('italic', False)
-
-            paragraph_format = style.paragraph_format
-            if 'spacing_before' in props:
-                paragraph_format.space_before = Pt(props['spacing_before'])
-            if 'spacing_after' in props:
-                paragraph_format.space_after = Pt(props['spacing_after'])
-            if 'align' in props:
-                paragraph_format.alignment = props['align']
+            try:
+                if style_name not in self.doc.styles:
+                    style = self.doc.styles.add_style(style_name, WD_STYLE_TYPE.PARAGRAPH)
+                else:
+                    style = self.doc.styles[style_name]
+                
+                font = style.font
+                font.name = 'Arial'
+                font.size = Pt(props['size'])
+                font.bold = props.get('bold', False)
+                font.italic = props.get('italic', False)
+                
+                para_format = style.paragraph_format
+                para_format.space_before = Pt(6)
+                para_format.space_after = Pt(6)
+                para_format.line_spacing = 1.15
+                
+                if props.get('align'):
+                    para_format.alignment = props['align']
+                    
+            except Exception as e:
+                logger.error(f"Error setting up style {style_name}: {str(e)}")
 
     def _clean_section_content(self, content):
         """Clean up section content"""
@@ -163,7 +165,7 @@ class ProtocolFormatter:
 
         # Add section heading
         title = self.section_titles.get(section_name, section_name.replace('_', ' ').title())
-        heading = self.doc.add_paragraph(f"{section_number}. {title}", style='Heading1Custom')
+        heading = self.doc.add_paragraph(f"{section_number}. {title}", style='CustomHeading1')
 
         # Process content
         paragraphs = content.split('\n\n')
@@ -181,20 +183,20 @@ class ProtocolFormatter:
                 if level == 2:
                     self.doc.add_paragraph(
                         f"{section_number}.{subsection_number} {text}",
-                        style='Heading2Custom'
+                        style='CustomHeading2'
                     )
                     subsection_number += 1
                 elif level == 3:
-                    self.doc.add_paragraph(text, style='Heading3Custom')
+                    self.doc.add_paragraph(text, style='CustomHeading3')
             # Check for list items
             elif para.startswith('•') or para.startswith('-'):
-                p = self.doc.add_paragraph(style='ListCustom')
+                p = self.doc.add_paragraph(style='CustomBody')
                 p.add_run('•').bold = True
                 p.add_run(' ' + para[1:].strip())
             elif re.match(r'^\d+\.', para):
-                self.doc.add_paragraph(para, style='ListCustom')
+                self.doc.add_paragraph(para, style='CustomBody')
             else:
-                self.doc.add_paragraph(para, style='NormalCustom')
+                self.doc.add_paragraph(para, style='CustomBody')
 
     def format_protocol(self, sections, study_type="phase1"):
         """Format complete protocol document"""
@@ -203,14 +205,11 @@ class ProtocolFormatter:
             section_order = self.section_orders.get(study_type, self.section_orders["phase1"])
 
             # Add title page
-            self.doc.add_paragraph(
-                f"{study_type.upper()} PROTOCOL",
-                style='TitleCustom'
-            )
+            title = self.doc.add_paragraph('Clinical Trial Protocol', style='CustomTitle')
             self.doc.add_page_break()
 
             # Add table of contents
-            self.doc.add_paragraph("Table of Contents", style='Heading1Custom')
+            self.doc.add_paragraph("Table of Contents", style='CustomHeading1')
             self.doc.add_paragraph()  # Placeholder for TOC
             self.doc.add_page_break()
 
