@@ -1,12 +1,9 @@
-from openai import OpenAI
 import os
-import json
 import logging
 import re
-from utils.template_manager import TemplateManager
+from openai import OpenAI
+from typing import Dict, List
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class GPTHandler:
@@ -16,8 +13,9 @@ class GPTHandler:
             if not os.environ.get("OPENAI_API_KEY"):
                 logger.error("OpenAI API key not found in environment variables")
                 raise ValueError("OpenAI API key not found")
-            self.model_name = "gpt-4-1106-preview"
-            self.template_manager = TemplateManager()
+            self.model = "gpt-4o-2024-08-06"  # Update to new model
+            self.max_input_tokens = 128000     # New input limit
+            self.max_output_tokens = 16000     # New output limit
             self.default_analysis = {
                 'study_type_and_design': {
                     'primary_classification': 'Not specified',
@@ -59,7 +57,40 @@ class GPTHandler:
         
         return content.strip()
 
-    def analyze_synopsis(self, synopsis_text):
+    def generate_section(self, section_name: str, synopsis_content: str, previous_sections=None, prompt=None):
+        """Generate protocol section with specified prompt"""
+        try:
+            if not section_name or not synopsis_content:
+                raise ValueError("Section name and synopsis content are required")
+
+            # Use provided prompt if available, otherwise use default system prompt
+            messages = [
+                {
+                    "role": "system",
+                    "content": prompt or "You are a medical writer generating protocol sections. Start directly with the content. Do not include any introductory phrases or meta-commentary. Use proper heading structure."
+                },
+                {
+                    "role": "user",
+                    "content": f"Generate the {section_name} section based on this synopsis:\n\n{synopsis_content}\n\nPrevious sections if available:\n{previous_sections or ''}"
+                }
+            ]
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.3,
+                max_tokens=self.max_output_tokens
+            )
+
+            content = response.choices[0].message.content
+            return self._clean_generated_content(content)
+
+        except Exception as e:
+            logger.error(f"Error generating section: {str(e)}")
+            raise
+
+    def analyze_synopsis(self, synopsis_text: str):
+        """Analyze synopsis content and determine study type"""
         try:
             if not synopsis_text or not isinstance(synopsis_text, str):
                 raise ValueError("Invalid synopsis text")
@@ -84,9 +115,10 @@ class GPTHandler:
             ]
 
             response = self.client.chat.completions.create(
-                model=self.model_name,
+                model=self.model,
                 messages=messages,
-                temperature=0.3
+                temperature=0.3,
+                max_tokens=self.max_output_tokens
             )
             
             analysis_text = response.choices[0].message.content
@@ -99,38 +131,7 @@ class GPTHandler:
             logger.error(f"Error in analyze_synopsis: {str(e)}")
             return self.default_analysis, 'phase1'
 
-    def generate_section(self, section_name, synopsis_content, previous_sections=None, prompt=None):
-        """Generate protocol section with specified prompt"""
-        try:
-            if not section_name or not synopsis_content:
-                raise ValueError("Section name and synopsis content are required")
-
-            # Use provided prompt if available, otherwise use default system prompt
-            messages = [
-                {
-                    "role": "system",
-                    "content": prompt or "You are a medical writer generating protocol sections. Start directly with the content. Do not include any introductory phrases or meta-commentary. Use proper heading structure."
-                },
-                {
-                    "role": "user",
-                    "content": f"Generate the {section_name} section based on this synopsis:\n\n{synopsis_content}\n\nPrevious sections if available:\n{previous_sections or ''}"
-                }
-            ]
-
-            response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=messages,
-                temperature=0.3
-            )
-
-            content = response.choices[0].message.content
-            return self._clean_generated_content(content)
-
-        except Exception as e:
-            logger.error(f"Error generating section: {str(e)}")
-            raise
-
-    def _parse_structured_text(self, text, default_values):
+    def _parse_structured_text(self, text: str, default_values: Dict) -> Dict:
         """Parse and structure the analysis text"""
         try:
             if not isinstance(text, str) or not text.strip():
@@ -155,7 +156,6 @@ class GPTHandler:
             }
             
             lines = text.split('\n')
-            current_section = None
             
             for line in lines:
                 line = line.strip()
@@ -179,8 +179,8 @@ class GPTHandler:
             logger.error(f"Error parsing text: {str(e)}")
             return default_values
 
-    def _determine_study_phase(self, analysis):
-        """Determine study phase from analysis with improved pattern matching"""
+    def _determine_study_phase(self, analysis: Dict) -> str:
+        """Determine study phase from analysis"""
         try:
             study_design = analysis.get("study_type_and_design", {})
             classification = study_design.get("primary_classification", "").lower()

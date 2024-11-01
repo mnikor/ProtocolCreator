@@ -79,11 +79,132 @@ class ProtocolValidator:
                     StudyType.RWE.type_name: ["data_privacy", "database_qualification"]
                 },
                 "weight": 0.15
+            },
+            ValidationDimension.OPERATIONAL_FEASIBILITY: {
+                "items": [
+                    "timeline_feasibility",
+                    "resource_requirements",
+                    "procedure_practicality",
+                    "data_management_plan",
+                    "site_requirements"
+                ],
+                "study_type_specific": {
+                    StudyType.PHASE2.type_name: ["drug_supply", "site_capabilities"],
+                    StudyType.SLR.type_name: ["review_team", "software_tools"],
+                    StudyType.RWE.type_name: ["data_access", "computing_resources"]
+                },
+                "weight": 0.15
+            },
+            ValidationDimension.ETHICAL_CONSIDERATIONS: {
+                "items": [
+                    "risk_benefit_assessment",
+                    "vulnerable_populations",
+                    "informed_consent",
+                    "confidentiality_measures",
+                    "ethical_oversight"
+                ],
+                "study_type_specific": {
+                    StudyType.PHASE2.type_name: ["stopping_rules", "subject_protection"],
+                    StudyType.SLR.type_name: ["publication_bias", "conflict_of_interest"],
+                    StudyType.RWE.type_name: ["data_privacy", "consent_waiver"]
+                },
+                "weight": 0.1
+            },
+            ValidationDimension.REPORTING_STANDARDS: {
+                "items": [
+                    "guideline_adherence",
+                    "complete_documentation",
+                    "clarity_and_structure",
+                    "consistency_internal",
+                    "terminology_standard"
+                ],
+                "study_type_specific": {
+                    StudyType.PHASE2.type_name: ["consort_compliance", "protocol_registration"],
+                    StudyType.SLR.type_name: ["prisma_checklist", "prospero_registration"],
+                    StudyType.RWE.type_name: ["strobe_guidance", "record_statement"]
+                },
+                "weight": 0.1
             }
         }
 
     def validate_protocol(self, content: Dict[str, str], study_type: str) -> Dict:
-        """Validate protocol across all dimensions with study type specific checks"""
+        """Validate protocol across all dimensions"""
+        validation_results = {}
+        
+        for dimension in ValidationDimension:
+            try:
+                dimension_results = self._validate_dimension(
+                    content, 
+                    study_type,
+                    dimension
+                )
+                validation_results[dimension.value] = dimension_results
+            except Exception as e:
+                logger.error(f"Error validating {dimension.name}: {str(e)}")
+                validation_results[dimension.value] = {
+                    "score": 0.0,
+                    "missing_items": [],
+                    "recommendations": [f"Error in validation: {str(e)}"]
+                }
+        
+        # Calculate overall quality score
+        total_weighted_score = 0.0
+        total_weight = 0.0
+        
+        for dimension in ValidationDimension:
+            results = validation_results.get(dimension.value, {})
+            weight = self.validation_criteria[dimension].get("weight", 0.0)
+            score = results.get("score", 0.0)
+            total_weighted_score += score * weight
+            total_weight += weight
+            
+        if total_weight > 0:
+            validation_results["quality_score"] = (total_weighted_score / total_weight) * 100
+            
+        return validation_results
+
+    def validate_against_guidelines(self, content: str, section_name: str, guideline: str) -> Dict:
+        """Validate content against specific guideline requirements"""
+        validation_results = {
+            "missing_elements": [],
+            "recommendations": []
+        }
+        
+        try:
+            # Basic guideline validation
+            if not content:
+                validation_results["missing_elements"].append(
+                    f"{section_name} content is empty"
+                )
+                return validation_results
+                
+            # Get guideline-specific elements
+            guideline_elements = {
+                "SPIRIT": ["objectives", "background", "methods", "population"],
+                "PRISMA": ["search_strategy", "inclusion_criteria", "data_extraction"],
+                "STROBE": ["study_design", "setting", "participants", "variables"],
+                "RECORD": ["data_sources", "population", "variables", "statistical_methods"]
+            }
+            
+            required_elements = guideline_elements.get(guideline, [])
+            for element in required_elements:
+                if element.lower() not in content.lower():
+                    validation_results["missing_elements"].append(
+                        f"Missing {guideline} element: {element}"
+                    )
+                    validation_results["recommendations"].append(
+                        f"Add section addressing {element}"
+                    )
+            
+            return validation_results
+            
+        except Exception as e:
+            logger.error(f"Error in guideline validation: {str(e)}")
+            return validation_results
+
+    def _validate_dimension(self, content: Dict[str, str], study_type: str, 
+                          dimension: ValidationDimension) -> Dict:
+        """Validate specific dimension with study type specific rules"""
         try:
             # Normalize study type
             study_type = study_type.lower()
@@ -94,41 +215,7 @@ class ProtocolValidator:
             except StopIteration:
                 logger.warning(f"Unknown study type: {study_type}, using generic validation")
                 study_enum = None
-
-            validation_results = {
-                "issues": [],
-                "suggestions": [],
-                "quality_score": 0.0
-            }
-            
-            total_weighted_score = 0.0
-            total_weight = 0.0
-            
-            for dimension in ValidationDimension:
-                dimension_results = self._validate_dimension(
-                    content, 
-                    study_enum,
-                    dimension
-                )
-                validation_results[dimension.value] = dimension_results
                 
-                weight = self.validation_criteria[dimension].get("weight", 0.0)
-                total_weighted_score += dimension_results["score"] * weight
-                total_weight += weight
-                
-            if total_weight > 0:
-                validation_results["quality_score"] = (total_weighted_score / total_weight) * 100
-                
-            return validation_results
-
-        except Exception as e:
-            logger.error(f"Error in protocol validation: {str(e)}")
-            raise
-
-    def _validate_dimension(self, content: Dict[str, str], study_type: StudyType, 
-                          dimension: ValidationDimension) -> Dict:
-        """Validate specific dimension with study type specific rules"""
-        try:
             criteria = self.validation_criteria.get(dimension, {})
             results = {
                 "missing_items": [],
@@ -153,26 +240,23 @@ class ProtocolValidator:
                     )
 
             # Check study type specific items
-            if study_type:
-                specific_items = criteria.get("study_type_specific", {}).get(study_type.type_name, [])
+            if study_enum:
+                specific_items = criteria.get("study_type_specific", {}).get(study_enum.type_name, [])
                 for item in specific_items:
                     item_score = self._check_item_presence(content, item)
                     results["item_scores"][item] = item_score
                     total_score += item_score
                     
                     if item_score < 0.6:
-                        results["missing_items"].append(f"{study_type.type_name}-specific: {item}")
+                        results["missing_items"].append(f"{study_enum.type_name}-specific: {item}")
                         results["recommendations"].append(
-                            f"Add {study_type.type_name}-specific element: {item}"
+                            f"Add {study_enum.type_name}-specific element: {item}"
                         )
 
             # Calculate dimension score
-            total_items = len(items) + (len(specific_items) if study_type else 0)
+            total_items = len(items) + (len(specific_items) if study_enum else 0)
             if total_items > 0:
                 results["score"] = total_score / total_items
-            
-            # Add dimension-specific recommendations
-            self._add_dimension_recommendations(results, dimension, study_type)
             
             return results
 
@@ -219,35 +303,6 @@ class ProtocolValidator:
             max_section_score = max(max_section_score, section_score)
                 
         return max_section_score
-
-    def _add_dimension_recommendations(self, results: Dict, dimension: ValidationDimension, 
-                                    study_type: StudyType = None):
-        """Add dimension and study type specific recommendations"""
-        score = results["score"]
-        
-        if score < 0.6:
-            base_rec = {
-                ValidationDimension.SCIENTIFIC_RIGOR: "Strengthen scientific rationale and methodology",
-                ValidationDimension.METHODOLOGY: "Provide more detailed methods and procedures",
-                ValidationDimension.REGULATORY_COMPLIANCE: "Ensure compliance with all regulatory requirements"
-            }.get(dimension)
-            
-            if base_rec:
-                results["recommendations"].append(base_rec)
-                
-            # Add study type specific recommendations
-            if study_type:
-                type_specific_rec = {
-                    (StudyType.PHASE2, ValidationDimension.SCIENTIFIC_RIGOR): 
-                        "Include more Phase 1 data references and dose rationale",
-                    (StudyType.SLR, ValidationDimension.METHODOLOGY):
-                        "Strengthen search strategy and data extraction methods",
-                    (StudyType.RWE, ValidationDimension.REGULATORY_COMPLIANCE):
-                        "Address data privacy and database qualification requirements"
-                }.get((study_type, dimension))
-                
-                if type_specific_rec:
-                    results["recommendations"].append(type_specific_rec)
 
     def generate_validation_report(self, validation_results: Dict) -> str:
         """Generate detailed validation report with study type specific insights"""
