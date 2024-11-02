@@ -30,42 +30,20 @@ class SynopsisValidator:
             'observational': [
                 'observational study', 'registry study', 'cohort study',
                 'case-control', 'prospective observational', 'retrospective analysis',
-                'longitudinal study', 'epidemiological study', 'natural history',
-                'real-world data', 'population-based'
-            ],
-            'medical_device': [
-                'device study', 'medical device', 'feasibility study',
-                'device safety', 'device performance', 'usability study',
-                'device validation', 'device verification', 'device testing',
-                'implant study', 'device trial'
-            ],
-            'diagnostic': [
-                'diagnostic accuracy', 'screening study', 'sensitivity specificity',
-                'diagnostic test', 'biomarker validation', 'diagnostic performance',
-                'diagnostic evaluation', 'test validation', 'assay validation',
-                'diagnostic precision', 'reference standard'
+                'longitudinal study', 'epidemiological study', 'natural history'
             ],
             'systematic_review': [
                 'systematic review', 'systematic literature review', 'slr',
                 'meta analysis', 'meta-analysis', 'evidence synthesis',
-                'systematic search', 'prisma', 'literature synthesis',
-                'literature review', 'evidence review', 'systematic search',
-                'search strategy', 'prisma statement', 'evidence synthesis',
-                'meta-analyses', 'review protocol', 'systematic methodology',
-                'review registration', 'search criteria', 'database search',
-                'study selection', 'data synthesis', 'quality appraisal'
+                'systematic search', 'prisma', 'literature synthesis'
             ],
             'secondary_rwe': [
                 'secondary analysis', 'real world evidence', 'rwe study',
-                'database study', 'claims analysis', 'electronic health records',
-                'retrospective database', 'healthcare database', 'real-world data',
-                'secondary rwe', 'administrative data'
+                'database study', 'claims analysis', 'electronic health records'
             ],
             'patient_survey': [
                 'patient survey', 'questionnaire study', 'patient reported outcome',
-                'survey research', 'patient experience', 'quality of life survey',
-                'patient preference', 'patient satisfaction', 'patient perspective',
-                'patient feedback', 'pro study', 'patient-reported'
+                'survey research', 'patient experience', 'quality of life survey'
             ]
         }
 
@@ -73,20 +51,20 @@ class SynopsisValidator:
         try:
             content_lower = content.lower()
             
-            # First check for clinical trial phases
+            # Force check phase indicators first with strict patterns
             phase_patterns = {
-                'phase1': self.study_type_patterns['phase1'],
-                'phase2': self.study_type_patterns['phase2'],
-                'phase3': self.study_type_patterns['phase3'],
-                'phase4': self.study_type_patterns['phase4']
+                'phase2': ['phase 2', 'phase ii', 'phase-2', 'phase-ii'],
+                'phase1': ['phase 1', 'phase i', 'phase-1', 'phase-i'],
+                'phase3': ['phase 3', 'phase iii', 'phase-3', 'phase-iii'],
+                'phase4': ['phase 4', 'phase iv', 'phase-4', 'phase-iv']
             }
             
-            # Check for phase indicators first
+            # Strict phase detection first
             for phase, patterns in phase_patterns.items():
-                if any(pattern in content_lower for pattern in patterns):
+                if any(f" {pattern} " in f" {content_lower} " for pattern in patterns):
                     return phase
-                    
-            # Then check other study types
+            
+            # Only check other study types if no phase is found
             for study_type, patterns in self.study_type_patterns.items():
                 if study_type not in ['phase1', 'phase2', 'phase3', 'phase4']:
                     if any(pattern in content_lower for pattern in patterns):
@@ -101,16 +79,15 @@ class SynopsisValidator:
     def detect_therapeutic_area(self, content: str) -> Optional[str]:
         """Detect therapeutic area from content using defined patterns"""
         therapeutic_areas = {
-            'oncology': ['cancer', 'tumor', 'oncology', 'neoplasm', 'malignancy', 'carcinoma'],
-            'cardiology': ['heart', 'cardiac', 'cardiovascular', 'hypertension', 'vascular'],
-            'neurology': ['brain', 'neural', 'nervous system', 'neurodegenerative', 'cognitive'],
-            'immunology': ['immune', 'autoimmune', 'inflammation', 'rheumatic', 'allergy'],
-            'infectious_disease': ['infection', 'viral', 'bacterial', 'pathogen', 'antimicrobial'],
-            'metabolism': ['diabetes', 'metabolic', 'endocrine', 'obesity', 'lipid'],
+            'oncology': ['cancer', 'tumor', 'oncology', 'neoplasm', 'malignancy'],
+            'cardiology': ['heart', 'cardiac', 'cardiovascular', 'hypertension'],
+            'neurology': ['brain', 'neural', 'nervous system', 'neurodegenerative'],
+            'immunology': ['immune', 'autoimmune', 'inflammation', 'rheumatic'],
+            'infectious_disease': ['infection', 'viral', 'bacterial', 'pathogen'],
+            'metabolism': ['diabetes', 'metabolic', 'endocrine', 'obesity'],
             'respiratory': ['lung', 'respiratory', 'pulmonary', 'asthma', 'copd'],
-            'psychiatry': ['psychiatric', 'mental health', 'behavioral', 'depression', 'anxiety'],
-            'pediatrics': ['pediatric', 'children', 'juvenile', 'infant', 'adolescent'],
-            'geriatrics': ['elderly', 'geriatric', 'aging', 'older adults'],
+            'psychiatry': ['psychiatric', 'mental health', 'behavioral', 'depression'],
+            'pediatrics': ['pediatric', 'children', 'juvenile', 'infant'],
             'rare_disease': ['rare disease', 'orphan disease', 'genetic disorder']
         }
         
@@ -126,21 +103,6 @@ class SynopsisValidator:
             study_type = self.detect_study_type(synopsis_content)
             therapeutic_area = self.detect_therapeutic_area(synopsis_content)
             
-            # Additional SLR validation
-            content_lower = synopsis_content.lower()
-            slr_indicators = [
-                'search strategy', 'inclusion criteria',
-                'exclusion criteria', 'quality assessment',
-                'data extraction', 'prisma'
-            ]
-            
-            has_slr_indicators = any(indicator in content_lower 
-                                   for indicator in slr_indicators)
-            
-            # Override study type if strong SLR indicators present
-            if has_slr_indicators and study_type not in ['systematic_review', 'secondary_rwe']:
-                study_type = 'systematic_review'
-                
             validation_result = {
                 'study_type': study_type,
                 'therapeutic_area': therapeutic_area,
