@@ -1,7 +1,5 @@
 import streamlit as st
 import logging
-import time
-from datetime import datetime
 from utils.template_section_generator import TemplateSectionGenerator
 from utils.protocol_quality_ui import render_quality_assessment
 from utils.protocol_improver import ProtocolImprover
@@ -36,46 +34,25 @@ def render_editor():
     ''', unsafe_allow_html=True)
     
     # Main generate button
-    if st.button("Generate Complete Protocol", type='primary', key=f"gen_protocol_{int(time.time())}", use_container_width=True):
+    if st.button("Generate Complete Protocol", type='primary', key="gen_protocol", use_container_width=True):
         try:
-            # Clear previous results
-            if 'generated_sections' in st.session_state:
-                del st.session_state.generated_sections
-            if 'validation_results' in st.session_state:
-                del st.session_state.validation_results
-            if 'show_comparison' in st.session_state:
-                del st.session_state.show_comparison
+            with st.spinner("Generating protocol..."):
+                # Initialize generator
+                generator = TemplateSectionGenerator()
                 
-            # Initialize progress tracking
-            progress_container = st.container()
-            progress_text = progress_container.empty()
-            progress_bar = progress_container.progress(0)
-            progress_text.text("Initializing protocol generation...")
-            
-            # Initialize generator
-            generator = TemplateSectionGenerator()
-            logger.info(f"Starting protocol generation for study type: {st.session_state.study_type}")
-            
-            # Generate complete protocol
-            result = generator.generate_complete_protocol(
-                study_type=st.session_state.study_type,
-                synopsis_content=st.session_state.synopsis_content
-            )
-            
-            if not result or not result.get("sections"):
-                raise ValueError("Failed to generate protocol sections")
+                # Generate complete protocol
+                result = generator.generate_complete_protocol(
+                    study_type=st.session_state.study_type,
+                    synopsis_content=st.session_state.synopsis_content
+                )
                 
-            # Update session state with results
-            st.session_state.generated_sections = result["sections"]
-            st.session_state.validation_results = result["validation_results"]
-            
-            # Clear progress indicators
-            progress_text.empty()
-            progress_bar.empty()
-            
-            st.success("✅ Protocol generated successfully!")
-            st.rerun()  # Force refresh to show new content
-            
+                if result and result.get("sections"):
+                    st.session_state.generated_sections = result["sections"]
+                    st.session_state.validation_results = result["validation_results"]
+                    st.success("✅ Protocol generated successfully!")
+                else:
+                    st.error("Failed to generate protocol sections")
+                    
         except Exception as e:
             logger.error(f"Error in protocol generation: {str(e)}")
             st.error(f"Error generating protocol: {str(e)}")
@@ -85,27 +62,28 @@ def render_editor():
         st.markdown("### Protocol Quality Assessment")
         render_quality_assessment(validation_results)
         
-        # Show improvement button if there are recommendations
-        has_recommendations = any(
-            len(r.get('recommendations', [])) > 0
+        # Show improvement button if there are recommendations or missing items
+        has_improvements_needed = any(
+            (isinstance(r, dict) and 
+             (r.get('recommendations', []) or r.get('missing_items', [])))
             for r in validation_results.values()
-            if isinstance(r, dict)
+            if isinstance(r, dict) and r != validation_results.get('overall_score')
         )
         
-        if has_recommendations:
+        if has_improvements_needed:
             st.markdown("### 🔄 Protocol Improvement")
-            if st.button("Apply Recommendations & Regenerate", key=f"improve_protocol_{int(time.time())}"):
+            if st.button("Apply Recommendations & Regenerate", key="improve_protocol"):
                 try:
-                    # Store original versions
-                    st.session_state.original_sections = st.session_state.generated_sections.copy()
-                    st.session_state.original_validation = validation_results.copy()
-                    
-                    # Initialize improver
-                    generator = TemplateSectionGenerator()
-                    improver = ProtocolImprover(generator.gpt_handler)
-                    
-                    # Show progress
                     with st.spinner("Improving protocol..."):
+                        # Store original versions
+                        st.session_state.original_sections = st.session_state.generated_sections.copy()
+                        st.session_state.original_validation = validation_results.copy()
+                        
+                        # Initialize improver
+                        generator = TemplateSectionGenerator()
+                        improver = ProtocolImprover(generator.gpt_handler)
+                        
+                        # Improve sections
                         improved_sections = {}
                         for section_name, content in st.session_state.generated_sections.items():
                             improved_content = improver.improve_section(
@@ -121,13 +99,12 @@ def render_editor():
                             st.session_state.study_type
                         )
                         
-                        # Update state with improvements
+                        # Update state
                         st.session_state.generated_sections = improved_sections
                         st.session_state.validation_results = new_validation
                         st.session_state.show_comparison = True
                         
                         st.success("✅ Protocol improved successfully!")
-                        st.rerun()
                         
                 except Exception as e:
                     st.error(f"Error improving protocol: {str(e)}")
@@ -144,8 +121,7 @@ def render_editor():
                     "⬇️ Download Original Version",
                     original_text,
                     file_name="original_protocol.txt",
-                    mime="text/plain",
-                    key=f"download_original_{int(time.time())}"
+                    mime="text/plain"
                 )
             
             with col2:
@@ -154,8 +130,7 @@ def render_editor():
                     "⬇️ Download Improved Version",
                     improved_text,
                     file_name="improved_protocol.txt",
-                    mime="text/plain",
-                    key=f"download_improved_{int(time.time())}"
+                    mime="text/plain"
                 )
             
             # Section-by-section comparison
@@ -169,7 +144,6 @@ def render_editor():
                             "Original content",
                             st.session_state.original_sections[section_name],
                             height=300,
-                            key=f"orig_{section_name}_{int(time.time())}",
                             disabled=True
                         )
                     with col2:
@@ -178,6 +152,5 @@ def render_editor():
                             "Improved content",
                             st.session_state.generated_sections[section_name],
                             height=300,
-                            key=f"impr_{section_name}_{int(time.time())}",
                             disabled=True
                         )
