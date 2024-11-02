@@ -114,25 +114,26 @@ def render_navigator():
                         st.session_state.generation_in_progress = True
                         st.session_state.generation_started = True
                         
-                        with st.sidebar.spinner("🔄 Generating protocol..."):
-                            generator = TemplateSectionGenerator()
-                            
-                            # Generate complete protocol
-                            result = generator.generate_complete_protocol(
-                                study_type=study_type,
-                                synopsis_content=st.session_state.synopsis_content
-                            )
-                            
-                            if result and isinstance(result, dict) and "sections" in result:
-                                st.session_state.generated_sections = result["sections"]
-                                st.sidebar.success("✅ Protocol generated successfully!")
-                                st.session_state.generation_in_progress = False
-                                st.rerun()
-                            else:
-                                st.sidebar.error("❌ Failed to generate protocol sections")
-                                st.session_state.generation_in_progress = False
-                                st.session_state.generation_started = False
+                        with st.sidebar:
+                            with st.spinner("🔄 Generating protocol..."):
+                                generator = TemplateSectionGenerator()
                                 
+                                # Generate complete protocol
+                                result = generator.generate_complete_protocol(
+                                    study_type=study_type,
+                                    synopsis_content=st.session_state.synopsis_content
+                                )
+                                
+                                if result and isinstance(result, dict) and "sections" in result:
+                                    st.session_state.generated_sections = result["sections"]
+                                    st.sidebar.success("✅ Protocol generated successfully!")
+                                    st.session_state.generation_in_progress = False
+                                    st.rerun()
+                                else:
+                                    st.sidebar.error("❌ Failed to generate protocol sections")
+                                    st.session_state.generation_in_progress = False
+                                    st.session_state.generation_started = False
+                                    
                     except Exception as e:
                         logger.error(f"Error in protocol generation: {str(e)}")
                         st.sidebar.error(f"Error: {str(e)}")
