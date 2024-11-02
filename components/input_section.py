@@ -2,6 +2,7 @@ import streamlit as st
 import logging
 from utils.synopsis_validator import SynopsisValidator
 from utils.file_processor import process_file_content
+from utils.protocol_improver import ProtocolImprover
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +45,36 @@ def render_input_section():
     
     # Validate content and show confirm button
     if synopsis_content.strip():
-        # Validate content length
-        if len(synopsis_content.strip()) < 50:
-            st.warning("⚠️ Synopsis content seems too short. Please ensure all content is included.")
+        # Initialize improver for early analysis
+        improver = ProtocolImprover()
+        validator = SynopsisValidator()
         
+        # Analyze content for missing information
+        missing_info = improver.analyze_synopsis(synopsis_content)
+        
+        if missing_info['critical_missing']:
+            st.error("⚠️ Critical Information Missing")
+            
+            # Display missing fields with input collection
+            st.markdown("### Required Information")
+            for field, description in missing_info['critical_fields'].items():
+                st.text_input(
+                    f"{field.replace('_', ' ').title()}",
+                    key=f"missing_{field}",
+                    help=description
+                )
+            
+            # Only show process button if all critical fields are filled
+            all_fields_filled = all(
+                st.session_state.get(f"missing_{field}")
+                for field in missing_info['critical_fields']
+            )
+            
+            if not all_fields_filled:
+                st.warning("Please fill in all required fields before proceeding")
+                return
+        
+        # Show confirm button only if critical info is provided
         confirm_button = st.button(
             "Process Synopsis",
             type="primary",
@@ -63,6 +90,13 @@ def render_input_section():
                     
                     # Store full content
                     synopsis_content = synopsis_content.strip()
+                    
+                    # Add missing information from user inputs
+                    if missing_info['critical_missing']:
+                        for field in missing_info['critical_fields']:
+                            field_value = st.session_state.get(f"missing_{field}")
+                            if field_value:
+                                synopsis_content += f"\n{field.replace('_', ' ').title()}: {field_value}"
                     
                     # Validate synopsis
                     validation_result = validator.validate_synopsis(synopsis_content)

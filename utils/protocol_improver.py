@@ -11,6 +11,26 @@ class ProtocolImprover:
         self.missing_info_handler = MissingInformationHandler()
         self.gpt_handler = GPTHandler()
         
+    def analyze_synopsis(self, content: str) -> Dict:
+        '''Analyze synopsis content for missing critical information'''
+        critical_fields = {
+            'study_population': 'Target study population',
+            'primary_objective': 'Primary study objective',
+            'study_design': 'Basic study design',
+            'sample_size': 'Approximate sample size',
+            'duration': 'Expected study duration'
+        }
+        
+        missing_fields = {}
+        for field, description in critical_fields.items():
+            if field.lower() not in content.lower():
+                missing_fields[field] = description
+        
+        return {
+            'critical_missing': bool(missing_fields),
+            'critical_fields': missing_fields
+        }
+        
     def analyze_protocol_sections(self, sections: Dict[str, str]) -> Dict:
         """Analyze all protocol sections for missing information"""
         analysis_results = {}
