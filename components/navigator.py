@@ -48,13 +48,11 @@ def render_navigator():
             </style>
         """, unsafe_allow_html=True)
 
-        # Initialize session state if needed
+        # Initialize session state
         if 'generated_sections' not in st.session_state:
             st.session_state.generated_sections = {}
         if 'generation_in_progress' not in st.session_state:
             st.session_state.generation_in_progress = False
-        if 'generation_started' not in st.session_state:
-            st.session_state.generation_started = False
         if 'section_generation_times' not in st.session_state:
             st.session_state.section_generation_times = {}
 
@@ -66,7 +64,8 @@ def render_navigator():
         st.sidebar.markdown("## Protocol Development")
 
         # Show study type if selected
-        if study_type := st.session_state.get('study_type'):
+        study_type = st.session_state.get('study_type')
+        if study_type:
             st.sidebar.info(f"📋 Study Type: {study_type.replace('_', ' ').title()}")
 
         # Section Navigation
@@ -88,7 +87,7 @@ def render_navigator():
                 st.progress(progress, text=f"Progress: {completed}/{total} sections")
                 st.markdown('</div>', unsafe_allow_html=True)
             
-            # Section list with status and generation times
+            # Section list with status
             for section in sections:
                 is_completed = section in st.session_state.get('generated_sections', {})
                 generation_time = st.session_state.section_generation_times.get(section, 0)
@@ -99,11 +98,10 @@ def render_navigator():
                 else:
                     st.sidebar.markdown(f"⏳ {section.replace('_', ' ').title()}")
 
-            # Generate Protocol button - only show if synopsis exists and not already generated
+            # Generate Protocol button
             if st.session_state.get('synopsis_content'):
                 st.sidebar.markdown("### 🚀 Protocol Generation")
                 
-                # Button should be enabled when no sections are generated
                 button_disabled = st.session_state.generation_in_progress
                 
                 if st.sidebar.button(
@@ -115,7 +113,6 @@ def render_navigator():
                 ):
                     try:
                         st.session_state.generation_in_progress = True
-                        st.session_state.generation_started = True
                         
                         with st.sidebar:
                             progress_placeholder = st.empty()
@@ -132,25 +129,24 @@ def render_navigator():
                                 
                                 try:
                                     start_time = time.time()
-                                    section_content = generator.gpt_handler.generate_section(
+                                    section_content = generator.generate_section(
                                         section_name=section,
-                                        synopsis_content=st.session_state.synopsis_content
+                                        synopsis_content=st.session_state.synopsis_content,
+                                        study_type=study_type
                                     )
                                     generation_time = time.time() - start_time
                                     
-                                    # Store section content and generation time
-                                    generated_sections[section] = section_content
-                                    st.session_state.section_generation_times[section] = generation_time
-                                    
-                                    # Update section status with completion time
-                                    section_status.markdown(f"✅ {section.replace('_', ' ').title()} (Generated in {generation_time:.1f}s)")
+                                    if section_content:
+                                        generated_sections[section] = section_content
+                                        st.session_state.section_generation_times[section] = generation_time
+                                        section_status.markdown(f"✅ {section.replace('_', ' ').title()} (Generated in {generation_time:.1f}s)")
                                     
                                 except Exception as section_error:
                                     logger.error(f"Error generating section {section}: {str(section_error)}")
                                     section_status.error(f"❌ Error generating {section}")
                                     continue
                             
-                            # Store all generated sections and reset states
+                            # Store generated sections and reset state
                             st.session_state.generated_sections = generated_sections
                             st.session_state.generation_in_progress = False
                             
@@ -165,14 +161,12 @@ def render_navigator():
                         logger.error(f"Error in protocol generation: {str(e)}")
                         st.sidebar.error(f"Error: {str(e)}")
                         st.session_state.generation_in_progress = False
-                        st.session_state.generation_started = False
 
-            # Download options - only show if sections are generated
+            # Download options
             if generated_sections := st.session_state.get('generated_sections'):
                 st.sidebar.markdown("---")
                 st.sidebar.markdown("### 📥 Download Options")
                 
-                # Create protocol text with proper formatting
                 protocol_text = "\n\n".join(
                     f"## {section.replace('_', ' ').title()}\n\n{content}"
                     for section, content in generated_sections.items()
