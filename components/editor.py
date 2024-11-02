@@ -109,6 +109,7 @@ def render_editor():
     
     # Quality Assessment Display
     if validation_results := st.session_state.get('validation_results'):
+        st.markdown("### Protocol Quality Assessment")
         render_quality_assessment(validation_results)
         
         # Protocol Improvement Section
@@ -116,23 +117,84 @@ def render_editor():
         if st.button("Apply Recommendations & Regenerate", key='improve_protocol'):
             with st.spinner("Improving protocol..."):
                 try:
+                    # Store original versions
+                    original_sections = st.session_state.generated_sections.copy()
+                    original_validation = st.session_state.validation_results.copy()
+                    
+                    # Initialize generator and improver
                     generator = TemplateSectionGenerator()
                     improver = ProtocolImprover(generator.gpt_handler)
+                    
+                    # Create expander for comparison
+                    with st.expander("📊 Quality Score Comparison", expanded=True):
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.markdown("#### Original Assessment")
+                            st.metric(
+                                "Original Score",
+                                f"{original_validation.get('overall_score', 0):.1f}%"
+                            )
+                            render_quality_assessment(original_validation)
+                            
+                        with col2:
+                            st.markdown("#### After Improvements")
+                    
+                    # Improve each section with progress tracking
+                    improved_sections = {}
                     for section_name, content in st.session_state.generated_sections.items():
+                        st.write(f"Improving {section_name}...")
+                        
                         improved_content = improver.improve_section(
                             section_name=section_name,
                             content=content,
-                            issues=validation_results.get(section_name, {})
+                            issues=original_validation.get(section_name, {})
                         )
-                        st.session_state.generated_sections[section_name] = improved_content
-                    st.success("Protocol improved successfully!")
+                        improved_sections[section_name] = improved_content
+                    
+                    # Validate improved version
+                    new_validation = generator.validator.validate_protocol(
+                        improved_sections,
+                        st.session_state.study_type
+                    )
+                    
+                    # Show section-by-section comparison
+                    st.markdown("### Section Changes")
+                    for section_name in original_sections.keys():
+                        with st.expander(f"📝 {section_name.replace('_', ' ').title()}", expanded=False):
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.markdown("**Original Version**")
+                                st.text_area(
+                                    "Original content",
+                                    original_sections[section_name],
+                                    height=300,
+                                    key=f"orig_{section_name}_{int(time.time())}"
+                                )
+                            with col2:
+                                st.markdown("**Improved Version**")
+                                st.text_area(
+                                    "Improved content",
+                                    improved_sections[section_name],
+                                    height=300,
+                                    key=f"impr_{section_name}_{int(time.time())}"
+                                )
+                    
+                    # Update state with improvements
+                    st.session_state.generated_sections = improved_sections
+                    st.session_state.validation_results = new_validation
+                    
+                    # Show final quality assessment
+                    st.markdown("### Final Quality Assessment")
+                    render_quality_assessment(new_validation)
+                    
+                    st.success("✅ Protocol improved successfully!")
                     st.rerun()
+                    
                 except Exception as e:
                     st.error(f"Error improving protocol: {str(e)}")
     
     # Show current section content if any
     if st.session_state.get('current_section'):
-        st.markdown("---")
         section = st.session_state.current_section
         st.subheader(f"Editing: {section.replace('_', ' ').title()}")
         
