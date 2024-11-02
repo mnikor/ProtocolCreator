@@ -1,5 +1,6 @@
 import streamlit as st
 import logging
+import time
 from utils.template_section_generator import TemplateSectionGenerator
 from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
 
@@ -54,6 +55,8 @@ def render_navigator():
             st.session_state.generation_in_progress = False
         if 'generation_started' not in st.session_state:
             st.session_state.generation_started = False
+        if 'section_generation_times' not in st.session_state:
+            st.session_state.section_generation_times = {}
 
         # Check connection
         if not check_connection():
@@ -74,8 +77,8 @@ def render_navigator():
             sections = study_config.get('required_sections', [])
             
             # Progress tracking
-            completed = sum(1 for section, content in st.session_state.get('generated_sections', {}).items() 
-                          if content and content.strip())
+            completed = sum(1 for section in sections 
+                          if section in st.session_state.get('generated_sections', {}))
             total = len(sections)
             progress = completed / total if total > 0 else 0
             
@@ -85,23 +88,23 @@ def render_navigator():
                 st.progress(progress, text=f"Progress: {completed}/{total} sections")
                 st.markdown('</div>', unsafe_allow_html=True)
             
-            # Section list with status
+            # Section list with status and generation times
             for section in sections:
                 is_completed = section in st.session_state.get('generated_sections', {})
-                icon = "✅" if is_completed else "⏳"
-                section_name = section.replace('_', ' ').title()
-                st.sidebar.markdown(f"{icon} {section_name}")
+                generation_time = st.session_state.section_generation_times.get(section, 0)
+                
+                if is_completed:
+                    time_info = f"(Generated in {generation_time:.1f}s)" if generation_time > 0 else ""
+                    st.sidebar.markdown(f"✅ {section.replace('_', ' ').title()} {time_info}")
+                else:
+                    st.sidebar.markdown(f"⏳ {section.replace('_', ' ').title()}")
 
             # Generate Protocol button - only show if synopsis exists and not already generated
             if st.session_state.get('synopsis_content'):
                 st.sidebar.markdown("### 🚀 Protocol Generation")
                 
-                # Disable button if sections are already generated or generation is in progress
-                button_disabled = (
-                    bool(st.session_state.get('generated_sections')) or 
-                    st.session_state.generation_in_progress or
-                    st.session_state.generation_started
-                )
+                # Button should be enabled when no sections are generated
+                button_disabled = st.session_state.generation_in_progress
                 
                 if st.sidebar.button(
                     "Generate Complete Protocol",
@@ -115,24 +118,48 @@ def render_navigator():
                         st.session_state.generation_started = True
                         
                         with st.sidebar:
-                            with st.spinner("🔄 Generating protocol..."):
-                                generator = TemplateSectionGenerator()
+                            progress_placeholder = st.empty()
+                            progress_bar = st.progress(0)
+                            section_status = st.empty()
+                            
+                            generator = TemplateSectionGenerator()
+                            generated_sections = {}
+                            
+                            for i, section in enumerate(sections):
+                                progress = (i + 1) / len(sections)
+                                progress_bar.progress(progress)
+                                section_status.markdown(f"🔄 Generating: {section.replace('_', ' ').title()}")
                                 
-                                # Generate complete protocol
-                                result = generator.generate_complete_protocol(
-                                    study_type=study_type,
-                                    synopsis_content=st.session_state.synopsis_content
-                                )
-                                
-                                if result and isinstance(result, dict) and "sections" in result:
-                                    st.session_state.generated_sections = result["sections"]
-                                    st.sidebar.success("✅ Protocol generated successfully!")
-                                    st.session_state.generation_in_progress = False
-                                    st.rerun()
-                                else:
-                                    st.sidebar.error("❌ Failed to generate protocol sections")
-                                    st.session_state.generation_in_progress = False
-                                    st.session_state.generation_started = False
+                                try:
+                                    start_time = time.time()
+                                    section_content = generator.gpt_handler.generate_section(
+                                        section_name=section,
+                                        synopsis_content=st.session_state.synopsis_content
+                                    )
+                                    generation_time = time.time() - start_time
+                                    
+                                    # Store section content and generation time
+                                    generated_sections[section] = section_content
+                                    st.session_state.section_generation_times[section] = generation_time
+                                    
+                                    # Update section status with completion time
+                                    section_status.markdown(f"✅ {section.replace('_', ' ').title()} (Generated in {generation_time:.1f}s)")
+                                    
+                                except Exception as section_error:
+                                    logger.error(f"Error generating section {section}: {str(section_error)}")
+                                    section_status.error(f"❌ Error generating {section}")
+                                    continue
+                            
+                            # Store all generated sections and reset states
+                            st.session_state.generated_sections = generated_sections
+                            st.session_state.generation_in_progress = False
+                            
+                            if generated_sections:
+                                st.sidebar.success("✅ Protocol sections generated successfully!")
+                            else:
+                                st.sidebar.error("❌ Failed to generate any sections")
+                            
+                            st.rerun()
                                     
                     except Exception as e:
                         logger.error(f"Error in protocol generation: {str(e)}")
