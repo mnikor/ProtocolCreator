@@ -80,7 +80,6 @@ def render_editor():
                         
                         # Improve each section
                         improved_sections = {}
-                        current_time = int(time.time())
                         
                         # Show progress
                         progress_bar = st.progress(0)
@@ -116,76 +115,90 @@ def render_editor():
                     except Exception as e:
                         st.error(f"Error improving protocol: {str(e)}")
                         logger.error(f"Protocol improvement error: {str(e)}")
+    
+    # Comparison and Download Section
+    if st.session_state.get('show_comparison'):
+        st.markdown("## Protocol Comparison")
+        
+        # Quality score comparison
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### Original Version")
+            st.metric(
+                "Original Score",
+                f"{st.session_state.original_validation.get('overall_score', 0):.1f}%"
+            )
+            
+        with col2:
+            st.markdown("### Improved Version")
+            st.metric(
+                "Improved Score",
+                f"{st.session_state.validation_results.get('overall_score', 0):.1f}%"
+            )
+        
+        # Show section-by-section comparison
+        st.markdown("### Section Changes")
+        timestamp = int(time.time())
+        for section_name in st.session_state.original_sections.keys():
+            with st.expander(f"📑 {section_name.replace('_', ' ').title()}", expanded=False):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown("**Original Version**")
+                    st.text_area(
+                        label="Original content",
+                        value=st.session_state.original_sections[section_name],
+                        height=300,
+                        key=f"orig_{section_name}_{timestamp}",
+                        disabled=True
+                    )
+                with col2:
+                    st.markdown("**Improved Version**")
+                    st.text_area(
+                        label="Improved content",
+                        value=st.session_state.generated_sections[section_name],
+                        height=300,
+                        key=f"impr_{section_name}_{timestamp}",
+                        disabled=True
+                    )
+
+    # Download section - separated from state checks
+    if st.session_state.get('generated_sections'):
+        st.markdown("### Download Protocol Versions")
+        
+        # Create container for download buttons
+        download_container = st.container()
+        with download_container:
+            col1, col2 = st.columns(2)
+            
+            # Original version download
+            with col1:
+                if st.session_state.get('original_sections'):
+                    original_text = "\n\n".join(st.session_state.original_sections.values())
+                    st.download_button(
+                        "⬇️ Download Original Version",
+                        original_text,
+                        file_name="original_protocol.txt",
+                        mime="text/plain",
+                        key=f"download_original_{int(time.time())}"
+                    )
                 
-                # Show comparison if available
-                if st.session_state.get('show_comparison'):
-                    st.markdown("## Protocol Comparison")
-                    
-                    # Show quality score comparison
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.markdown("### Original Version")
-                        st.metric(
-                            "Original Score",
-                            f"{st.session_state.original_validation.get('overall_score', 0):.1f}%"
-                        )
-                        
-                    with col2:
-                        st.markdown("### Improved Version")
-                        st.metric(
-                            "Improved Score",
-                            f"{st.session_state.validation_results.get('overall_score', 0):.1f}%"
-                        )
-                    
-                    # Show section-by-section comparison
-                    st.markdown("### Section Changes")
-                    for section_name in st.session_state.original_sections.keys():
-                        with st.expander(f"📑 {section_name.replace('_', ' ').title()}", expanded=False):
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                st.markdown("**Original Version**")
-                                st.text_area(
-                                    label="Original content",
-                                    value=st.session_state.original_sections[section_name],
-                                    height=300,
-                                    key=f"orig_{section_name}_{current_time}",
-                                    disabled=True
-                                )
-                            with col2:
-                                st.markdown("**Improved Version**")
-                                st.text_area(
-                                    label="Improved content",
-                                    value=st.session_state.generated_sections[section_name],
-                                    height=300,
-                                    key=f"impr_{section_name}_{current_time}",
-                                    disabled=True
-                                )
-
-                    # Download buttons for both versions
-                    st.markdown("### Download Protocol Versions")
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.download_button(
-                            "⬇️ Download Original Version",
-                            "\n\n".join(st.session_state.original_sections.values()),
-                            file_name="original_protocol.txt",
-                            mime="text/plain",
-                            key=f"download_original_{current_time}"
-                        ):
-                            st.success("Original version downloaded!")
-                            
-                    with col2:
-                        if st.download_button(
-                            "⬇️ Download Improved Version",
-                            "\n\n".join(st.session_state.generated_sections.values()),
-                            file_name="improved_protocol.txt",
-                            mime="text/plain",
-                            key=f"download_improved_{current_time}"
-                        ):
-                            st.success("Improved version downloaded!")
-
-                    # Add option to reset comparison
-                    if st.button("Hide Comparison", key="hide_comparison"):
-                        del st.session_state.show_comparison
-                        del st.session_state.original_sections
-                        del st.session_state.original_validation
+            # Improved version download
+            with col2:
+                improved_text = "\n\n".join(st.session_state.generated_sections.values())
+                st.download_button(
+                    "⬇️ Download Improved Version",
+                    improved_text,
+                    file_name="improved_protocol.txt",
+                    mime="text/plain",
+                    key=f"download_improved_{int(time.time())}"
+                )
+        
+        # Keep assessment visible
+        if st.session_state.get('validation_results'):
+            st.markdown("### Final Quality Assessment")
+            render_quality_assessment(st.session_state.validation_results)
+    
+    # Hide comparison option
+    if st.session_state.get('show_comparison'):
+        if st.button("Hide Comparison", key="hide_comparison"):
+            del st.session_state.show_comparison
