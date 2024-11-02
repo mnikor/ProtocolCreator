@@ -43,33 +43,11 @@ def display_quality_metrics(validation_results: Dict, key_suffix: str = ""):
             showlegend=False
         )
         
-        # Add unique key to plotly chart
-        st.plotly_chart(fig, use_container_width=True, key=f"quality_chart_{key_suffix}")
+        st.plotly_chart(fig, use_container_width=True)
         
     except Exception as e:
         logger.error(f"Error displaying quality metrics: {str(e)}")
         st.warning("Could not display quality metrics visualization")
-
-def display_validation_details(validation_results: Dict, key_suffix: str = ""):
-    for dimension, results in validation_results.items():
-        if not isinstance(results, dict) or dimension == 'overall_score':
-            continue
-            
-        # Remove key from expander
-        with st.expander(
-            f"{dimension.replace('_', ' ').title()} (Score: {results.get('score', 0)*10:.1f}/10)"
-        ):
-            if results.get('missing_items'):
-                st.markdown("#### Missing Elements:")
-                for item in results['missing_items']:
-                    st.error(f"• {item}")
-            else:
-                st.success("✓ All required elements present")
-
-            if results.get('recommendations'):
-                st.markdown("#### Recommendations:")
-                for rec in results['recommendations']:
-                    st.info(f"• {rec}")
 
 def render_quality_assessment(validation_results: Dict, key_suffix: str = ""):
     try:
@@ -94,17 +72,17 @@ def render_quality_assessment(validation_results: Dict, key_suffix: str = ""):
         # Calculate overall score on 0-10 scale
         overall_score = (total_score / valid_scores * 10) if valid_scores > 0 else 0.0
         
-        # Display overall score with unique key
+        # Display overall score without key parameter
         st.metric(
             label="Overall Protocol Quality",
             value=f"{overall_score:.1f}/10",
-            delta=f"{(overall_score-8):.1f} points from target" if overall_score < 8 else "Meets target",
-            delta_color="inverse",
-            key=f"quality_metric_{key_suffix}"
+            delta=f"{(overall_score-9):.1f} points from target" if overall_score < 9 else "Meets target",
+            delta_color="inverse"
         )
         
-        # Quality visualization with unique key
-        display_quality_metrics(validation_results, key_suffix)
+        # Quality visualization with container to prevent redraws
+        with st.container():
+            display_quality_metrics(validation_results, key_suffix)
         
         # Quality summary
         st.markdown("### Quality Summary")
@@ -115,13 +93,29 @@ def render_quality_assessment(validation_results: Dict, key_suffix: str = ""):
         )
         if total_issues > 0:
             st.warning(f"Found {total_issues} items needing attention")
+            # Show missing items in detail
+            for dimension, results in validation_results.items():
+                if isinstance(results, dict) and results.get('missing_items'):
+                    st.markdown(f"**{dimension.replace('_', ' ').title()}:**")
+                    for item in results['missing_items']:
+                        st.error(f"• {item}")
         else:
             st.success("Protocol meets all quality criteria")
         
-        # Detailed assessment
+        # Detailed assessment in expanders
         st.markdown("### Detailed Assessment")
-        display_validation_details(validation_results, key_suffix)
-        
+        for dimension, results in validation_results.items():
+            if not isinstance(results, dict) or dimension == 'overall_score':
+                continue
+                
+            with st.expander(
+                f"{dimension.replace('_', ' ').title()} (Score: {results.get('score', 0)*10:.1f}/10)"
+            ):
+                if results.get('recommendations'):
+                    st.markdown("#### Recommendations:")
+                    for rec in results['recommendations']:
+                        st.info(f"• {rec}")
+                        
     except Exception as e:
         logger.error(f"Error in quality assessment: {str(e)}")
         st.error("Error calculating quality metrics")
