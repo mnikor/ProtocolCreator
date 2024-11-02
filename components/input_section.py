@@ -67,62 +67,64 @@ def render_input_section():
                 # Show therapeutic area if detected
                 if therapeutic_area := validation_result.get('therapeutic_area'):
                     st.info(f"🏥 Therapeutic Area: {therapeutic_area.replace('_', ' ').title()}")
-            
-            # Analyze missing information
-            missing_info = improver.analyze_synopsis(synopsis_text)
-            
-            if missing_info['critical_missing']:
-                missing_count = len(missing_info['critical_fields'])
-                st.error(f"⚠️ Found {missing_count} missing critical items")
                 
-                # Input fields for missing information
-                st.markdown("#### Required Information")
+                # Analyze missing information with study type context
+                missing_info = improver.analyze_synopsis(
+                    synopsis_text,
+                    study_type=study_type
+                )
                 
-                # Use columns for better layout
-                for field, description in missing_info['critical_fields'].items():
-                    col1, col2 = st.columns([1, 3])
-                    with col1:
-                        st.markdown(f"**{field.replace('_', ' ').title()}**")
-                    with col2:
-                        st.text_area(
-                            label=description,
-                            key=f"missing_{field}",
-                            height=100,
-                            help=f"Add details about {field.replace('_', ' ')}"
-                        )
+                if missing_info['critical_missing']:
+                    missing_count = len(missing_info['critical_fields'])
+                    st.error(f"⚠️ Found {missing_count} missing critical items")
+                    
+                    # Study type specific guidance
+                    if missing_info['study_type_specific']:
+                        st.info(f"ℹ️ Showing requirements specific to {study_type.replace('_', ' ').title()} studies")
+                    
+                    # Input fields with improved layout
+                    st.markdown("#### Required Information")
+                    for field, prompt in missing_info['critical_fields'].items():
+                        with st.expander(f"📝 {field.replace('_', ' ').title()}"):
+                            st.markdown(f"**{prompt}**")
+                            user_input = st.text_area(
+                                label="Enter details",
+                                key=f"missing_{field}",
+                                height=100,
+                                help=f"Provide information about {field.replace('_', ' ')}"
+                            )
+                    
+                    st.warning("⚠️ Adding missing information is recommended but not required")
+                else:
+                    st.success("✅ All critical information appears to be present")
                 
-                st.warning("⚠️ Adding missing information is recommended but not required")
+                # Show process button prominently
+                st.markdown("---")
+                col1, col2, col3 = st.columns([1, 2, 1])
+                with col2:
+                    if st.button(
+                        "🚀 Process Synopsis and Generate Protocol",
+                        type="primary",
+                        use_container_width=True,
+                        help="Begin protocol development"
+                    ):
+                        try:
+                            # Combine synopsis text with any missing field inputs
+                            final_synopsis = synopsis_text
+                            if missing_info['critical_missing']:
+                                for field in missing_info['critical_fields']:
+                                    if value := st.session_state.get(f"missing_{field}"):
+                                        final_synopsis += f"\n{field.replace('_', ' ').title()}: {value}"
+                            
+                            # Store synopsis and study type
+                            st.session_state.synopsis_content = final_synopsis
+                            st.session_state.study_type = study_type
+                            
+                            st.success("✅ Synopsis processed successfully!")
+                            st.rerun()
+                            
+                        except Exception as e:
+                            logger.error(f"Error processing synopsis: {str(e)}")
+                            st.error(f"Error: {str(e)}")
             else:
-                st.success("✅ All critical information appears to be present")
-        
-        # Show process button prominently
-        st.markdown("---")
-        if validation_result and validation_result.get('study_type'):
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                if st.button(
-                    "🚀 Process Synopsis and Generate Protocol",
-                    type="primary",
-                    use_container_width=True,
-                    help="Begin protocol development"
-                ):
-                    try:
-                        # Combine synopsis text with any missing field inputs
-                        final_synopsis = synopsis_text
-                        if missing_info['critical_missing']:
-                            for field in missing_info['critical_fields']:
-                                if value := st.session_state.get(f"missing_{field}"):
-                                    final_synopsis += f"\n{field.replace('_', ' ').title()}: {value}"
-                        
-                        # Store synopsis and study type
-                        st.session_state.synopsis_content = final_synopsis
-                        st.session_state.study_type = validation_result['study_type']
-                        
-                        st.success("✅ Synopsis processed successfully!")
-                        st.rerun()
-                        
-                    except Exception as e:
-                        logger.error(f"Error processing synopsis: {str(e)}")
-                        st.error(f"Error: {str(e)}")
-        else:
-            st.error("❌ Please ensure synopsis content is complete enough to detect study type")
+                st.error("❌ Please ensure synopsis content is complete enough to detect study type")
