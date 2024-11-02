@@ -40,6 +40,16 @@ def generate_all_sections():
     retry_count = 0
     start_time = datetime.now()
     
+    logger.info("Starting protocol generation process")
+    
+    # Clear previous results if they exist
+    if 'generated_sections' in st.session_state:
+        logger.info("Clearing previous generated sections")
+        del st.session_state.generated_sections
+    if 'validation_results' in st.session_state:
+        logger.info("Clearing previous validation results")
+        del st.session_state.validation_results
+    
     while retry_count < max_retries:
         try:
             # Initialize generator and progress tracking
@@ -53,6 +63,8 @@ def generate_all_sections():
             study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
             required_sections = study_config.get('required_sections', [])
             total_sections = len(required_sections)
+            
+            logger.info(f"Starting generation for study type: {study_type} with {total_sections} required sections")
             
             # Store original versions for comparison
             original_sections = st.session_state.get('generated_sections', {}).copy()
@@ -71,6 +83,8 @@ def generate_all_sections():
                 validation_results = result.get("validation_results", {})
                 generated_count = len(sections)
                 
+                logger.info(f"Generated {generated_count}/{total_sections} sections")
+                
                 for section in required_sections:
                     if section in sections:
                         st.session_state.sections_status[section] = 'Generated'
@@ -78,7 +92,7 @@ def generate_all_sections():
                     else:
                         st.session_state.sections_status[section] = 'Error'
                 
-                # Store results
+                # Store results in session state
                 st.session_state.generated_sections = sections
                 st.session_state.validation_results = validation_results
                 
@@ -129,17 +143,20 @@ def generate_all_sections():
                 # Generation summary
                 total_time = datetime.now() - start_time
                 if generated_count == total_sections:
+                    logger.info(f"Protocol generation completed successfully in {total_time.total_seconds():.1f}s")
                     progress_placeholder.success(
                         f"✅ Protocol generated successfully! ({total_time.total_seconds():.1f}s)"
                     )
                     st.balloons()
                     return True
                 else:
+                    logger.warning(f"Incomplete protocol generation: {generated_count}/{total_sections} sections")
                     progress_placeholder.warning(
                         f"⚠️ Generated {generated_count}/{total_sections} sections ({total_time.total_seconds():.1f}s)"
                     )
                     if result.get("generation_errors"):
                         for error in result["generation_errors"]:
+                            logger.error(f"Generation error: {error}")
                             st.error(f"Generation Error: {error}")
                     return False
                     
@@ -148,6 +165,7 @@ def generate_all_sections():
                 status_text.error(f"❌ Error: {str(e)}")
                 retry_count += 1
                 if retry_count < max_retries:
+                    logger.info(f"Retrying generation (Attempt {retry_count}/{max_retries})")
                     st.warning(f"Retrying generation... (Attempt {retry_count}/{max_retries})")
                     time.sleep(2)
                     continue
@@ -205,6 +223,7 @@ def render_navigator():
             use_container_width=True,
             key=f"nav_generate_protocol_{current_time}"
         ):
+            logger.info("Generate protocol button clicked")
             with st.spinner("Generating protocol..."):
                 if generate_all_sections():
                     st.sidebar.success("✅ Protocol generated successfully!")
@@ -268,6 +287,7 @@ def render_navigator():
                     help=f"Edit {section.replace('_', ' ').title()} section",
                     use_container_width=True
                 ):
+                    logger.info(f"Selected section: {section}")
                     st.session_state.current_section = section
 
             with col2:
@@ -293,6 +313,7 @@ def export_protocol():
         )
         
         if st.sidebar.button("Export Protocol", key=f"nav_export_button_{current_time}"):
+            logger.info(f"Exporting protocol as {format_option}")
             with st.spinner("Preparing document..."):
                 try:
                     if format_option == "PDF":
@@ -316,11 +337,15 @@ def export_protocol():
                                 key=f"nav_download_docx_{current_time}"
                             )
                     st.sidebar.success(f"✅ Protocol exported as {format_option}")
+                    logger.info(f"Protocol exported successfully as {format_option}")
                     
                 except ValueError as ve:
+                    logger.warning(f"Export validation error: {str(ve)}")
                     st.sidebar.warning(str(ve))
                 except Exception as e:
+                    logger.error(f"Error exporting protocol: {str(e)}")
                     st.sidebar.error(f"Error exporting protocol: {str(e)}")
                     
     except Exception as e:
+        logger.error(f"Error preparing protocol: {str(e)}")
         st.sidebar.error(f"Error preparing protocol: {str(e)}")
