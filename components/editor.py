@@ -80,5 +80,104 @@ def render_editor():
             logger.error(f"Error in protocol generation: {str(e)}")
             st.error(f"Error generating protocol: {str(e)}")
     
-    # Rest of the editor functionality...
-    [Previous editor code continues...]
+    # Display validation results and improvement options
+    if validation_results := st.session_state.get('validation_results'):
+        st.markdown("### Protocol Quality Assessment")
+        render_quality_assessment(validation_results)
+        
+        # Show improvement button if there are recommendations
+        has_recommendations = any(
+            len(r.get('recommendations', [])) > 0
+            for r in validation_results.values()
+            if isinstance(r, dict)
+        )
+        
+        if has_recommendations:
+            st.markdown("### 🔄 Protocol Improvement")
+            if st.button("Apply Recommendations & Regenerate", key=f"improve_protocol_{int(time.time())}"):
+                try:
+                    # Store original versions
+                    st.session_state.original_sections = st.session_state.generated_sections.copy()
+                    st.session_state.original_validation = validation_results.copy()
+                    
+                    # Initialize improver
+                    generator = TemplateSectionGenerator()
+                    improver = ProtocolImprover(generator.gpt_handler)
+                    
+                    # Show progress
+                    with st.spinner("Improving protocol..."):
+                        improved_sections = {}
+                        for section_name, content in st.session_state.generated_sections.items():
+                            improved_content = improver.improve_section(
+                                section_name=section_name,
+                                content=content,
+                                issues=validation_results.get(section_name, {})
+                            )
+                            improved_sections[section_name] = improved_content
+                        
+                        # Get new validation
+                        new_validation = generator.validator.validate_protocol(
+                            improved_sections,
+                            st.session_state.study_type
+                        )
+                        
+                        # Update state with improvements
+                        st.session_state.generated_sections = improved_sections
+                        st.session_state.validation_results = new_validation
+                        st.session_state.show_comparison = True
+                        
+                        st.success("✅ Protocol improved successfully!")
+                        st.rerun()
+                        
+                except Exception as e:
+                    st.error(f"Error improving protocol: {str(e)}")
+        
+        # Show comparison if available
+        if st.session_state.get('show_comparison'):
+            st.markdown("### Protocol Versions Comparison")
+            
+            # Download buttons
+            col1, col2 = st.columns(2)
+            with col1:
+                original_text = "\n\n".join(st.session_state.original_sections.values())
+                st.download_button(
+                    "⬇️ Download Original Version",
+                    original_text,
+                    file_name="original_protocol.txt",
+                    mime="text/plain",
+                    key=f"download_original_{int(time.time())}"
+                )
+            
+            with col2:
+                improved_text = "\n\n".join(st.session_state.generated_sections.values())
+                st.download_button(
+                    "⬇️ Download Improved Version",
+                    improved_text,
+                    file_name="improved_protocol.txt",
+                    mime="text/plain",
+                    key=f"download_improved_{int(time.time())}"
+                )
+            
+            # Section-by-section comparison
+            st.markdown("### Section Changes")
+            for section_name in st.session_state.original_sections.keys():
+                with st.expander(f"📝 {section_name.replace('_', ' ').title()}", expanded=False):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown("**Original Version**")
+                        st.text_area(
+                            "Original content",
+                            st.session_state.original_sections[section_name],
+                            height=300,
+                            key=f"orig_{section_name}_{int(time.time())}",
+                            disabled=True
+                        )
+                    with col2:
+                        st.markdown("**Improved Version**")
+                        st.text_area(
+                            "Improved content",
+                            st.session_state.generated_sections[section_name],
+                            height=300,
+                            key=f"impr_{section_name}_{int(time.time())}",
+                            disabled=True
+                        )
