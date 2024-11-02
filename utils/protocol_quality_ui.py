@@ -6,7 +6,7 @@ import time
 
 logger = logging.getLogger(__name__)
 
-def display_quality_metrics(validation_results: Dict):
+def display_quality_metrics(validation_results: Dict, key_suffix: str = ""):
     # Convert scores to 0-10 scale and create bar chart
     scores = {}
     for dim, results in validation_results.items():
@@ -44,15 +44,17 @@ def display_quality_metrics(validation_results: Dict):
         showlegend=False
     )
     
-    st.plotly_chart(fig, use_container_width=True)
+    # Add unique key for plotly chart
+    st.plotly_chart(fig, use_container_width=True, key=f"quality_chart_{key_suffix}_{int(time.time())}")
 
-def display_validation_details(validation_results: Dict):
+def display_validation_details(validation_results: Dict, key_suffix: str = ""):
     for dimension, results in validation_results.items():
         if not isinstance(results, dict) or dimension == 'overall_score':
             continue
             
-        with st.container().expander(
-            f"{dimension.replace('_', ' ').title()} (Score: {results.get('score', 0)*10:.1f}/10)"
+        with st.expander(
+            f"{dimension.replace('_', ' ').title()} (Score: {results.get('score', 0)*10:.1f}/10)",
+            key=f"expander_{dimension}_{key_suffix}"
         ):
             if results.get('missing_items'):
                 st.markdown("#### Missing Elements:")
@@ -66,7 +68,7 @@ def display_validation_details(validation_results: Dict):
                 for rec in results['recommendations']:
                     st.info(f"• {rec}")
 
-def render_quality_assessment(validation_results: Dict):
+def render_quality_assessment(validation_results: Dict, key_suffix: str = ""):
     try:
         # Calculate overall score on 0-10 scale
         total_score = 0.0
@@ -93,11 +95,12 @@ def render_quality_assessment(validation_results: Dict):
         st.metric(
             label="Overall Protocol Quality",
             value=f"{overall_score:.1f}/10",
-            delta=f"{(overall_score-8):.1f} points from target" if overall_score < 8 else "Meets target"
+            delta=f"{(overall_score-8):.1f} points from target" if overall_score < 8 else "Meets target",
+            delta_color="inverse"
         )
         
-        # Quality visualization
-        display_quality_metrics(validation_results)
+        # Quality visualization with unique key
+        display_quality_metrics(validation_results, key_suffix)
         
         # Quality summary
         st.markdown("### Quality Summary")
@@ -111,9 +114,9 @@ def render_quality_assessment(validation_results: Dict):
         else:
             st.success("Protocol meets all quality criteria")
         
-        # Detailed assessment
+        # Detailed assessment with unique keys
         st.markdown("### Detailed Assessment")
-        display_validation_details(validation_results)
+        display_validation_details(validation_results, key_suffix)
         
     except Exception as e:
         logger.error(f"Error in quality assessment: {str(e)}")
