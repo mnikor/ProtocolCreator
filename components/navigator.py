@@ -3,6 +3,8 @@ import logging
 import time
 from utils.template_section_generator import TemplateSectionGenerator
 from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
+from io import BytesIO
+from docx import Document
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +16,16 @@ def check_connection():
     except Exception as e:
         logger.error(f"Connection check failed: {str(e)}")
         return False
+
+def create_docx(generated_sections):
+    """Create a properly formatted Word document"""
+    doc = Document()
+    for section, content in generated_sections.items():
+        section_title = section.replace('_', ' ').title()
+        doc.add_heading(section_title, level=1)
+        doc.add_paragraph(content)
+        doc.add_paragraph()  # Add spacing between sections
+    return doc
 
 def render_navigator():
     """Render the section navigator with simplified UI"""
@@ -167,14 +179,15 @@ def render_navigator():
                 st.sidebar.markdown("---")
                 st.sidebar.markdown("### 📥 Download Options")
                 
-                protocol_text = "\n\n".join(
-                    f"## {section.replace('_', ' ').title()}\n\n{content}"
-                    for section, content in generated_sections.items()
-                )
+                # Create and save DOCX
+                doc_buffer = BytesIO()
+                doc = create_docx(generated_sections)
+                doc.save(doc_buffer)
+                doc_buffer.seek(0)
                 
                 st.sidebar.download_button(
-                    "📄 Download Protocol",
-                    protocol_text,
+                    "📄 Download DOCX",
+                    doc_buffer,
                     file_name="protocol.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     use_container_width=True
