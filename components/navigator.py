@@ -31,6 +31,14 @@ def _initialize_sections_status():
 def generate_all_sections():
     """Generate all protocol sections"""
     try:
+        if not st.session_state.get('synopsis_content'):
+            st.error("Please upload a synopsis first")
+            return False
+            
+        if not st.session_state.get('study_type'):
+            st.error("Study type not detected")
+            return False
+            
         with st.spinner("🔄 Generating protocol..."):
             generator = TemplateSectionGenerator()
             study_type = st.session_state.study_type
@@ -53,6 +61,7 @@ def generate_all_sections():
                         st.session_state.sections_status[section] = 'Failed'
                 
                 st.session_state.generated_sections = sections
+                st.session_state.validation_results = result.get("validation_results", {})
                 st.success("✅ Protocol generated successfully!")
                 return True
             else:
@@ -70,6 +79,12 @@ def render_navigator():
         # Add custom styling
         st.markdown("""
             <style>
+            .stDebug {
+                display: none !important;
+            }
+            .element-container div[data-testid="stDebugElement"] {
+                display: none !important;
+            }
             .section-button {
                 background-color: #f0f2f6;
                 border-radius: 10px;
@@ -111,41 +126,28 @@ def render_navigator():
         st.sidebar.markdown("## 🚀 Protocol Generation")
         _initialize_sections_status()
         
-        # Check prerequisites
-        can_generate = (
-            st.session_state.get('synopsis_content') is not None and 
-            st.session_state.get('study_type') is not None
+        # Generate button
+        generate_button = st.sidebar.button(
+            "🚀 Generate Complete Protocol",
+            help="Generate all protocol sections from synopsis",
+            use_container_width=True,
+            key="nav_generate_button"
         )
 
-        if can_generate:
-            # Generate button
-            generate_button = st.sidebar.button(
-                "🚀 Generate Complete Protocol",
-                help="Generate all protocol sections from synopsis",
-                use_container_width=True,
-                key="nav_generate_button"
+        if generate_button:
+            generate_all_sections()
+
+        # Download option
+        if st.session_state.get('generated_sections'):
+            st.sidebar.markdown("### Download Protocol")
+            protocol_text = "\n\n".join(st.session_state.generated_sections.values())
+            st.sidebar.download_button(
+                "⬇️ Download Protocol",
+                protocol_text,
+                file_name="protocol.txt",
+                mime="text/plain",
+                key="nav_download_protocol"
             )
-
-            if generate_button:
-                generate_all_sections()
-
-            # Download option
-            if st.session_state.get('generated_sections'):
-                st.sidebar.markdown("### Download Protocol")
-                protocol_text = "\n\n".join(st.session_state.generated_sections.values())
-                st.sidebar.download_button(
-                    "⬇️ Download Protocol",
-                    protocol_text,
-                    file_name="protocol.txt",
-                    mime="text/plain",
-                    key="nav_download_protocol"
-                )
-
-        else:
-            if not st.session_state.get('synopsis_content'):
-                st.sidebar.warning("⚠️ Please upload a synopsis first")
-            if not st.session_state.get('study_type'):
-                st.sidebar.warning("⚠️ Please select a study type")
 
         # Section Navigation
         st.sidebar.markdown("---")
