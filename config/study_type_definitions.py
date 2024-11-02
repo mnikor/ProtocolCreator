@@ -106,5 +106,17 @@ COMPREHENSIVE_STUDY_CONFIGS = {
             'statistical_analysis',
             'limitations'
         ]
+    },
+    'patient_survey': {
+        'required_sections': [
+            'background',
+            'objectives',
+            'survey_design',
+            'population',
+            'survey_instrument',
+            'data_collection',
+            'statistical_analysis',
+            'ethical_considerations'
+        ]
     }
 }

@@ -138,6 +138,28 @@ SECTION_TEMPLATES = {
 - Selection bias considerations
 - Confounding factors
 - Generalizability'''
+    },
+    'patient_survey': {
+        'survey_design': '''Detail survey methodology including:
+- Survey type and format
+- Administration method
+- Timing of assessments
+- Response validation methods''',
+        'survey_instrument': '''Describe survey instruments:
+- Questionnaire development/validation
+- Question types and scales
+- Reliability and validity
+- Pilot testing results''',
+        'data_collection': '''Outline data collection process:
+- Data collection methods
+- Quality control measures
+- Missing data handling
+- Data security measures''',
+        'ethical_considerations': '''Address ethical aspects:
+- Informed consent process
+- Data privacy protection
+- Participant burden
+- Compensation details'''
     }
 }
 
@@ -160,6 +182,13 @@ CONDITIONAL_SECTIONS = {
     'secondary_rwe': {
         'required': ['background', 'objectives', 'data_source', 'study_design', 'population', 'variables', 'statistical_analysis', 'limitations'],
         'optional': ['sensitivity_analysis', 'subgroup_analysis'],
+        'excluded': ['safety', 'procedures']
+    },
+    'patient_survey': {
+        'required': ['background', 'objectives', 'survey_design', 'population',
+                    'survey_instrument', 'data_collection', 'statistical_analysis',
+                    'ethical_considerations'],
+        'optional': ['pilot_testing', 'cognitive_debriefing'],
         'excluded': ['safety', 'procedures']
     }
 }

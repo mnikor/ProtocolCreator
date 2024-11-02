@@ -60,6 +60,12 @@ class SynopsisValidator:
                 'database study', 'claims analysis', 'electronic health records',
                 'retrospective database', 'healthcare database', 'real-world data',
                 'secondary rwe', 'administrative data'
+            ],
+            'patient_survey': [
+                'patient survey', 'questionnaire study', 'patient reported outcome',
+                'survey research', 'patient experience', 'quality of life survey',
+                'patient preference', 'patient satisfaction', 'patient perspective',
+                'patient feedback', 'pro study', 'patient-reported'
             ]
         }
 
@@ -99,10 +105,15 @@ class SynopsisValidator:
             rwe_patterns = self.study_type_patterns['secondary_rwe']
             if any(pattern in content_lower for pattern in rwe_patterns):
                 return 'secondary_rwe'
+            
+            # Check for patient survey studies
+            survey_patterns = self.study_type_patterns['patient_survey']
+            if any(pattern in content_lower for pattern in survey_patterns):
+                return 'patient_survey'
                 
             # Then check other study types
             for study_type, patterns in self.study_type_patterns.items():
-                if study_type not in ['systematic_review', 'secondary_rwe']:
+                if study_type not in ['systematic_review', 'secondary_rwe', 'patient_survey']:
                     if any(pattern in content_lower for pattern in patterns):
                         return study_type
             
