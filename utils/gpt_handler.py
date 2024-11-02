@@ -18,10 +18,10 @@ class GPTHandler:
             messages.append({"role": "user", "content": prompt})
             
             response = self.client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4o-2024-08-06",
                 messages=messages,
-                temperature=0.7,
-                max_tokens=2000
+                temperature=0.3,
+                max_tokens=16000
             )
             return response.choices[0].message.content
         except Exception as e:
