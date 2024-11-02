@@ -62,6 +62,16 @@ def render_editor():
         st.markdown("### Protocol Quality Assessment")
         render_quality_assessment(validation_results)
         
+        # Add download button for original version here
+        original_text = "\n\n".join(st.session_state.generated_sections.values())
+        st.download_button(
+            "⬇️ Download Current Version",
+            original_text,
+            file_name="original_protocol.txt",
+            mime="text/plain",
+            key="download_original"
+        )
+        
         # Show improvement button if there are recommendations or missing items
         has_improvements_needed = any(
             (isinstance(r, dict) and 
@@ -111,26 +121,36 @@ def render_editor():
         
         # Show comparison if available
         if st.session_state.get('show_comparison'):
-            st.markdown("### Protocol Versions Comparison")
+            st.markdown("## Protocol Comparison")
+            
+            # Show quality score comparison
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("### Original Version")
+                render_quality_assessment(st.session_state.original_validation)
+                
+            with col2:
+                st.markdown("### Improved Version")
+                render_quality_assessment(st.session_state.validation_results)
             
             # Download buttons
             col1, col2 = st.columns(2)
             with col1:
-                original_text = "\n\n".join(st.session_state.original_sections.values())
                 st.download_button(
                     "⬇️ Download Original Version",
-                    original_text,
+                    "\n\n".join(st.session_state.original_sections.values()),
                     file_name="original_protocol.txt",
-                    mime="text/plain"
+                    mime="text/plain",
+                    key="download_original_after"
                 )
             
             with col2:
-                improved_text = "\n\n".join(st.session_state.generated_sections.values())
                 st.download_button(
                     "⬇️ Download Improved Version",
-                    improved_text,
+                    "\n\n".join(st.session_state.generated_sections.values()),
                     file_name="improved_protocol.txt",
-                    mime="text/plain"
+                    mime="text/plain",
+                    key="download_improved"
                 )
             
             # Section-by-section comparison
@@ -144,7 +164,8 @@ def render_editor():
                             "Original content",
                             st.session_state.original_sections[section_name],
                             height=300,
-                            disabled=True
+                            disabled=True,
+                            key=f"orig_{section_name}"
                         )
                     with col2:
                         st.markdown("**Improved Version**")
@@ -152,5 +173,6 @@ def render_editor():
                             "Improved content",
                             st.session_state.generated_sections[section_name],
                             height=300,
-                            disabled=True
+                            disabled=True,
+                            key=f"impr_{section_name}"
                         )
