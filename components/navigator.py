@@ -82,54 +82,45 @@ def generate_all_sections():
                 st.session_state.generated_sections = sections
                 st.session_state.validation_results = validation_results
                 
-                # Show comparison if regenerating
+                # Show quality score comparison if regenerating
                 if original_sections:
-                    st.markdown("### Protocol Improvements")
-                    
-                    # Quality score comparison
+                    st.markdown("### Quality Score Comparison")
                     col1, col2 = st.columns(2)
                     with col1:
-                        st.markdown("#### Original Version")
                         st.metric(
                             "Original Score",
-                            f"{original_validation.get('overall_score', 0):.2f}%"
+                            f"{original_validation.get('overall_score', 0):.1f}%"
                         )
                     with col2:
-                        st.markdown("#### Improved Version")
                         st.metric(
                             "Improved Score",
-                            f"{validation_results.get('overall_score', 0):.2f}%"
+                            f"{validation_results.get('overall_score', 0):.1f}%"
                         )
                     
-                    # Section-by-section comparison
+                    # Show content changes
                     st.markdown("### Section Changes")
+                    current_time = int(time.time())
                     for section_name in original_sections.keys():
-                        with st.expander(f"📑 {section_name.replace('_', ' ').title()}"):
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                st.markdown("**Original Version**")
-                                st.text_area(
-                                    "Original content",
-                                    original_sections[section_name],
-                                    height=200,
-                                    disabled=True,
-                                    key=f"orig_{section_name}"
-                                )
-                            with col2:
-                                st.markdown("**Improved Version**")
-                                st.text_area(
-                                    "Improved content",
-                                    sections[section_name],
-                                    height=200,
-                                    disabled=True,
-                                    key=f"impr_{section_name}"
-                                )
-                    
-                    # Option to revert changes
-                    if st.button("↩️ Revert to Original Version"):
-                        st.session_state.generated_sections = original_sections
-                        st.session_state.validation_results = original_validation
-                        st.rerun()
+                        st.markdown(f"#### {section_name.replace('_', ' ').title()}")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.markdown("**Original Version**")
+                            st.text_area(
+                                "Original content",
+                                original_sections[section_name],
+                                height=300,
+                                disabled=True,
+                                key=f"orig_{section_name}_{current_time}"
+                            )
+                        with col2:
+                            st.markdown("**Improved Version**")
+                            st.text_area(
+                                "Improved content",
+                                sections[section_name],
+                                height=300,
+                                disabled=True,
+                                key=f"impr_{section_name}_{current_time}"
+                            )
                 
                 # Display validation summary
                 st.markdown("### Quality Assessment")
@@ -206,12 +197,13 @@ def render_navigator():
             </style>
         """, unsafe_allow_html=True)
 
+        current_time = int(time.time())
         # Generate button
         if st.sidebar.button(
             "🚀 Generate Complete Protocol",
             help="Generate all protocol sections from your synopsis",
             use_container_width=True,
-            key="nav_generate_protocol"
+            key=f"nav_generate_protocol_{current_time}"
         ):
             with st.spinner("Generating protocol..."):
                 if generate_all_sections():
@@ -257,6 +249,7 @@ def render_navigator():
             'Warning': {'icon': '🟠', 'desc': 'Generated with warnings', 'color': '#FFA500'}
         }
 
+        current_time = int(time.time())
         for section in sections:
             status = st.session_state.sections_status.get(section, 'Not Started')
             
@@ -271,7 +264,7 @@ def render_navigator():
             with col1:
                 if st.button(
                     section.replace('_', ' ').title(),
-                    key=f"nav_{section}",
+                    key=f"nav_{section}_{current_time}",
                     help=f"Edit {section.replace('_', ' ').title()} section",
                     use_container_width=True
                 ):
@@ -290,15 +283,16 @@ def export_protocol():
     """Handle protocol export with enhanced error handling"""
     try:
         formatter = ProtocolFormatter()
+        current_time = int(time.time())
         
         # Format selection
         format_option = st.sidebar.radio(
             "Export Format:",
             ["DOCX", "PDF"],
-            key="nav_export_format"
+            key=f"nav_export_format_{current_time}"
         )
         
-        if st.sidebar.button("Export Protocol", key="nav_export_button"):
+        if st.sidebar.button("Export Protocol", key=f"nav_export_button_{current_time}"):
             with st.spinner("Preparing document..."):
                 try:
                     if format_option == "PDF":
@@ -309,7 +303,7 @@ def export_protocol():
                                 file,
                                 file_name="protocol.pdf",
                                 mime="application/pdf",
-                                key="nav_download_pdf"
+                                key=f"nav_download_pdf_{current_time}"
                             )
                     else:  # DOCX format
                         output_file = formatter.save_document("protocol", format='docx')
@@ -319,7 +313,7 @@ def export_protocol():
                                 file,
                                 file_name="protocol.docx",
                                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                key="nav_download_docx"
+                                key=f"nav_download_docx_{current_time}"
                             )
                     st.sidebar.success(f"✅ Protocol exported as {format_option}")
                     
