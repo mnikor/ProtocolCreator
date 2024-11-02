@@ -7,3 +7,4 @@ graphviz
 PyPDF2
 plotly
 python-dotenv
+fpdf2
