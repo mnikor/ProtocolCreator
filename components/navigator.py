@@ -21,85 +21,62 @@ def check_connection():
         return False
 
 def create_pdf(generated_sections):
-    """Create a properly formatted PDF with enhanced styling and formatting"""
+    """Create a properly formatted PDF with basic styling"""
     pdf = FPDF()
     
     # Set document properties
     pdf.set_title('Study Protocol')
     pdf.set_author('Protocol Development Assistant')
     
-    # Add fonts - DejaVu supports unicode characters
-    pdf.add_font('DejaVu', '', '/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf', uni=True)
-    pdf.add_font('DejaVu', 'B', '/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf', uni=True)
-    pdf.add_font('DejaVu', 'I', '/usr/share/fonts/truetype/dejavu/DejaVuSerif-Italic.ttf', uni=True)
-    
     # Title page
     pdf.add_page()
-    pdf.set_font('DejaVu', 'B', 24)
+    pdf.set_font('Arial', 'B', 24)
     pdf.cell(0, 20, 'Study Protocol', ln=True, align='C')
     pdf.ln(20)
     
     # Add date
-    pdf.set_font('DejaVu', '', 12)
+    pdf.set_font('Arial', '', 12)
     pdf.cell(0, 10, f'Generated: {time.strftime("%B %d, %Y")}', ln=True, align='C')
     pdf.ln(30)
     
-    # Table of contents page
+    # Table of contents
     pdf.add_page()
-    pdf.set_font('DejaVu', 'B', 16)
+    pdf.set_font('Arial', 'B', 16)
     pdf.cell(0, 20, 'Table of Contents', ln=True)
     pdf.ln(10)
     
-    # Add sections to table of contents
-    pdf.set_font('DejaVu', '', 12)
+    # Add sections to TOC
+    pdf.set_font('Arial', '', 12)
     page_numbers = {}
-    current_page = pdf.page_no() + 1  # Start counting from next page
+    current_page = pdf.page_no() + 1
     
     for section in generated_sections:
         section_title = section.replace('_', ' ').title()
         page_numbers[section] = current_page
         pdf.cell(0, 10, f'{section_title}....{current_page}', ln=True)
-        
-        # Estimate pages needed for content (rough estimation)
-        content_length = len(generated_sections[section])
-        current_page += max(1, content_length // 2000)  # Assume ~2000 chars per page
+        current_page += max(1, len(generated_sections[section]) // 2000)
     
     # Content pages
     for section, content in generated_sections.items():
         pdf.add_page()
         
         # Section heading
-        pdf.set_font('DejaVu', 'B', 16)
+        pdf.set_font('Arial', 'B', 16)
         pdf.cell(0, 15, section.replace('_', ' ').title(), ln=True)
         pdf.ln(5)
         
-        # Process content paragraphs with enhanced formatting
-        pdf.set_font('DejaVu', '', 11)
+        # Process content with basic formatting
+        pdf.set_font('Arial', '', 11)
         paragraphs = content.split('\n')
         
         for para in paragraphs:
             if para.strip():
-                # Split by italic markers
+                # Handle italic text markers
                 parts = para.split('*')
-                x_start = pdf.get_x()
-                
                 for i, part in enumerate(parts):
                     if part.strip():
-                        # Handle font changes
-                        pdf.set_font('DejaVu', 'I' if i % 2 == 1 else '', 11)
-                        
-                        # Calculate text height and check for page break
-                        text_height = pdf.get_string_height(part.strip())
-                        if pdf.get_y() + text_height > pdf.page_break_trigger:
-                            pdf.add_page()
-                        
-                        # Multi-line text support
+                        pdf.set_font('Arial', 'I' if i % 2 else '', 11)
                         pdf.multi_cell(0, 5, part.strip())
-                        
-                        # Reset position for next part if not last part
-                        if i < len(parts) - 1:
-                            pdf.set_xy(x_start, pdf.get_y())
-                
                 pdf.ln(3)
             else:
                 pdf.ln(5)
@@ -109,7 +86,7 @@ def create_pdf(generated_sections):
     # Add page numbers
     for i in range(1, pdf.page_no() + 1):
         pdf.page = i
-        pdf.set_font('DejaVu', '', 10)
+        pdf.set_font('Arial', '', 10)
         pdf.set_y(-15)
         pdf.cell(0, 10, f'Page {i}', align='C')
     
