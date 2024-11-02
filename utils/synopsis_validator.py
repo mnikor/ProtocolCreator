@@ -48,7 +48,12 @@ class SynopsisValidator:
             'systematic_review': [
                 'systematic review', 'systematic literature review', 'slr',
                 'meta analysis', 'meta-analysis', 'evidence synthesis',
-                'systematic search', 'prisma', 'literature synthesis'
+                'systematic search', 'prisma', 'literature synthesis',
+                'literature review', 'evidence review', 'systematic search',
+                'search strategy', 'prisma statement', 'evidence synthesis',
+                'meta-analyses', 'review protocol', 'systematic methodology',
+                'review registration', 'search criteria', 'database search',
+                'study selection', 'data synthesis', 'quality appraisal'
             ],
             'secondary_rwe': [
                 'secondary analysis', 'real world evidence', 'rwe study',
@@ -85,12 +90,24 @@ class SynopsisValidator:
         try:
             content_lower = content.lower()
             
+            # Check for systematic review first (higher priority)
+            slr_patterns = self.study_type_patterns['systematic_review']
+            if any(pattern in content_lower for pattern in slr_patterns):
+                return 'systematic_review'
+                
+            # Check for secondary RWE next
+            rwe_patterns = self.study_type_patterns['secondary_rwe']
+            if any(pattern in content_lower for pattern in rwe_patterns):
+                return 'secondary_rwe'
+                
+            # Then check other study types
             for study_type, patterns in self.study_type_patterns.items():
-                if any(pattern in content_lower for pattern in patterns):
-                    return study_type
+                if study_type not in ['systematic_review', 'secondary_rwe']:
+                    if any(pattern in content_lower for pattern in patterns):
+                        return study_type
             
             return None
-            
+                
         except Exception as e:
             logger.error(f"Error detecting study type: {str(e)}")
             return None
@@ -101,6 +118,21 @@ class SynopsisValidator:
             study_type = self.detect_study_type(synopsis_content)
             therapeutic_area = self.detect_therapeutic_area(synopsis_content)
             
+            # Additional SLR validation
+            content_lower = synopsis_content.lower()
+            slr_indicators = [
+                'search strategy', 'inclusion criteria',
+                'exclusion criteria', 'quality assessment',
+                'data extraction', 'prisma'
+            ]
+            
+            has_slr_indicators = any(indicator in content_lower 
+                                   for indicator in slr_indicators)
+            
+            # Override study type if strong SLR indicators present
+            if has_slr_indicators and study_type not in ['systematic_review', 'secondary_rwe']:
+                study_type = 'systematic_review'
+                
             validation_result = {
                 'study_type': study_type,
                 'therapeutic_area': therapeutic_area,
