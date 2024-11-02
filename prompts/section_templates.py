@@ -84,6 +84,60 @@ SECTION_TEMPLATES = {
 - Secondary endpoints
 - Safety endpoints
 - Exploratory endpoints'''
+    },
+    'systematic_review': {
+        'search_strategy': '''Detail comprehensive search strategy including:
+- Databases to be searched
+- Search terms and combinations
+- Search date ranges
+- Grey literature sources''',
+        'eligibility_criteria': '''Define clear inclusion/exclusion criteria:
+- PICOS framework application
+- Study design criteria
+- Publication types
+- Language restrictions''',
+        'data_extraction': '''Describe data extraction process:
+- Data extraction form design
+- Independent reviewer process
+- Quality control measures
+- Data management procedures''',
+        'quality_assessment': '''Detail quality assessment methodology:
+- Risk of bias assessment tools
+- Quality scoring criteria
+- Inter-rater reliability
+- Handling discrepancies''',
+        'synthesis_methods': '''Outline synthesis methodology:
+- Meta-analysis approach if applicable
+- Heterogeneity assessment
+- Subgroup analyses
+- Sensitivity analyses''',
+        'results_reporting': '''Define reporting structure:
+- PRISMA flow diagram
+- Summary tables format
+- Forest plots if applicable
+- Publication bias assessment'''
+    },
+    'secondary_rwe': {
+        'data_source': '''Describe data sources including:
+- Database characteristics
+- Time period covered
+- Data quality assessment
+- Relevant variables available''',
+        'variables': '''Detail study variables including:
+- Exposure definitions
+- Outcome measures
+- Covariates and confounders
+- Coding systems used''',
+        'statistical_analysis': '''Outline analysis approach:
+- Primary analysis methods
+- Propensity score matching
+- Sensitivity analyses
+- Missing data handling''',
+        'limitations': '''Address study limitations:
+- Data quality issues
+- Selection bias considerations
+- Confounding factors
+- Generalizability'''
     }
 }
 
@@ -97,6 +151,16 @@ CONDITIONAL_SECTIONS = {
         'required': ['background', 'objectives', 'study_design', 'population', 'procedures', 'statistical_analysis', 'safety', 'endpoints'],
         'optional': ['pk_analysis', 'interim_analysis'],
         'excluded': []
+    },
+    'systematic_review': {
+        'required': ['background', 'objectives', 'search_strategy', 'eligibility_criteria', 'data_extraction', 'quality_assessment', 'synthesis_methods', 'results_reporting'],
+        'optional': ['meta_analysis', 'risk_of_bias'],
+        'excluded': ['safety', 'procedures']
+    },
+    'secondary_rwe': {
+        'required': ['background', 'objectives', 'data_source', 'study_design', 'population', 'variables', 'statistical_analysis', 'limitations'],
+        'optional': ['sensitivity_analysis', 'subgroup_analysis'],
+        'excluded': ['safety', 'procedures']
     }
 }
 

@@ -44,6 +44,17 @@ class SynopsisValidator:
                 'diagnostic test', 'biomarker validation', 'diagnostic performance',
                 'diagnostic evaluation', 'test validation', 'assay validation',
                 'diagnostic precision', 'reference standard'
+            ],
+            'systematic_review': [
+                'systematic review', 'systematic literature review', 'slr',
+                'meta analysis', 'meta-analysis', 'evidence synthesis',
+                'systematic search', 'prisma', 'literature synthesis'
+            ],
+            'secondary_rwe': [
+                'secondary analysis', 'real world evidence', 'rwe study',
+                'database study', 'claims analysis', 'electronic health records',
+                'retrospective database', 'healthcare database', 'real-world data',
+                'secondary rwe', 'administrative data'
             ]
         }
 

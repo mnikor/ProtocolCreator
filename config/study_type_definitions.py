@@ -82,5 +82,29 @@ COMPREHENSIVE_STUDY_CONFIGS = {
             'statistical_analysis',
             'performance_metrics'
         ]
+    },
+    'systematic_review': {
+        'required_sections': [
+            'background',
+            'objectives',
+            'search_strategy',
+            'eligibility_criteria',
+            'data_extraction',
+            'quality_assessment',
+            'synthesis_methods',
+            'results_reporting'
+        ]
+    },
+    'secondary_rwe': {
+        'required_sections': [
+            'background',
+            'objectives',
+            'data_source',
+            'study_design',
+            'population',
+            'variables',
+            'statistical_analysis',
+            'limitations'
+        ]
     }
 }
