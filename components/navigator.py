@@ -24,6 +24,7 @@ def _initialize_sections_status():
         study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
         required_sections = study_config.get('required_sections', [])
         
+        # Use section name as key to prevent duplications
         for section in required_sections:
             if section not in st.session_state.sections_status:
                 st.session_state.sections_status[section] = 'Not Started'
@@ -45,6 +46,7 @@ def generate_all_sections():
             study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
             required_sections = study_config.get('required_sections', [])
             
+            # Generate complete protocol
             result = generator.generate_complete_protocol(
                 study_type=study_type,
                 synopsis_content=st.session_state.synopsis_content
@@ -52,14 +54,16 @@ def generate_all_sections():
             
             if result and result.get("sections"):
                 sections = result["sections"]
-                timestamp = datetime.now().strftime("%H:%M:%S")
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
+                # Update section statuses
                 for section in required_sections:
-                    if section in sections:
+                    if section in sections and sections[section].strip():
                         st.session_state.sections_status[section] = f'Generated at {timestamp}'
                     else:
                         st.session_state.sections_status[section] = 'Failed'
                 
+                # Store results in session state
                 st.session_state.generated_sections = sections
                 st.session_state.validation_results = result.get("validation_results", {})
                 st.success("✅ Protocol generated successfully!")
@@ -91,29 +95,28 @@ def render_navigator():
                 padding: 10px;
                 margin: 5px 0;
                 transition: all 0.3s ease;
+                cursor: pointer;
             }
             .section-button:hover {
                 background-color: #e0e2e6;
                 transform: translateX(5px);
             }
-            .main-content {
-                padding: 2rem;
-                max-width: 1200px;
-                margin: 0 auto;
-            }
-            .section-header {
-                color: #2c3e50;
-                font-size: 1.8rem;
-                margin-bottom: 1rem;
+            .section-status {
+                font-size: 0.8em;
+                color: #666;
+                margin-top: 5px;
             }
             .stButton > button {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                padding: 0.75rem;
-                border-radius: 10px;
-                margin: 10px 0;
-                width: 100%;
+                background-color: #4CAF50 !important;
+                color: white !important;
+                font-weight: bold !important;
+                padding: 0.75rem !important;
+                border-radius: 10px !important;
+                margin: 10px 0 !important;
+                width: 100% !important;
+            }
+            .stProgress > div > div > div {
+                background-color: #4CAF50 !important;
             }
             </style>
         """, unsafe_allow_html=True)
@@ -126,52 +129,81 @@ def render_navigator():
         st.sidebar.markdown("## 🚀 Protocol Generation")
         _initialize_sections_status()
         
-        # Generate button
-        generate_button = st.sidebar.button(
-            "🚀 Generate Complete Protocol",
-            help="Generate all protocol sections from synopsis",
-            use_container_width=True,
-            key="nav_generate_button"
-        )
-
-        if generate_button:
-            generate_all_sections()
-
-        # Download option
-        if st.session_state.get('generated_sections'):
-            st.sidebar.markdown("### Download Protocol")
-            protocol_text = "\n\n".join(st.session_state.generated_sections.values())
-            st.sidebar.download_button(
-                "⬇️ Download Protocol",
-                protocol_text,
-                file_name="protocol.txt",
-                mime="text/plain",
-                key="nav_download_protocol"
+        # Generate Protocol button - only show if synopsis exists
+        if st.session_state.get('synopsis_content'):
+            generate_button = st.sidebar.button(
+                "🚀 Generate Complete Protocol",
+                help="Generate all protocol sections from synopsis",
+                use_container_width=True,
+                key="nav_generate_protocol"
             )
+
+            if generate_button:
+                if generate_all_sections():
+                    st.rerun()  # Refresh UI after successful generation
+
+        # Download options - only show if sections are generated
+        if generated_sections := st.session_state.get('generated_sections'):
+            st.sidebar.markdown("### 📥 Download Protocol")
+            protocol_text = "\n\n".join(generated_sections.values())
+            
+            col1, col2 = st.sidebar.columns(2)
+            with col1:
+                st.download_button(
+                    "📄 Download TXT",
+                    protocol_text,
+                    file_name="protocol.txt",
+                    mime="text/plain",
+                    key="download_txt"
+                )
+            with col2:
+                st.download_button(
+                    "📑 Download DOCX",
+                    protocol_text,
+                    file_name="protocol.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    key="download_docx"
+                )
 
         # Section Navigation
         st.sidebar.markdown("---")
-        st.sidebar.markdown('<p class="section-header">📑 Protocol Sections</p>', unsafe_allow_html=True)
+        st.sidebar.markdown("### 📑 Protocol Sections")
         
         if study_type := st.session_state.get('study_type'):
             study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
             sections = study_config.get('required_sections', [])
             
-            # Progress bar
+            # Calculate and display progress
             completed = sum(1 for status in st.session_state.sections_status.values() 
                           if 'Generated' in status)
             total = len(sections)
             progress = completed / total if total > 0 else 0
-            st.sidebar.progress(progress, f"Progress: {completed}/{total} sections")
+            
+            # Progress bar with percentage
+            progress_text = f"Progress: {completed}/{total} sections ({progress*100:.1f}%)"
+            st.sidebar.progress(progress, text=progress_text)
 
-            # Section buttons
+            # Section list with status indicators
             for section in sections:
                 status = st.session_state.sections_status.get(section, 'Not Started')
-                status_color = "🟢" if "Generated" in status else "⚪️"
-                button_text = f"{status_color} {section.replace('_', ' ').title()}"
                 
+                # Status indicator
+                if 'Generated' in status:
+                    icon = "🟢"  # Green circle for generated
+                elif 'Failed' in status:
+                    icon = "🔴"  # Red circle for failed
+                else:
+                    icon = "⚪️"  # White circle for not started
+                
+                # Section name with status
+                section_name = section.replace('_', ' ').title()
                 st.sidebar.markdown(
-                    f'<div class="section-button">{button_text}</div>',
+                    f"""
+                    <div class="section-button">
+                        {icon} {section_name}
+                        <div class="section-status">{status}</div>
+                    </div>
+                    """,
                     unsafe_allow_html=True
                 )
                 

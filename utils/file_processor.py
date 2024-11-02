@@ -1,32 +1,33 @@
 import logging
-from docx import Document
+import io
+from typing import Optional
+import docx
 import PyPDF2
 
 logger = logging.getLogger(__name__)
 
-def read_file_content(file):
-    '''Read content from uploaded file'''
+def process_file_content(uploaded_file) -> Optional[str]:
+    """Process uploaded file content based on file type"""
     try:
-        # Get file extension
-        file_name = file.name.lower()
-
-        if file_name.endswith('.txt'):
-            # Read text file
-            return str(file.read(), 'utf-8')
-
-        elif file_name.endswith('.docx'):
-            # Read DOCX using python-docx
-            doc = Document(file)
-            return '\n'.join(paragraph.text for paragraph in doc.paragraphs)
-
-        elif file_name.endswith('.pdf'):
-            # Read PDF using PyPDF2
-            pdf = PyPDF2.PdfReader(file)
-            return '\n'.join(page.extract_text() for page in pdf.pages)
-
+        file_type = uploaded_file.type
+        
+        # Process text files
+        if file_type == "text/plain":
+            return uploaded_file.getvalue().decode("utf-8")
+            
+        # Process Word documents
+        elif "document" in file_type:
+            doc = docx.Document(io.BytesIO(uploaded_file.getvalue()))
+            return "\n".join([paragraph.text for paragraph in doc.paragraphs])
+            
+        # Process PDF files
+        elif file_type == "application/pdf":
+            pdf_reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file.getvalue()))
+            return "\n".join([page.extract_text() for page in pdf_reader.pages])
+            
         else:
-            raise ValueError(f"Unsupported file format: {file_name}")
-
+            raise ValueError(f"Unsupported file type: {file_type}")
+            
     except Exception as e:
-        logger.error(f"Error reading file: {str(e)}")
-        raise
+        logger.error(f"Error processing file: {str(e)}")
+        raise Exception(f"Error processing file: {str(e)}")
