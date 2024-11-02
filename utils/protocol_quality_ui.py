@@ -43,7 +43,8 @@ def display_quality_metrics(validation_results: Dict, key_suffix: str = ""):
             showlegend=False
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        # Add unique key to plotly chart
+        st.plotly_chart(fig, use_container_width=True, key=f"quality_chart_{key_suffix}")
         
     except Exception as e:
         logger.error(f"Error displaying quality metrics: {str(e)}")
@@ -93,16 +94,17 @@ def render_quality_assessment(validation_results: Dict, key_suffix: str = ""):
         # Calculate overall score on 0-10 scale
         overall_score = (total_score / valid_scores * 10) if valid_scores > 0 else 0.0
         
-        # Display overall score
+        # Display overall score with unique key
         st.metric(
             label="Overall Protocol Quality",
             value=f"{overall_score:.1f}/10",
             delta=f"{(overall_score-8):.1f} points from target" if overall_score < 8 else "Meets target",
-            delta_color="inverse"
+            delta_color="inverse",
+            key=f"quality_metric_{key_suffix}"
         )
         
-        # Quality visualization
-        display_quality_metrics(validation_results)
+        # Quality visualization with unique key
+        display_quality_metrics(validation_results, key_suffix)
         
         # Quality summary
         st.markdown("### Quality Summary")
@@ -118,7 +120,7 @@ def render_quality_assessment(validation_results: Dict, key_suffix: str = ""):
         
         # Detailed assessment
         st.markdown("### Detailed Assessment")
-        display_validation_details(validation_results)
+        display_validation_details(validation_results, key_suffix)
         
     except Exception as e:
         logger.error(f"Error in quality assessment: {str(e)}")
