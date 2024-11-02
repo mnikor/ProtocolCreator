@@ -1,5 +1,4 @@
 import streamlit as st
-from datetime import datetime
 import logging
 from utils.template_section_generator import TemplateSectionGenerator
 from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
@@ -15,145 +14,83 @@ def check_connection():
         logger.error(f"Connection check failed: {str(e)}")
         return False
 
-def _initialize_sections_status():
-    """Initialize sections status in session state"""
-    if 'sections_status' not in st.session_state:
-        st.session_state.sections_status = {}
-    
-    if study_type := st.session_state.get('study_type'):
-        study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
-        required_sections = study_config.get('required_sections', [])
-        
-        # Initialize status for each section
-        for section in required_sections:
-            if section not in st.session_state.sections_status:
-                st.session_state.sections_status[section] = 'Not Started'
-
-def generate_all_sections():
-    """Generate all protocol sections"""
-    try:
-        if not st.session_state.get('synopsis_content'):
-            st.error("Please upload a synopsis first")
-            return False
-            
-        if not st.session_state.get('study_type'):
-            st.error("Study type not detected")
-            return False
-            
-        with st.spinner("🔄 Generating protocol..."):
-            generator = TemplateSectionGenerator()
-            study_type = st.session_state.study_type
-            study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
-            required_sections = study_config.get('required_sections', [])
-            
-            # Generate complete protocol
-            result = generator.generate_complete_protocol(
-                study_type=study_type,
-                synopsis_content=st.session_state.synopsis_content
-            )
-            
-            if result and result.get("sections"):
-                sections = result["sections"]
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                
-                # Store results in session state
-                st.session_state.generated_sections = sections
-                st.session_state.validation_results = result.get("validation_results", {})
-                
-                # Update section statuses
-                for section in required_sections:
-                    if section in sections and sections[section].strip():
-                        st.session_state.sections_status[section] = f'Generated at {timestamp}'
-                    else:
-                        st.session_state.sections_status[section] = 'Failed'
-                
-                st.success("✅ Protocol generated successfully!")
-                return True
-            else:
-                st.error("❌ Failed to generate protocol sections")
-                return False
-                
-    except Exception as e:
-        logger.error(f"Error in protocol generation: {str(e)}")
-        st.error(f"Error: {str(e)}")
-        return False
-
 def render_navigator():
     """Render the section navigator with simplified UI"""
     try:
-        # Initialize states
-        if 'show_comparison' not in st.session_state:
-            st.session_state.show_comparison = False
-            
         # Add custom styling
         st.markdown("""
             <style>
-            .stDebug {
-                display: none !important;
-            }
-            .element-container div[data-testid="stDebugElement"] {
-                display: none !important;
-            }
-            .section-button {
-                background-color: #f0f2f6;
-                border-radius: 10px;
-                padding: 10px;
-                margin: 5px 0;
-                transition: all 0.3s ease;
-            }
-            .section-button:hover {
-                background-color: #e0e2e6;
-                transform: translateX(5px);
-            }
             .section-status {
-                font-size: 0.8em;
+                font-size: 0.9em;
                 color: #666;
                 margin-top: 5px;
             }
+            .progress-section {
+                background-color: #f8f9fa;
+                padding: 1rem;
+                border-radius: 10px;
+                margin-bottom: 1rem;
+            }
+            .stButton > button:first-child {
+                background-color: #4CAF50;
+                color: white;
+                font-weight: bold;
+                height: 3em;
+                border-radius: 10px;
+                margin: 0.5em 0;
+                width: 100%;
+            }
             </style>
         """, unsafe_allow_html=True)
+        
+        # Initialize session state if needed
+        if 'generated_sections' not in st.session_state:
+            st.session_state.generated_sections = {}
+        if 'validation_results' not in st.session_state:
+            st.session_state.validation_results = None
         
         # Check connection
         if not check_connection():
             st.sidebar.error("⚠️ Connection issues detected. Please refresh the page.")
             return
-            
-        st.sidebar.markdown("## 🚀 Protocol Generation")
-        _initialize_sections_status()
+        
+        st.sidebar.markdown("## Protocol Development")
         
         # Generate Protocol button - only show if synopsis exists
         if st.session_state.get('synopsis_content'):
-            if st.sidebar.button(
-                "🚀 Generate Complete Protocol",
-                help="Generate all protocol sections from synopsis",
-                use_container_width=True,
-                key="nav_generate_btn"
-            ):
-                if generate_all_sections():
-                    st.rerun()
-
-        # Download options - only show if sections are generated
-        if generated_sections := st.session_state.get('generated_sections'):
-            st.sidebar.markdown("### 📥 Download Options")
-            protocol_text = "\n\n".join(generated_sections.values())
+            st.sidebar.markdown("### 🚀 Protocol Generation")
             
-            col1, col2 = st.sidebar.columns(2)
-            with col1:
-                st.download_button(
-                    "📄 Download TXT",
-                    protocol_text,
-                    file_name="protocol.txt",
-                    mime="text/plain",
-                    key="nav_download_txt"
-                )
-            with col2:
-                st.download_button(
-                    "📑 Download DOCX",
-                    protocol_text,
-                    file_name="protocol.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    key="nav_download_docx"
-                )
+            if st.sidebar.button(
+                "Generate Complete Protocol",
+                key="nav_generate_btn",
+                help="Generate all protocol sections from synopsis",
+                use_container_width=True
+            ):
+                try:
+                    with st.sidebar.spinner("🔄 Generating protocol..."):
+                        generator = TemplateSectionGenerator()
+                        
+                        # Generate complete protocol
+                        result = generator.generate_complete_protocol(
+                            study_type=st.session_state.study_type,
+                            synopsis_content=st.session_state.synopsis_content
+                        )
+                        
+                        if result and isinstance(result, dict):
+                            # Store generated sections and validation results
+                            if "sections" in result:
+                                st.session_state.generated_sections = result["sections"]
+                            if "validation_results" in result:
+                                st.session_state.validation_results = result["validation_results"]
+                                
+                            st.sidebar.success("✅ Protocol generated successfully!")
+                            st.rerun()
+                        else:
+                            st.sidebar.error("❌ Failed to generate protocol sections")
+                            
+                except Exception as e:
+                    logger.error(f"Error in protocol generation: {str(e)}")
+                    st.sidebar.error(f"Error: {str(e)}")
 
         # Section Navigation
         st.sidebar.markdown("---")
@@ -163,39 +100,54 @@ def render_navigator():
             study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
             sections = study_config.get('required_sections', [])
             
-            # Calculate progress
-            completed = sum(1 for status in st.session_state.sections_status.values() 
-                          if 'Generated' in status)
+            # Progress tracking
+            completed = sum(1 for section, content in st.session_state.get('generated_sections', {}).items() 
+                          if content and content.strip())
             total = len(sections)
             progress = completed / total if total > 0 else 0
             
-            # Progress bar
-            st.sidebar.progress(progress, text=f"Progress: {completed}/{total} sections")
-
+            # Progress section
+            with st.sidebar.container():
+                st.markdown('<div class="progress-section">', unsafe_allow_html=True)
+                st.progress(progress, text=f"Progress: {completed}/{total} sections")
+                st.markdown('</div>', unsafe_allow_html=True)
+            
             # Section list
             for section in sections:
-                status = st.session_state.sections_status.get(section, 'Not Started')
-                
-                # Status indicator
-                if 'Generated' in status:
-                    icon = "✅"
-                elif 'Failed' in status:
-                    icon = "❌"
-                else:
-                    icon = "⏳"
-                
-                # Display section
+                is_completed = section in st.session_state.get('generated_sections', {})
+                icon = "✅" if is_completed else "⏳"
                 section_name = section.replace('_', ' ').title()
-                st.sidebar.markdown(
-                    f"""
-                    <div class="section-button">
-                        {icon} {section_name}
-                        <div class="section-status">{status}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
+                st.sidebar.markdown(f"{icon} {section_name}")
+            
+            # Download options - only show if sections are generated
+            if generated_sections := st.session_state.get('generated_sections'):
+                st.sidebar.markdown("---")
+                st.sidebar.markdown("### 📥 Download Options")
+                
+                # Create protocol text with proper formatting
+                protocol_text = "\n\n".join(
+                    f"## {section.replace('_', ' ').title()}\n\n{content}"
+                    for section, content in generated_sections.items()
                 )
                 
+                col1, col2 = st.sidebar.columns(2)
+                with col1:
+                    st.download_button(
+                        "📄 DOCX",
+                        protocol_text,
+                        file_name="protocol.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        key="nav_download_docx"
+                    )
+                with col2:
+                    st.download_button(
+                        "📑 PDF",
+                        protocol_text,
+                        file_name="protocol.pdf",
+                        mime="application/pdf",
+                        key="nav_download_pdf"
+                    )
+                    
     except Exception as e:
         logger.error(f"Error in navigator rendering: {str(e)}")
         st.sidebar.error("An error occurred while rendering the navigator")
