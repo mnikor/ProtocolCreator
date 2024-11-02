@@ -6,6 +6,8 @@ from utils.synopsis_validator import SynopsisValidator
 from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
 from io import BytesIO
 from docx import Document
+from docx.shared import Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from fpdf import FPDF
 import os
 
@@ -20,109 +22,135 @@ def check_connection():
         logger.error(f"Connection check failed: {str(e)}")
         return False
 
-def create_pdf(generated_sections):
-    """Create a properly formatted PDF with basic styling"""
-    pdf = FPDF()
-    
-    # Set document properties
-    pdf.set_title('Study Protocol')
-    pdf.set_author('Protocol Development Assistant')
-    
-    # Title page
-    pdf.add_page()
-    pdf.set_font('Arial', 'B', 24)
-    pdf.cell(0, 20, 'Study Protocol', ln=True, align='C')
-    pdf.ln(20)
-    
-    # Add date
-    pdf.set_font('Arial', '', 12)
-    pdf.cell(0, 10, f'Generated: {time.strftime("%B %d, %Y")}', ln=True, align='C')
-    pdf.ln(30)
-    
-    # Table of contents
-    pdf.add_page()
-    pdf.set_font('Arial', 'B', 16)
-    pdf.cell(0, 20, 'Table of Contents', ln=True)
-    pdf.ln(10)
-    
-    # Add sections to TOC
-    pdf.set_font('Arial', '', 12)
-    page_numbers = {}
-    current_page = pdf.page_no() + 1
-    
-    for section in generated_sections:
-        section_title = section.replace('_', ' ').title()
-        page_numbers[section] = current_page
-        pdf.cell(0, 10, f'{section_title}....{current_page}', ln=True)
-        current_page += max(1, len(generated_sections[section]) // 2000)
-    
-    # Content pages
-    for section, content in generated_sections.items():
-        pdf.add_page()
+def create_docx(generated_sections):
+    try:
+        doc = Document()
         
-        # Section heading
+        # Add title
+        title = doc.add_heading('Study Protocol', 0)
+        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        doc.add_paragraph()
+        
+        # Add table of contents
+        doc.add_heading('Table of Contents', level=1)
+        for section in generated_sections:
+            doc.add_paragraph(
+                section.replace('_', ' ').title(),
+                style='TOC 1'
+            )
+        doc.add_page_break()
+        
+        # Add sections with proper formatting
+        for section, content in generated_sections.items():
+            # Add section heading
+            heading = doc.add_heading(section.replace('_', ' ').title(), level=1)
+            
+            # Split content into paragraphs
+            paragraphs = content.split('\n')
+            for para in paragraphs:
+                if para.strip():
+                    p = doc.add_paragraph()
+                    # Handle formatting markers
+                    parts = para.split('*')
+                    for i, part in enumerate(parts):
+                        if part.strip():
+                            run = p.add_run(part.strip())
+                            run.font.name = 'Calibri'
+                            run.font.size = Pt(11)
+                            if i % 2:  # Odd indices are italic
+                                run.italic = True
+            
+            # Add spacing between sections
+            doc.add_paragraph()
+        
+        return doc
+    except Exception as e:
+        logger.error(f"Error creating DOCX: {str(e)}")
+        raise Exception(f"Failed to create DOCX document: {str(e)}")
+
+def create_pdf(generated_sections):
+    try:
+        pdf = FPDF()
+        pdf.set_margins(20, 20, 20)  # Add margins
+        
+        # Set document properties
+        pdf.set_title('Study Protocol')
+        pdf.set_author('Protocol Development Assistant')
+        
+        # Title page
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 24)
+        pdf.cell(0, 20, 'Study Protocol', align='C', ln=True)
+        pdf.ln(20)
+        
+        # Add date
+        pdf.set_font('Arial', '', 12)
+        pdf.cell(0, 10, f'Generated: {time.strftime("%B %d, %Y")}', align='C', ln=True)
+        
+        # Table of contents
+        pdf.add_page()
         pdf.set_font('Arial', 'B', 16)
-        pdf.cell(0, 15, section.replace('_', ' ').title(), ln=True)
+        pdf.cell(0, 10, 'Table of Contents', ln=True)
         pdf.ln(5)
         
-        # Process content with basic formatting
-        pdf.set_font('Arial', '', 11)
-        paragraphs = content.split('\n')
+        # Track page numbers for TOC
+        section_pages = {}
+        current_page = pdf.page_no() + 1
         
-        for para in paragraphs:
-            if para.strip():
-                # Handle italic text markers
-                parts = para.split('*')
-                for i, part in enumerate(parts):
-                    if part.strip():
-                        pdf.set_font('Arial', 'I' if i % 2 else '', 11)
-                        pdf.multi_cell(0, 5, part.strip())
-                pdf.ln(3)
-            else:
-                pdf.ln(5)
+        # Add TOC entries
+        pdf.set_font('Arial', '', 12)
+        for section in generated_sections:
+            section_title = section.replace('_', ' ').title()
+            section_pages[section] = current_page
+            pdf.cell(0, 8, f'{section_title}  {current_page}', ln=True)
+            current_page += 1
         
-        pdf.ln(10)
-    
-    # Add page numbers
-    for i in range(1, pdf.page_no() + 1):
-        pdf.page = i
-        pdf.set_font('Arial', '', 10)
-        pdf.set_y(-15)
-        pdf.cell(0, 10, f'Page {i}', align='C')
-    
-    return pdf
-
-def create_docx(generated_sections):
-    """Create a properly formatted Word document with italic placeholders"""
-    doc = Document()
-    
-    # Add title page
-    doc.add_heading('Study Protocol', 0)
-    doc.add_paragraph()
-    
-    # Add each section
-    for section, content in generated_sections.items():
-        # Add section heading
-        doc.add_heading(section.replace('_', ' ').title(), level=1)
+        # Content pages
+        for section, content in generated_sections.items():
+            pdf.add_page()
+            
+            # Section heading
+            pdf.set_font('Arial', 'B', 14)
+            pdf.cell(0, 10, section.replace('_', ' ').title(), ln=True)
+            pdf.ln(5)
+            
+            # Process content with careful text handling
+            pdf.set_font('Arial', '', 11)
+            
+            # Split content into manageable chunks
+            paragraphs = content.split('\n')
+            for para in paragraphs:
+                if para.strip():
+                    # Handle italic markers
+                    parts = para.split('*')
+                    for i, part in enumerate(parts):
+                        if part.strip():
+                            pdf.set_font('Arial', 'I' if i % 2 else '', 11)
+                            # Use multi_cell with explicit width and height
+                            pdf.multi_cell(
+                                w=170,  # Fixed width with margins
+                                h=5,    # Line height
+                                txt=part.strip()
+                            )
+                    pdf.ln(3)
+                else:
+                    pdf.ln(5)
+            
+            pdf.ln(10)
         
-        # Process content paragraphs
-        paragraphs = content.split('\n')
-        for para in paragraphs:
-            if para.strip():
-                p = doc.add_paragraph()
-                # Split paragraph by italic markers
-                parts = para.split('*')
-                for i, part in enumerate(parts):
-                    if part.strip():
-                        # Alternate between normal and italic text
-                        run = p.add_run(part.strip())
-                        if i % 2 == 1:  # Odd indices are italic
-                            run.italic = True
+        # Add page numbers
+        total_pages = pdf.page_no()
+        for page in range(1, total_pages + 1):
+            pdf.page = page
+            pdf.set_font('Arial', '', 10)
+            pdf.set_y(-15)
+            pdf.cell(0, 10, f'Page {page}', align='C')
         
-        # Add spacing between sections
-        doc.add_paragraph()
-    
-    return doc
+        return pdf
+        
+    except Exception as e:
+        logger.error(f"Error creating PDF: {str(e)}")
+        raise Exception(f"Failed to create PDF document: {str(e)}")
 
 def render_navigator():
     """Render the section navigator with improved generation tracking"""
@@ -307,49 +335,45 @@ def render_navigator():
                     st.sidebar.markdown("### 📥 Download Protocol")
                     
                     try:
-                        # Create DOCX document
-                        doc = create_docx(generated_sections)
-                        doc_bytes = BytesIO()
-                        doc.save(doc_bytes)
-                        doc_bytes.seek(0)
-                        
-                        # Create PDF document
-                        pdf = create_pdf(generated_sections)
+                        # Create document bytes
+                        docx_bytes = BytesIO()
                         pdf_bytes = BytesIO()
+                        
+                        # Generate DOCX
+                        doc = create_docx(generated_sections)
+                        doc.save(docx_bytes)
+                        docx_bytes.seek(0)
+                        
+                        # Generate PDF
+                        pdf = create_pdf(generated_sections)
                         pdf.output(pdf_bytes)
                         pdf_bytes.seek(0)
                         
-                        # Add download buttons in a row
-                        st.sidebar.markdown('<div class="download-buttons">', unsafe_allow_html=True)
-                        
-                        # DOCX download button
+                        # Add download buttons
                         col1, col2 = st.sidebar.columns(2)
+                        
                         with col1:
                             st.download_button(
                                 label="📄 Download DOCX",
-                                data=doc_bytes,
+                                data=docx_bytes,
                                 file_name="protocol.docx",
                                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                use_container_width=True,
-                                help="Download protocol as Word document"
+                                use_container_width=True
                             )
                         
-                        # PDF download button
                         with col2:
                             st.download_button(
-                                label="📑 Download PDF",
+                                label="📥 Download PDF",
                                 data=pdf_bytes,
                                 file_name="protocol.pdf",
                                 mime="application/pdf",
-                                use_container_width=True,
-                                help="Download protocol as PDF document"
+                                use_container_width=True
                             )
                             
-                        st.sidebar.markdown('</div>', unsafe_allow_html=True)
-                        
                     except Exception as e:
-                        logger.error(f"Error creating documents: {str(e)}")
-                        st.sidebar.error("Error creating documents for download")
+                        error_msg = str(e)
+                        logger.error(f"Document creation error: {error_msg}")
+                        st.sidebar.error(f"Error creating documents: {error_msg}")
                     
     except Exception as e:
         logger.error(f"Error in navigator rendering: {str(e)}")

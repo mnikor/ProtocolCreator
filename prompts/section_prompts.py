@@ -1,6 +1,7 @@
 
 SECTION_PROMPTS = {
    # Full Clinical Protocol Generation Prompt with Example Outputs
+   # Full Clinical Protocol Generation Prompt with Example Outputs and Table Guidance
 
    # Background
    """
@@ -29,6 +30,8 @@ SECTION_PROMPTS = {
    *Validate any placeholders with relevant literature or study-specific data.*
    """
 
+   ---
+
    # Objectives
    """
    Generate the Objectives section, ensuring primary and secondary objectives are clearly aligned with endpoints. If objectives are missing, include placeholders with validation recommendations.
@@ -40,7 +43,8 @@ SECTION_PROMPTS = {
       - Add secondary outcomes of interest (e.g., biomarker responses, QoL measures). If absent, include *[PLACEHOLDER: Confirm secondary objectives]*.
 
    3. **Endpoints and Hypothesis**:
-      - List endpoints in a table format and clarify any linked hypotheses.
+      - List endpoints in a table format for clarity, including the objectives and the measurement methods.
+      - **Table Guidance**: Use tables to organize endpoints with associated objectives and measurement methods.
 
    # Example Output:
    """
@@ -50,6 +54,8 @@ SECTION_PROMPTS = {
 
    *Validate placeholders to ensure objectives are specific and align with study scope.*
    """
+
+   ---
 
    # Study Design
    """
@@ -65,10 +71,10 @@ SECTION_PROMPTS = {
       - Specify the length of each study phase. If unclear, use *[PLACEHOLDER: Specify study duration for each phase]*.
 
    4. **Study Schema**:
-      - Include a schematic diagram showing study phases, if feasible. Reference any sub-studies planned as per the document.
+      - Include a schematic diagram showing study phases if feasible.
 
    5. **Formatting and Presentation**:
-      - Use bullet points or a table format to outline key components like treatment groups and duration.
+      - **Table Guidance**: Use tables to summarize key study components, including treatment arms, dosing, and schedule, for easy reference.
 
    # Example Output:
    """
@@ -78,6 +84,8 @@ SECTION_PROMPTS = {
 
    *Validate placeholders with study coordinators for comprehensive detail.*
    """
+
+   ---
 
    # Endpoints and Outcomes
    """
@@ -90,7 +98,7 @@ SECTION_PROMPTS = {
       - List secondary outcomes, including any specific biomarkers or QoL measures. Use *[PLACEHOLDER: Specify secondary endpoints]* if missing.
 
    3. **Formatting Guidance**:
-      - Present primary and secondary endpoints in a table format.
+      - **Table Guidance**: Organize endpoints in a table format to link each objective to its measurement method, creating a concise and structured view.
 
    # Example Output:
    """
@@ -100,6 +108,8 @@ SECTION_PROMPTS = {
 
    *Review placeholders for alignment with study goals.*
    """
+
+   ---
 
    # Data Sources and Collection Methods
    """
@@ -112,7 +122,7 @@ SECTION_PROMPTS = {
       - Describe procedures, such as electronic data capture or paper CRFs, and timing. If specific methods are missing, insert *[PLACEHOLDER: Define data collection method]*.
 
    3. **Formatting and Presentation**:
-      - Present data sources in a list format, using tables for schedules if necessary.
+      - **Table Guidance**: Use tables to list data sources, collection frequencies, and responsible parties, providing a clear and organized summary.
 
    # Example Output:
    """
@@ -122,6 +132,8 @@ SECTION_PROMPTS = {
 
    *Confirm placeholders with the data management team.*
    """
+
+   ---
 
    # Statistical Analysis Plan
    """
@@ -134,7 +146,7 @@ SECTION_PROMPTS = {
       - Specify sample size and power calculations. If not provided, add *[PLACEHOLDER: Insert sample size details]*.
 
    3. **Formatting Guidance**:
-      - Use structured paragraphs or bullet points, and avoid overly technical terms where possible.
+      - Use structured paragraphs or bullet points for clarity.
 
    # Example Output:
    """
@@ -144,6 +156,8 @@ SECTION_PROMPTS = {
 
    *Validate placeholders with a biostatistician to ensure methodological rigor.*
    """
+
+   ---
 
    # Safety and Risk Management
    """
@@ -155,8 +169,8 @@ SECTION_PROMPTS = {
    2. **Adverse Events and Serious Adverse Events (SAEs)**:
       - Describe the AE and SAE capture process, including specific reporting timelines and follow-up procedures. If these details are missing, add *[PLACEHOLDER: Confirm AE and SAE reporting protocols]*.
 
-   3. **Severity and Causality Assessment**:
-      - Indicate any standard criteria (e.g., MedDRA for coding AEs and WHO causality categories). If not provided, add *[PLACEHOLDER: Confirm criteria for severity and causality]*.
+   3. **Formatting and Presentation**:
+      - **Table Guidance**: Use a table format to outline each safety assessment, frequency, and rationale for clear reference.
 
    # Example Output:
    """
@@ -166,6 +180,8 @@ SECTION_PROMPTS = {
 
    *Please validate any placeholders to ensure that this Safety section meets study-specific and regulatory requirements.*
    """
+
+   ---
 
    # Informed Consent Process
    """
@@ -186,6 +202,8 @@ SECTION_PROMPTS = {
    *Validate any placeholders to align with IRB and regulatory requirements.*
    """
 
+   ---
+
    # Randomization and Blinding
    """
    Generate a Randomization and Blinding section based on study design requirements. Detail the process for randomization, any blinding procedures, and use placeholders for missing details.
@@ -204,6 +222,8 @@ SECTION_PROMPTS = {
 
    *Validate any placeholders with the clinical team for study integrity.*
    """
+
+   ---
 
    # Quality Control and Data Management
    """
