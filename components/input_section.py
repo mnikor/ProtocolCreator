@@ -32,7 +32,7 @@ def render_input_section():
         "Or enter your synopsis text",
         value=st.session_state.get('synopsis_input', ''),
         height=300,
-        help="Paste your study synopsis here or use the file uploader above. The system will automatically detect the study type.",
+        help="Paste your study synopsis here or use the file uploader above.",
         key="synopsis_input"
     )
     
@@ -51,19 +51,21 @@ def render_input_section():
                     # Initialize synopsis validator
                     validator = SynopsisValidator()
                     
-                    # Validate synopsis
-                    validation_result = validator.validate_synopsis(
-                        synopsis_content=synopsis_content
-                    )
+                    # Validate synopsis and detect study type
+                    study_type = validator.detect_study_type(synopsis_content)
                     
-                    if validation_result and validation_result.get('study_type'):
-                        # Store both synopsis and detected study type
+                    if study_type:
+                        # Display detected study type
+                        st.info(f"📋 Detected Study Type: {study_type.replace('_', ' ').title()}")
+                        
+                        # Store synopsis and study type
                         st.session_state.synopsis_content = synopsis_content
-                        st.session_state.study_type = validation_result['study_type']
+                        st.session_state.study_type = study_type
+                        
                         st.success("✅ Synopsis processed successfully!")
                         st.rerun()  # Refresh to show editor
                     else:
-                        st.error("❌ Could not process synopsis. Please check content and try again.")
+                        st.error("❌ Could not detect study type. Please check synopsis content.")
                         
             except Exception as e:
                 logger.error(f"Error processing synopsis: {str(e)}")
