@@ -24,7 +24,7 @@ def _initialize_sections_status():
         study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
         required_sections = study_config.get('required_sections', [])
         
-        # Use section name as key to prevent duplications
+        # Initialize status for each section
         for section in required_sections:
             if section not in st.session_state.sections_status:
                 st.session_state.sections_status[section] = 'Not Started'
@@ -56,6 +56,10 @@ def generate_all_sections():
                 sections = result["sections"]
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
+                # Store results in session state
+                st.session_state.generated_sections = sections
+                st.session_state.validation_results = result.get("validation_results", {})
+                
                 # Update section statuses
                 for section in required_sections:
                     if section in sections and sections[section].strip():
@@ -63,9 +67,6 @@ def generate_all_sections():
                     else:
                         st.session_state.sections_status[section] = 'Failed'
                 
-                # Store results in session state
-                st.session_state.generated_sections = sections
-                st.session_state.validation_results = result.get("validation_results", {})
                 st.success("✅ Protocol generated successfully!")
                 return True
             else:
@@ -80,6 +81,10 @@ def generate_all_sections():
 def render_navigator():
     """Render the section navigator with simplified UI"""
     try:
+        # Initialize states
+        if 'show_comparison' not in st.session_state:
+            st.session_state.show_comparison = False
+            
         # Add custom styling
         st.markdown("""
             <style>
@@ -95,7 +100,6 @@ def render_navigator():
                 padding: 10px;
                 margin: 5px 0;
                 transition: all 0.3s ease;
-                cursor: pointer;
             }
             .section-button:hover {
                 background-color: #e0e2e6;
@@ -106,22 +110,10 @@ def render_navigator():
                 color: #666;
                 margin-top: 5px;
             }
-            .stButton > button {
-                background-color: #4CAF50 !important;
-                color: white !important;
-                font-weight: bold !important;
-                padding: 0.75rem !important;
-                border-radius: 10px !important;
-                margin: 10px 0 !important;
-                width: 100% !important;
-            }
-            .stProgress > div > div > div {
-                background-color: #4CAF50 !important;
-            }
             </style>
         """, unsafe_allow_html=True)
         
-        # Check connection and initialize
+        # Check connection
         if not check_connection():
             st.sidebar.error("⚠️ Connection issues detected. Please refresh the page.")
             return
@@ -131,20 +123,18 @@ def render_navigator():
         
         # Generate Protocol button - only show if synopsis exists
         if st.session_state.get('synopsis_content'):
-            generate_button = st.sidebar.button(
+            if st.sidebar.button(
                 "🚀 Generate Complete Protocol",
                 help="Generate all protocol sections from synopsis",
                 use_container_width=True,
-                key="nav_generate_protocol"
-            )
-
-            if generate_button:
+                key="nav_generate_btn"
+            ):
                 if generate_all_sections():
-                    st.rerun()  # Refresh UI after successful generation
+                    st.rerun()
 
         # Download options - only show if sections are generated
         if generated_sections := st.session_state.get('generated_sections'):
-            st.sidebar.markdown("### 📥 Download Protocol")
+            st.sidebar.markdown("### 📥 Download Options")
             protocol_text = "\n\n".join(generated_sections.values())
             
             col1, col2 = st.sidebar.columns(2)
@@ -154,7 +144,7 @@ def render_navigator():
                     protocol_text,
                     file_name="protocol.txt",
                     mime="text/plain",
-                    key="download_txt"
+                    key="nav_download_txt"
                 )
             with col2:
                 st.download_button(
@@ -162,7 +152,7 @@ def render_navigator():
                     protocol_text,
                     file_name="protocol.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    key="download_docx"
+                    key="nav_download_docx"
                 )
 
         # Section Navigation
@@ -173,29 +163,28 @@ def render_navigator():
             study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
             sections = study_config.get('required_sections', [])
             
-            # Calculate and display progress
+            # Calculate progress
             completed = sum(1 for status in st.session_state.sections_status.values() 
                           if 'Generated' in status)
             total = len(sections)
             progress = completed / total if total > 0 else 0
             
-            # Progress bar with percentage
-            progress_text = f"Progress: {completed}/{total} sections ({progress*100:.1f}%)"
-            st.sidebar.progress(progress, text=progress_text)
+            # Progress bar
+            st.sidebar.progress(progress, text=f"Progress: {completed}/{total} sections")
 
-            # Section list with status indicators
+            # Section list
             for section in sections:
                 status = st.session_state.sections_status.get(section, 'Not Started')
                 
                 # Status indicator
                 if 'Generated' in status:
-                    icon = "🟢"  # Green circle for generated
+                    icon = "✅"
                 elif 'Failed' in status:
-                    icon = "🔴"  # Red circle for failed
+                    icon = "❌"
                 else:
-                    icon = "⚪️"  # White circle for not started
+                    icon = "⏳"
                 
-                # Section name with status
+                # Display section
                 section_name = section.replace('_', ' ').title()
                 st.sidebar.markdown(
                     f"""

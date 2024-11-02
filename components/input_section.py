@@ -52,9 +52,10 @@ def render_input_section():
                     validator = SynopsisValidator()
                     
                     # Validate synopsis and detect study type
-                    study_type = validator.detect_study_type(synopsis_content)
+                    validation_result = validator.detect_study_type_and_validate(synopsis_content)
                     
-                    if study_type:
+                    if validation_result and validation_result.get('study_type'):
+                        study_type = validation_result['study_type']
                         # Display detected study type
                         st.info(f"📋 Detected Study Type: {study_type.replace('_', ' ').title()}")
                         
