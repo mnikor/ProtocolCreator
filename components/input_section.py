@@ -8,17 +8,21 @@ logger = logging.getLogger(__name__)
 
 def render_input_section():
     st.markdown("## Protocol Development")
-    st.markdown("Please upload your study synopsis to begin.")
+    st.markdown("Please upload your study synopsis or enter text below.")
+    
+    # Initialize session state for synopsis input if not exists
+    if 'synopsis_input' not in st.session_state:
+        st.session_state.synopsis_input = ''
     
     # Add file uploader
     uploaded_file = st.file_uploader(
-        "Upload Synopsis File",
+        "Upload Synopsis File (Optional)",
         type=["txt", "docx", "pdf"],
         help="Upload your synopsis document (supported formats: TXT, DOCX, PDF)",
         key="synopsis_file"
     )
     
-    # Process uploaded file
+    # Process uploaded file if present
     if uploaded_file:
         try:
             synopsis_content = process_file_content(uploaded_file)
@@ -32,89 +36,81 @@ def render_input_section():
                 
         except Exception as e:
             st.error(f"Error processing file: {str(e)}")
-            synopsis_content = ""
     
-    # Synopsis text input
-    synopsis_content = st.text_area(
-        "Or enter your synopsis text",
-        value=st.session_state.get('synopsis_input', ''),
+    # Synopsis text input - always show this
+    synopsis_text = st.text_area(
+        "Enter your synopsis text",
+        value=st.session_state.synopsis_input,
         height=300,
-        help="Paste your study synopsis here or use the file uploader above.",
-        key="synopsis_input"
+        help="Enter your study synopsis here or use the file uploader above.",
+        key="synopsis_text_input"
     )
     
-    # Validate content and show confirm button
-    if synopsis_content.strip():
+    # Process text input if present (regardless of file upload)
+    if synopsis_text.strip():
         # Initialize improver for early analysis
         improver = ProtocolImprover()
         validator = SynopsisValidator()
         
         # Analyze content for missing information
-        missing_info = improver.analyze_synopsis(synopsis_content)
+        missing_info = improver.analyze_synopsis(synopsis_text)
         
         if missing_info['critical_missing']:
             st.error("⚠️ Critical Information Missing")
             
             # Display missing fields with input collection
             st.markdown("### Required Information")
+            missing_fields_inputs = {}
             for field, description in missing_info['critical_fields'].items():
-                st.text_input(
+                field_input = st.text_input(
                     f"{field.replace('_', ' ').title()}",
                     key=f"missing_{field}",
                     help=description
                 )
+                missing_fields_inputs[field] = field_input
             
-            # Only show process button if all critical fields are filled
-            all_fields_filled = all(
-                st.session_state.get(f"missing_{field}")
-                for field in missing_info['critical_fields']
-            )
-            
-            if not all_fields_filled:
+            # Show process button if all critical fields are filled
+            if all(missing_fields_inputs.values()):
+                show_process_button = True
+            else:
                 st.warning("Please fill in all required fields before proceeding")
-                return
+                show_process_button = False
+        else:
+            show_process_button = True
         
-        # Show confirm button only if critical info is provided
-        confirm_button = st.button(
-            "Process Synopsis",
-            type="primary",
-            use_container_width=True,
-            help="Click to process your synopsis and begin protocol development"
-        )
-        
-        if confirm_button:
-            try:
-                with st.spinner("Processing synopsis..."):
-                    # Initialize synopsis validator
-                    validator = SynopsisValidator()
-                    
-                    # Store full content
-                    synopsis_content = synopsis_content.strip()
-                    
-                    # Add missing information from user inputs
-                    if missing_info['critical_missing']:
-                        for field in missing_info['critical_fields']:
-                            field_value = st.session_state.get(f"missing_{field}")
-                            if field_value:
-                                synopsis_content += f"\n{field.replace('_', ' ').title()}: {field_value}"
-                    
-                    # Validate synopsis
-                    validation_result = validator.validate_synopsis(synopsis_content)
-                    
-                    if validation_result and validation_result.get('study_type'):
-                        study_type = validation_result['study_type']
-                        # Display detected study type
-                        st.info(f"📋 Detected Study Type: {study_type.replace('_', ' ').title()}")
+        # Show process button if conditions are met
+        if show_process_button:
+            if st.button(
+                "Process Synopsis",
+                type="primary",
+                use_container_width=True,
+                help="Click to process your synopsis and begin protocol development"
+            ):
+                try:
+                    with st.spinner("Processing synopsis..."):
+                        # Combine synopsis text with any missing field inputs
+                        final_synopsis = synopsis_text
+                        if missing_info['critical_missing']:
+                            for field, value in missing_fields_inputs.items():
+                                if value:
+                                    final_synopsis += f"\n{field.replace('_', ' ').title()}: {value}"
                         
-                        # Store synopsis and study type
-                        st.session_state.synopsis_content = synopsis_content
-                        st.session_state.study_type = study_type
+                        # Validate synopsis
+                        validation_result = validator.validate_synopsis(final_synopsis)
                         
-                        st.success("✅ Synopsis processed successfully!")
-                        st.rerun()  # Refresh to show editor
-                    else:
-                        st.error("❌ Could not detect study type. Please check synopsis content.")
-                        
-            except Exception as e:
-                logger.error(f"Error processing synopsis: {str(e)}")
-                st.error(f"Error processing synopsis: {str(e)}")
+                        if validation_result and validation_result.get('study_type'):
+                            study_type = validation_result['study_type']
+                            st.info(f"📋 Detected Study Type: {study_type.replace('_', ' ').title()}")
+                            
+                            # Store synopsis and study type
+                            st.session_state.synopsis_content = final_synopsis
+                            st.session_state.study_type = study_type
+                            
+                            st.success("✅ Synopsis processed successfully!")
+                            st.rerun()
+                        else:
+                            st.error("❌ Could not detect study type. Please check synopsis content.")
+                            
+                except Exception as e:
+                    logger.error(f"Error processing synopsis: {str(e)}")
+                    st.error(f"Error processing synopsis: {str(e)}")
