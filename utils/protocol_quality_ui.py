@@ -7,38 +7,44 @@ import time
 logger = logging.getLogger(__name__)
 
 def display_quality_metrics(validation_results: Dict):
-    # Create radar chart of dimension scores
+    # Convert scores to 0-10 scale and create bar chart
     scores = {}
     for dim, results in validation_results.items():
         if dim == 'overall_score':
             continue
             
         if isinstance(results, dict) and 'score' in results:
-            scores[dim] = results['score']
+            # Convert from 0-1 to 0-10 scale
+            scores[dim.replace('_', ' ').title()] = round(results['score'] * 10, 1)
         elif isinstance(results, (int, float)):
-            scores[dim] = float(results)
+            scores[dim.replace('_', ' ').title()] = round(float(results) * 10, 1)
     
     if not scores:
         st.warning("No quality metrics available")
         return
         
-    fig = go.Figure(data=go.Scatterpolar(
-        r=[scores[dim] for dim in scores],
-        theta=list(scores.keys()),
-        fill='toself'
-    ))
-
+    # Create bar chart
+    fig = go.Figure(data=[
+        go.Bar(
+            x=list(scores.values()),
+            y=list(scores.keys()),
+            orientation='h',
+            marker_color='rgb(26, 118, 255)',
+            text=[f"{score:.1f}/10" for score in scores.values()],
+            textposition='auto',
+        )
+    ])
+    
     fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, 1]
-            )),
-        showlegend=False,
-        title="Protocol Quality Dimensions"
+        title="Protocol Quality Dimensions",
+        xaxis_title="Score (0-10)",
+        xaxis=dict(range=[0, 10]),
+        height=400,
+        margin=dict(l=20, r=20, t=40, b=20),
+        showlegend=False
     )
-
-    st.plotly_chart(fig)
+    
+    st.plotly_chart(fig, use_container_width=True)
 
 def display_validation_details(validation_results: Dict):
     for dimension, results in validation_results.items():
@@ -46,7 +52,7 @@ def display_validation_details(validation_results: Dict):
             continue
             
         with st.container().expander(
-            f"{dimension.replace('_', ' ').title()} (Score: {results.get('score', 0):.2%})"
+            f"{dimension.replace('_', ' ').title()} (Score: {results.get('score', 0)*10:.1f}/10)"
         ):
             if results.get('missing_items'):
                 st.markdown("#### Missing Elements:")
@@ -62,7 +68,7 @@ def display_validation_details(validation_results: Dict):
 
 def render_quality_assessment(validation_results: Dict):
     try:
-        # Calculate overall score safely
+        # Calculate overall score on 0-10 scale
         total_score = 0.0
         valid_scores = 0
         
@@ -80,17 +86,17 @@ def render_quality_assessment(validation_results: Dict):
                 total_score += score
                 valid_scores += 1
         
-        # Calculate overall score
-        overall_score = (total_score / valid_scores) if valid_scores > 0 else 0.0
+        # Calculate overall score on 0-10 scale
+        overall_score = (total_score / valid_scores * 10) if valid_scores > 0 else 0.0
         
-        # Display overall score without key parameter
+        # Display overall score
         st.metric(
             label="Overall Protocol Quality",
-            value=f"{overall_score:.2%}",
-            delta=f"{(overall_score-0.8)*100:.1f}% from target" if overall_score < 0.8 else "Meets target"
+            value=f"{overall_score:.1f}/10",
+            delta=f"{(overall_score-8):.1f} points from target" if overall_score < 8 else "Meets target"
         )
         
-        # Quality visualization in main column
+        # Quality visualization
         display_quality_metrics(validation_results)
         
         # Quality summary

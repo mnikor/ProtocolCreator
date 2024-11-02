@@ -161,6 +161,29 @@ def render_editor():
                                     disabled=True
                                 )
 
+                    # Download buttons for both versions
+                    st.markdown("### Download Protocol Versions")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.download_button(
+                            "⬇️ Download Original Version",
+                            "\n\n".join(st.session_state.original_sections.values()),
+                            file_name="original_protocol.txt",
+                            mime="text/plain",
+                            key=f"download_original_{current_time}"
+                        ):
+                            st.success("Original version downloaded!")
+                            
+                    with col2:
+                        if st.download_button(
+                            "⬇️ Download Improved Version",
+                            "\n\n".join(st.session_state.generated_sections.values()),
+                            file_name="improved_protocol.txt",
+                            mime="text/plain",
+                            key=f"download_improved_{current_time}"
+                        ):
+                            st.success("Improved version downloaded!")
+
                     # Add option to reset comparison
                     if st.button("Hide Comparison", key="hide_comparison"):
                         del st.session_state.show_comparison
