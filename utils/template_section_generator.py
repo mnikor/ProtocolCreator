@@ -20,10 +20,10 @@ class TemplateSectionGenerator:
             # Generate each section
             generated_sections = {}
             for section_name in sections:
+                # Remove study_type from the generate_section call
                 section_content = self.gpt_handler.generate_section(
                     section_name=section_name,
-                    synopsis_content=synopsis_content,
-                    study_type=study_type
+                    synopsis_content=synopsis_content
                 )
                 generated_sections[section_name] = section_content
             
