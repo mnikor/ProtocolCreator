@@ -69,6 +69,35 @@ class SynopsisValidator:
             ]
         }
 
+    def detect_study_type(self, content: str) -> Optional[str]:
+        try:
+            content_lower = content.lower()
+            
+            # First check for clinical trial phases
+            phase_patterns = {
+                'phase1': self.study_type_patterns['phase1'],
+                'phase2': self.study_type_patterns['phase2'],
+                'phase3': self.study_type_patterns['phase3'],
+                'phase4': self.study_type_patterns['phase4']
+            }
+            
+            # Check for phase indicators first
+            for phase, patterns in phase_patterns.items():
+                if any(pattern in content_lower for pattern in patterns):
+                    return phase
+                    
+            # Then check other study types
+            for study_type, patterns in self.study_type_patterns.items():
+                if study_type not in ['phase1', 'phase2', 'phase3', 'phase4']:
+                    if any(pattern in content_lower for pattern in patterns):
+                        return study_type
+            
+            return None
+                
+        except Exception as e:
+            logger.error(f"Error detecting study type: {str(e)}")
+            return None
+
     def detect_therapeutic_area(self, content: str) -> Optional[str]:
         """Detect therapeutic area from content using defined patterns"""
         therapeutic_areas = {
@@ -90,38 +119,6 @@ class SynopsisValidator:
             if any(pattern in content_lower for pattern in patterns):
                 return area
         return None
-
-    def detect_study_type(self, content: str) -> Optional[str]:
-        """Detect study type from content using defined patterns"""
-        try:
-            content_lower = content.lower()
-            
-            # Check for systematic review first (higher priority)
-            slr_patterns = self.study_type_patterns['systematic_review']
-            if any(pattern in content_lower for pattern in slr_patterns):
-                return 'systematic_review'
-                
-            # Check for secondary RWE next
-            rwe_patterns = self.study_type_patterns['secondary_rwe']
-            if any(pattern in content_lower for pattern in rwe_patterns):
-                return 'secondary_rwe'
-            
-            # Check for patient survey studies
-            survey_patterns = self.study_type_patterns['patient_survey']
-            if any(pattern in content_lower for pattern in survey_patterns):
-                return 'patient_survey'
-                
-            # Then check other study types
-            for study_type, patterns in self.study_type_patterns.items():
-                if study_type not in ['systematic_review', 'secondary_rwe', 'patient_survey']:
-                    if any(pattern in content_lower for pattern in patterns):
-                        return study_type
-            
-            return None
-                
-        except Exception as e:
-            logger.error(f"Error detecting study type: {str(e)}")
-            return None
 
     def validate_synopsis(self, synopsis_content: str) -> Dict:
         """Validate synopsis content and detect study type and therapeutic area"""

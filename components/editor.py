@@ -5,10 +5,24 @@ from utils.template_section_generator import TemplateSectionGenerator
 
 logger = logging.getLogger(__name__)
 
+def update_section_content(section_name: str):
+    """Update section content with user inputs"""
+    try:
+        content = st.session_state.generated_sections[section_name]
+        for field_key, value in st.session_state.user_inputs.items():
+            if field_key.startswith(f"{section_name}_"):
+                field = field_key.replace(f"{section_name}_", "")
+                placeholder = f"[PLACEHOLDER: *{field}*]"
+                content = content.replace(placeholder, value)
+        
+        st.session_state.generated_sections[section_name] = content
+        st.success(f"✅ {section_name.title()} updated successfully!")
+        st.rerun()
+    except Exception as e:
+        st.error(f"Error updating section: {str(e)}")
+
 def render_editor():
     """Render the protocol editor with enhanced missing information detection"""
-    st.markdown("## Protocol Editor")
-    
     # Initialize improver
     improver = ProtocolImprover()
     
@@ -26,43 +40,38 @@ def render_editor():
     
     # Display generated sections if available
     if generated_sections := st.session_state.get('generated_sections'):
+        # Add prominent missing information summary at the top
+        st.markdown("## 📋 Protocol Review")
+        
         # Analyze protocol sections
         analysis_results = improver.analyze_protocol_sections(generated_sections)
-        overall_score = analysis_results['overall_quality_score']
         
-        # Display overall quality metrics
-        st.markdown("### Quality Summary")
+        # Quality metrics in columns
         col1, col2 = st.columns(2)
         with col1:
-            st.metric("Overall Protocol Quality", f"{overall_score}/10")
-            if missing_count := sum(len(section['missing_fields']) 
-                                  for section in analysis_results['section_analyses'].values()):
-                st.warning(f"Found {missing_count} items needing attention")
+            st.metric("Protocol Quality Score", f"{analysis_results['overall_quality_score']}/10")
+        with col2:
+            missing_count = sum(len(section['missing_fields']) 
+                              for section in analysis_results['section_analyses'].values())
+            if missing_count > 0:
+                st.error(f"⚠️ {missing_count} items need attention")
+            else:
+                st.success("✅ All required information provided")
         
-        # Display sections with enhanced feedback
-        for section_name, content in generated_sections.items():
-            section_analysis = analysis_results['section_analyses'][section_name]
-            missing_fields = section_analysis['missing_fields']
-            recommendations = section_analysis['recommendations']
-            
-            with st.expander(f"📝 {section_name.replace('_', ' ').title()}", expanded=False):
-                # Content display
-                st.text_area(
-                    "Section Content",
-                    value=content,
-                    height=200,
-                    key=f"content_{section_name}",
-                    disabled=True
-                )
+        # Display missing information prominently
+        missing_info = False
+        for section_name, analysis in analysis_results['section_analyses'].items():
+            if analysis['missing_fields']:
+                if not missing_info:
+                    st.markdown("### ❗ Required Information")
+                    missing_info = True
                 
-                # Missing Information Section
-                if missing_fields:
-                    st.markdown("#### ❗ Missing Information")
-                    for field in missing_fields:
+                with st.expander(f"📝 {section_name.replace('_', ' ').title()}", expanded=True):
+                    for field in analysis['missing_fields']:
                         field_key = f"{section_name}_{field}"
                         st.markdown(f"**{field.replace('_', ' ').title()}**")
                         
-                        # Add input field with previous value if exists
+                        # Add input field with previous value
                         previous_value = st.session_state.user_inputs.get(field_key, "")
                         user_input = st.text_area(
                             "Enter missing information:",
@@ -73,29 +82,29 @@ def render_editor():
                         
                         if user_input:
                             st.session_state.user_inputs[field_key] = user_input
+                            
+                    if st.button(f"Update {section_name}", key=f"update_{section_name}"):
+                        update_section_content(section_name)
+        
+        # Display all sections with content
+        st.markdown("## 📄 Protocol Sections")
+        for section_name, content in generated_sections.items():
+            with st.expander(f"📝 {section_name.replace('_', ' ').title()}", expanded=False):
+                # Display section content
+                st.text_area(
+                    "Section Content",
+                    value=content,
+                    height=200,
+                    key=f"content_{section_name}",
+                    disabled=True
+                )
                 
-                # Recommendations Section
+                # Display recommendations if any
+                recommendations = analysis_results['section_analyses'][section_name].get('recommendations', [])
                 if recommendations:
                     st.markdown("#### 💡 Recommendations")
                     for rec in recommendations:
                         st.info(rec)
-                
-                # Update Button for Individual Sections
-                if any(k.startswith(f"{section_name}_") for k in st.session_state.user_inputs):
-                    if st.button(f"Update {section_name.title()}", key=f"update_{section_name}"):
-                        try:
-                            updated_content = content
-                            for field_key, value in st.session_state.user_inputs.items():
-                                if field_key.startswith(f"{section_name}_"):
-                                    field = field_key.replace(f"{section_name}_", "")
-                                    placeholder = f"[PLACEHOLDER: *{field}*]"
-                                    updated_content = updated_content.replace(placeholder, value)
-                            
-                            st.session_state.generated_sections[section_name] = updated_content
-                            st.success(f"✅ {section_name.title()} updated successfully!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error updating section: {str(e)}")
         
         # Global Update Button
         if st.session_state.user_inputs:
