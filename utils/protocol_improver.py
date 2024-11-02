@@ -13,18 +13,51 @@ class ProtocolImprover:
         
     def analyze_synopsis(self, content: str) -> Dict:
         '''Analyze synopsis content for missing critical information'''
-        critical_fields = {
-            'study_population': 'Target study population',
-            'primary_objective': 'Primary study objective',
-            'study_design': 'Basic study design',
-            'sample_size': 'Approximate sample size',
-            'duration': 'Expected study duration'
+        content_lower = content.lower()
+        
+        # Define detection patterns for each field
+        field_patterns = {
+            'study_population': [
+                'inclusion criteria', 'patient population', 'subjects',
+                'adults aged', 'patients with', 'participants',
+                'eligible patients', 'study population', 'target population',
+                'enrolled patients', 'patient eligibility'
+            ],
+            'primary_objective': [
+                'primary objective', 'primary endpoint',
+                'primary goal', 'main objective',
+                'primary outcome', 'main goal',
+                'primary aim', 'primary purpose',
+                'key objective', 'principal objective'
+            ],
+            'study_design': [
+                'study design', 'trial design', 'phase 2',
+                'single-arm', 'double-blind', 'open-label',
+                'randomized', 'placebo-controlled',
+                'crossover', 'parallel group',
+                'observational', 'interventional'
+            ],
+            'sample_size': [
+                'sample size', 'patients will be',
+                r'\d+ patients', 'subjects will be enrolled',
+                'target enrollment', 'planned enrollment',
+                'approximately \d+', 'n=\d+',
+                'total of \d+', 'up to \d+ patients'
+            ],
+            'duration': [
+                'duration', 'timeline', 'months from',
+                'study period', 'length of study',
+                'follow-up period', 'treatment duration',
+                'study completion', 'weeks of treatment',
+                'study timeline', 'estimated completion'
+            ]
         }
         
         missing_fields = {}
-        for field, description in critical_fields.items():
-            if field.lower() not in content.lower():
-                missing_fields[field] = description
+        for field, patterns in field_patterns.items():
+            found = any(pattern in content_lower for pattern in patterns)
+            if not found:
+                missing_fields[field] = f'Please specify the {field.replace("_", " ")}'
         
         return {
             'critical_missing': bool(missing_fields),
