@@ -2,10 +2,11 @@ import streamlit as st
 import plotly.graph_objects as go
 from typing import Dict
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
-def display_quality_metrics(validation_results: Dict):
+def display_quality_metrics(validation_results: Dict, key_suffix=''):
     # Create radar chart of dimension scores
     scores = {}
     for dim, results in validation_results.items():
@@ -37,28 +38,32 @@ def display_quality_metrics(validation_results: Dict):
         title="Protocol Quality Dimensions"
     )
 
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, key=f"quality_metrics_{key_suffix}")
 
-def display_validation_details(validation_results: Dict):
+def display_validation_details(validation_results: Dict, key_suffix=''):
     for dimension, results in validation_results.items():
         if not isinstance(results, dict) or dimension == 'overall_score':
             continue
             
-        with st.expander(f"{dimension.replace('_', ' ').title()} (Score: {results.get('score', 0):.2%})"):
+        with st.expander(
+            f"{dimension.replace('_', ' ').title()} (Score: {results.get('score', 0):.2%})", 
+            key=f"expander_{dimension}_{key_suffix}"
+        ):
             if results.get('missing_items'):
                 st.markdown("#### Missing Elements:")
-                for item in results['missing_items']:
-                    st.error(f"• {item}")
+                for idx, item in enumerate(results['missing_items']):
+                    st.error(f"• {item}", key=f"error_{dimension}_{idx}_{key_suffix}")
             else:
-                st.success("✓ All required elements present")
+                st.success("✓ All required elements present", key=f"success_{dimension}_{key_suffix}")
 
             if results.get('recommendations'):
                 st.markdown("#### Recommendations:")
-                for rec in results['recommendations']:
-                    st.info(f"• {rec}")
+                for idx, rec in enumerate(results['recommendations']):
+                    st.info(f"• {rec}", key=f"info_{dimension}_{idx}_{key_suffix}")
 
 def render_quality_assessment(validation_results: Dict):
-    st.markdown("## Protocol Quality Assessment")
+    current_time = int(time.time())
+    key_suffix = f"{current_time}"
     
     try:
         # Calculate overall score safely
@@ -86,28 +91,28 @@ def render_quality_assessment(validation_results: Dict):
         st.metric(
             "Overall Protocol Quality",
             f"{overall_score:.2%}",
-            f"{(overall_score-0.8)*100:.1f}% from target" if overall_score < 0.8 else "Meets target"
+            f"{(overall_score-0.8)*100:.1f}% from target" if overall_score < 0.8 else "Meets target",
+            key=f"metric_overall_{key_suffix}"
         )
         
-        # Quality visualization
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            display_quality_metrics(validation_results)
-        with col2:
-            st.markdown("### Quality Summary")
-            total_issues = sum(
-                len(r.get('missing_items', [])) 
-                for r in validation_results.values() 
-                if isinstance(r, dict) and 'missing_items' in r
-            )
-            if total_issues > 0:
-                st.warning(f"Found {total_issues} items needing attention")
-            else:
-                st.success("Protocol meets all quality criteria")
+        # Quality visualization in main column
+        display_quality_metrics(validation_results, key_suffix)
+        
+        # Quality summary
+        st.markdown("### Quality Summary")
+        total_issues = sum(
+            len(r.get('missing_items', [])) 
+            for r in validation_results.values() 
+            if isinstance(r, dict) and 'missing_items' in r
+        )
+        if total_issues > 0:
+            st.warning(f"Found {total_issues} items needing attention", key=f"warning_issues_{key_suffix}")
+        else:
+            st.success("Protocol meets all quality criteria", key=f"success_all_{key_suffix}")
         
         # Detailed assessment
         st.markdown("### Detailed Assessment")
-        display_validation_details(validation_results)
+        display_validation_details(validation_results, key_suffix)
         
     except Exception as e:
         logger.error(f"Error in quality assessment: {str(e)}")
