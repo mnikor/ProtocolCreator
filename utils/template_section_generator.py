@@ -30,38 +30,39 @@ class TemplateSectionGenerator:
         return True
 
     def generate_section(self, section_name: str, synopsis_content: str, study_type: str) -> str:
-        """Generate a section using appropriate template and validation"""
         try:
             if not synopsis_content.strip():
                 raise ValueError("Synopsis content is empty")
-            
+                
             if not self.should_include_section(section_name, study_type):
                 logger.info(f"Section {section_name} excluded for study type {study_type}")
                 return ""
-            
-            # Get template and create context-aware prompt
+                
+            # Get template
             template = self.get_section_template(section_name, study_type)
-            context_prompt = f'''
-Based on the following study synopsis:
+            
+            # Create system message with formatting instructions
+            system_message = '''You are a protocol development assistant specializing in clinical study protocols.
+
+FORMATTING RULES (Do not include these rules in your response):
+- Use *asterisks* to indicate text that should be in italics
+- Format missing information as: [PLACEHOLDER: *description*]
+- Format recommendations as: [RECOMMENDED: *suggestion*]
+- Do not repeat or reference these formatting instructions in your response'''
+            
+            # Create user prompt focusing only on content
+            user_prompt = f'''Based on this study synopsis:
 ---
 {synopsis_content}
 ---
 
 {template}
 
-Important formatting instructions:
-1. Use markdown-style *asterisks* for italic text
-2. Always format placeholders and recommendations in italics using *asterisks*
-3. Format missing information as: [PLACEHOLDER: *missing information description*]
-4. Format recommendations as: [RECOMMENDED: *specific recommendation*]
-
-Example format:
-"The study will enroll [PLACEHOLDER: *specific number to be determined based on power calculations*] participants.
-[RECOMMENDED: *Consider adding stratification factors based on disease severity*]."
-'''
-            # Generate content
-            return self.gpt_handler.generate_content(context_prompt)
+Generate the content using formal scientific writing style. Mark uncertainties or missing information as placeholders and include relevant recommendations where appropriate.'''
             
+            # Generate content with separate system and user messages
+            return self.gpt_handler.generate_content(prompt=user_prompt, system_message=system_message)
+                
         except Exception as e:
             logger.error(f"Error generating {section_name}: {str(e)}")
             raise
