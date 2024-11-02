@@ -39,9 +39,10 @@ def generate_all_sections():
     try:
         # Initialize generator and progress tracking
         generator = TemplateSectionGenerator()
-        progress_placeholder = st.empty()
-        progress_bar = progress_placeholder.progress(0)
-        status_text = st.empty()
+        progress_container = st.container()
+        with progress_container:
+            progress_bar = st.progress(0, "Initializing...")
+            status_text = st.empty()
         
         # Get sections for study type
         study_type = st.session_state.study_type
@@ -52,6 +53,9 @@ def generate_all_sections():
         logger.info(f"Starting generation for study type: {study_type} with {total_sections} required sections")
         
         status_text.info("🔄 Generating protocol sections...")
+        
+        # Store generation start time
+        start_time = time.time()
         
         # Generate complete protocol
         result = generator.generate_complete_protocol(
@@ -64,18 +68,21 @@ def generate_all_sections():
         validation_results = result.get("validation_results", {})
         generated_count = len(sections)
         
-        logger.info(f"Generated {generated_count}/{total_sections} sections")
+        # Calculate generation time
+        generation_time = time.time() - start_time
+        logger.info(f"Generated {generated_count}/{total_sections} sections in {generation_time:.1f}s")
         
-        # Update progress
+        # Update progress with completion message
         progress = generated_count / total_sections if total_sections > 0 else 0
-        progress_bar.progress(progress)
+        progress_bar.progress(progress, f"Generated {generated_count} of {total_sections} sections")
         
-        # Update section statuses
+        # Update section statuses with timestamps
+        timestamp = datetime.now().strftime("%H:%M:%S")
         for section in required_sections:
             if section in sections:
-                st.session_state.sections_status[section] = 'Generated'
+                st.session_state.sections_status[section] = f'Generated at {timestamp}'
             else:
-                st.session_state.sections_status[section] = 'Error'
+                st.session_state.sections_status[section] = 'Failed'
         
         # Store results in session state
         st.session_state.generated_sections = sections
@@ -83,13 +90,16 @@ def generate_all_sections():
         
         # Check if all sections were generated
         if generated_count == total_sections:
-            progress_placeholder.success("✅ Protocol generated successfully!")
+            progress_container.success(f"✅ Protocol generated successfully in {generation_time:.1f} seconds!")
             return True
         else:
-            progress_placeholder.warning(f"⚠️ Generated {generated_count}/{total_sections} sections")
+            progress_container.warning(f"⚠️ Generated {generated_count}/{total_sections} sections in {generation_time:.1f} seconds")
             if result.get("generation_errors"):
-                for error in result["generation_errors"]:
-                    st.error(f"Generation Error: {error}")
+                error_container = st.container()
+                with error_container:
+                    st.error("Generation Errors:")
+                    for error in result["generation_errors"]:
+                        st.error(f"• {error}")
             return False
             
     except Exception as e:
@@ -132,8 +142,8 @@ def render_navigator():
                 </style>
             """, unsafe_allow_html=True)
 
-            # Generate button
-            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            # Generate button with unique timestamp
+            timestamp = int(time.time())
             if st.sidebar.button(
                 "🚀 Generate Complete Protocol",
                 help="Generate all protocol sections from your synopsis",
@@ -161,26 +171,33 @@ def render_navigator():
             
             # Overall progress with validation score
             completed = sum(1 for status in st.session_state.sections_status.values() 
-                           if status == 'Generated')
+                          if 'Generated' in status)
             total = len(sections)
             progress = completed / total if total > 0 else 0
             
             # Add quality score if available
-            if validation_results := st.session_state.get('validation_results'):
-                quality_score = validation_results.get('overall_score', 0)
-                st.sidebar.progress(progress, text=f"Progress: {completed}/{total} sections (Quality: {quality_score:.1f}%)")
-            else:
-                st.sidebar.progress(progress, text=f"Progress: {completed}/{total} sections")
+            progress_container = st.sidebar.container()
+            with progress_container:
+                if validation_results := st.session_state.get('validation_results'):
+                    quality_score = validation_results.get('overall_score', 0)
+                    st.progress(
+                        progress,
+                        f"Progress: {completed}/{total} sections (Quality: {quality_score/10:.1f}/10)"
+                    )
+                else:
+                    st.progress(progress, f"Progress: {completed}/{total} sections")
 
-            # Section buttons
+            # Section buttons with unique timestamps for each
+            button_timestamp = int(time.time())
             for idx, section in enumerate(sections):
                 status = st.session_state.sections_status.get(section, 'Not Started')
-                button_text = f"{section.replace('_', ' ').title()}"
+                status_color = "🟢" if "Generated" in status else "⚪️"
+                button_text = f"{status_color} {section.replace('_', ' ').title()}"
                 
                 if st.sidebar.button(
                     button_text,
-                    key=f"nav_section_{section}_{timestamp}_{idx}",
-                    help=f"Edit {section.replace('_', ' ').title()} section"
+                    key=f"nav_section_{section}_{button_timestamp}_{idx}",
+                    help=f"Status: {status}"
                 ):
                     logger.info(f"Selected section: {section}")
                     st.session_state.current_section = section
