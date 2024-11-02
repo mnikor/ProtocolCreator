@@ -51,8 +51,8 @@ def render_input_section():
                     # Initialize synopsis validator
                     validator = SynopsisValidator()
                     
-                    # Validate synopsis and detect study type
-                    validation_result = validator.detect_study_type_and_validate(synopsis_content)
+                    # Validate synopsis using the correct method name
+                    validation_result = validator.validate_synopsis(synopsis_content)
                     
                     if validation_result and validation_result.get('study_type'):
                         study_type = validation_result['study_type']
