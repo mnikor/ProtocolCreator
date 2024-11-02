@@ -37,71 +37,48 @@ def _initialize_sections_status():
 def generate_all_sections():
     """Generate all protocol sections with enhanced validation and progress tracking"""
     try:
-        # Initialize generator and progress tracking
-        generator = TemplateSectionGenerator()
-        progress_container = st.container()
-        with progress_container:
-            progress_bar = st.progress(0, "Initializing...")
-            status_text = st.empty()
-        
-        # Get sections for study type
-        study_type = st.session_state.study_type
-        study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
-        required_sections = study_config.get('required_sections', [])
-        total_sections = len(required_sections)
-        
-        logger.info(f"Starting generation for study type: {study_type} with {total_sections} required sections")
-        
-        status_text.info("🔄 Generating protocol sections...")
-        
-        # Store generation start time
-        start_time = time.time()
-        
-        # Generate complete protocol
-        result = generator.generate_complete_protocol(
-            study_type=study_type,
-            synopsis_content=st.session_state.synopsis_content
-        )
-        
-        # Update section statuses and progress
-        sections = result.get("sections", {})
-        validation_results = result.get("validation_results", {})
-        generated_count = len(sections)
-        
-        # Calculate generation time
-        generation_time = time.time() - start_time
-        logger.info(f"Generated {generated_count}/{total_sections} sections in {generation_time:.1f}s")
-        
-        # Update progress with completion message
-        progress = generated_count / total_sections if total_sections > 0 else 0
-        progress_bar.progress(progress, f"Generated {generated_count} of {total_sections} sections")
-        
-        # Update section statuses with timestamps
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        for section in required_sections:
-            if section in sections:
-                st.session_state.sections_status[section] = f'Generated at {timestamp}'
+        with st.spinner("Generating protocol..."):
+            # Initialize generator
+            generator = TemplateSectionGenerator()
+            
+            # Get sections for study type
+            study_type = st.session_state.study_type
+            study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
+            required_sections = study_config.get('required_sections', [])
+            
+            logger.info(f"Starting generation for study type: {study_type}")
+            
+            # Generate complete protocol
+            result = generator.generate_complete_protocol(
+                study_type=study_type,
+                synopsis_content=st.session_state.synopsis_content
+            )
+            
+            if result and result.get("sections"):
+                # Update section statuses and progress
+                sections = result["sections"]
+                validation_results = result["validation_results"]
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                
+                for section in required_sections:
+                    if section in sections:
+                        st.session_state.sections_status[section] = f'Generated at {timestamp}'
+                    else:
+                        st.session_state.sections_status[section] = 'Failed'
+                
+                # Store results in session state
+                st.session_state.generated_sections = sections
+                st.session_state.validation_results = validation_results
+                
+                st.success("✅ Protocol generated successfully!")
+                return True
             else:
-                st.session_state.sections_status[section] = 'Failed'
-        
-        # Store results in session state
-        st.session_state.generated_sections = sections
-        st.session_state.validation_results = validation_results
-        
-        # Check if all sections were generated
-        if generated_count == total_sections:
-            progress_container.success(f"✅ Protocol generated successfully in {generation_time:.1f} seconds!")
-            return True
-        else:
-            progress_container.warning(f"⚠️ Generated {generated_count}/{total_sections} sections in {generation_time:.1f} seconds")
-            if result.get("generation_errors"):
-                error_container = st.container()
-                with error_container:
-                    st.error("Generation Errors:")
+                st.error("Failed to generate protocol sections")
+                if result.get("generation_errors"):
                     for error in result["generation_errors"]:
                         st.error(f"• {error}")
-            return False
-            
+                return False
+                
     except Exception as e:
         logger.error(f"Error in protocol generation: {str(e)}")
         st.error(f"Error: {str(e)}")
@@ -142,18 +119,18 @@ def render_navigator():
                 </style>
             """, unsafe_allow_html=True)
 
-            # Generate button with unique timestamp
-            timestamp = int(time.time())
-            if st.sidebar.button(
+            # Generate button with proper styling
+            generate_button = st.sidebar.button(
                 "🚀 Generate Complete Protocol",
                 help="Generate all protocol sections from your synopsis",
                 use_container_width=True,
-                key=f"nav_generate_{timestamp}"
-            ):
+                key="nav_generate"
+            )
+
+            if generate_button:
                 logger.info("Generate protocol button clicked")
-                with st.spinner("Generating protocol..."):
-                    if generate_all_sections():
-                        st.sidebar.success("✅ Protocol generated successfully!")
+                generate_all_sections()
+
         else:
             if not st.session_state.get('synopsis_content'):
                 st.sidebar.warning("⚠️ Please upload a synopsis first")
@@ -187,8 +164,7 @@ def render_navigator():
                 else:
                     st.progress(progress, f"Progress: {completed}/{total} sections")
 
-            # Section buttons with unique timestamps for each
-            button_timestamp = int(time.time())
+            # Section buttons
             for idx, section in enumerate(sections):
                 status = st.session_state.sections_status.get(section, 'Not Started')
                 status_color = "🟢" if "Generated" in status else "⚪️"
@@ -196,7 +172,7 @@ def render_navigator():
                 
                 if st.sidebar.button(
                     button_text,
-                    key=f"nav_section_{section}_{button_timestamp}_{idx}",
+                    key=f"nav_section_{section}",
                     help=f"Status: {status}"
                 ):
                     logger.info(f"Selected section: {section}")
