@@ -40,63 +40,36 @@ def render_navigator():
                 margin: 0.5em 0;
                 width: 100%;
             }
+            .disabled-button {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
             </style>
         """, unsafe_allow_html=True)
-        
+
         # Initialize session state if needed
         if 'generated_sections' not in st.session_state:
             st.session_state.generated_sections = {}
-        if 'validation_results' not in st.session_state:
-            st.session_state.validation_results = None
-        
+        if 'generation_in_progress' not in st.session_state:
+            st.session_state.generation_in_progress = False
+        if 'generation_started' not in st.session_state:
+            st.session_state.generation_started = False
+
         # Check connection
         if not check_connection():
             st.sidebar.error("⚠️ Connection issues detected. Please refresh the page.")
             return
-        
+
         st.sidebar.markdown("## Protocol Development")
-        
-        # Generate Protocol button - only show if synopsis exists
-        if st.session_state.get('synopsis_content'):
-            st.sidebar.markdown("### 🚀 Protocol Generation")
-            
-            if st.sidebar.button(
-                "Generate Complete Protocol",
-                key="nav_generate_btn",
-                help="Generate all protocol sections from synopsis",
-                use_container_width=True
-            ):
-                try:
-                    with st.sidebar.spinner("🔄 Generating protocol..."):
-                        generator = TemplateSectionGenerator()
-                        
-                        # Generate complete protocol
-                        result = generator.generate_complete_protocol(
-                            study_type=st.session_state.study_type,
-                            synopsis_content=st.session_state.synopsis_content
-                        )
-                        
-                        if result and isinstance(result, dict):
-                            # Store generated sections and validation results
-                            if "sections" in result:
-                                st.session_state.generated_sections = result["sections"]
-                            if "validation_results" in result:
-                                st.session_state.validation_results = result["validation_results"]
-                                
-                            st.sidebar.success("✅ Protocol generated successfully!")
-                            st.rerun()
-                        else:
-                            st.sidebar.error("❌ Failed to generate protocol sections")
-                            
-                except Exception as e:
-                    logger.error(f"Error in protocol generation: {str(e)}")
-                    st.sidebar.error(f"Error: {str(e)}")
+
+        # Show study type if selected
+        if study_type := st.session_state.get('study_type'):
+            st.sidebar.info(f"📋 Study Type: {study_type.replace('_', ' ').title()}")
 
         # Section Navigation
-        st.sidebar.markdown("---")
         st.sidebar.markdown("### 📑 Protocol Sections")
         
-        if study_type := st.session_state.get('study_type'):
+        if study_type:
             study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
             sections = study_config.get('required_sections', [])
             
@@ -112,13 +85,60 @@ def render_navigator():
                 st.progress(progress, text=f"Progress: {completed}/{total} sections")
                 st.markdown('</div>', unsafe_allow_html=True)
             
-            # Section list
+            # Section list with status
             for section in sections:
                 is_completed = section in st.session_state.get('generated_sections', {})
                 icon = "✅" if is_completed else "⏳"
                 section_name = section.replace('_', ' ').title()
                 st.sidebar.markdown(f"{icon} {section_name}")
-            
+
+            # Generate Protocol button - only show if synopsis exists and not already generated
+            if st.session_state.get('synopsis_content'):
+                st.sidebar.markdown("### 🚀 Protocol Generation")
+                
+                # Disable button if sections are already generated or generation is in progress
+                button_disabled = (
+                    bool(st.session_state.get('generated_sections')) or 
+                    st.session_state.generation_in_progress or
+                    st.session_state.generation_started
+                )
+                
+                if st.sidebar.button(
+                    "Generate Complete Protocol",
+                    key="nav_generate_btn",
+                    help="Generate all protocol sections from synopsis",
+                    use_container_width=True,
+                    disabled=button_disabled
+                ):
+                    try:
+                        st.session_state.generation_in_progress = True
+                        st.session_state.generation_started = True
+                        
+                        with st.sidebar.spinner("🔄 Generating protocol..."):
+                            generator = TemplateSectionGenerator()
+                            
+                            # Generate complete protocol
+                            result = generator.generate_complete_protocol(
+                                study_type=study_type,
+                                synopsis_content=st.session_state.synopsis_content
+                            )
+                            
+                            if result and isinstance(result, dict) and "sections" in result:
+                                st.session_state.generated_sections = result["sections"]
+                                st.sidebar.success("✅ Protocol generated successfully!")
+                                st.session_state.generation_in_progress = False
+                                st.rerun()
+                            else:
+                                st.sidebar.error("❌ Failed to generate protocol sections")
+                                st.session_state.generation_in_progress = False
+                                st.session_state.generation_started = False
+                                
+                    except Exception as e:
+                        logger.error(f"Error in protocol generation: {str(e)}")
+                        st.sidebar.error(f"Error: {str(e)}")
+                        st.session_state.generation_in_progress = False
+                        st.session_state.generation_started = False
+
             # Download options - only show if sections are generated
             if generated_sections := st.session_state.get('generated_sections'):
                 st.sidebar.markdown("---")
@@ -130,23 +150,13 @@ def render_navigator():
                     for section, content in generated_sections.items()
                 )
                 
-                col1, col2 = st.sidebar.columns(2)
-                with col1:
-                    st.download_button(
-                        "📄 DOCX",
-                        protocol_text,
-                        file_name="protocol.docx",
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        key="nav_download_docx"
-                    )
-                with col2:
-                    st.download_button(
-                        "📑 PDF",
-                        protocol_text,
-                        file_name="protocol.pdf",
-                        mime="application/pdf",
-                        key="nav_download_pdf"
-                    )
+                st.sidebar.download_button(
+                    "📄 Download Protocol",
+                    protocol_text,
+                    file_name="protocol.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    use_container_width=True
+                )
                     
     except Exception as e:
         logger.error(f"Error in navigator rendering: {str(e)}")

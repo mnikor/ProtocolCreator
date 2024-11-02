@@ -6,3 +6,4 @@ beautifulsoup4
 graphviz
 PyPDF2
 plotly
+python-dotenv
