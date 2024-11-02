@@ -26,24 +26,41 @@ class TemplateSectionGenerator:
                 return False
             if section_name in study_rules['required']:
                 return True
-            # Optional sections included by default
             return section_name in study_rules['optional']
         return True
 
     def generate_section(self, section_name: str, synopsis_content: str, study_type: str) -> str:
         """Generate a section using appropriate template and validation"""
         try:
-            # Check if section should be included
+            if not synopsis_content.strip():
+                raise ValueError("Synopsis content is empty")
+            
             if not self.should_include_section(section_name, study_type):
                 logger.info(f"Section {section_name} excluded for study type {study_type}")
                 return ""
             
-            # Get appropriate template and format prompt
+            # Get template and create context-aware prompt
             template = self.get_section_template(section_name, study_type)
-            prompt = template.format(synopsis=synopsis_content)
-            
-            # Generate content using GPT
-            return self.gpt_handler.generate_content(prompt)
+            context_prompt = f'''
+Based on the following study synopsis:
+---
+{synopsis_content}
+---
+
+{template}
+
+Important formatting instructions:
+1. Use markdown-style *asterisks* for italic text
+2. Always format placeholders and recommendations in italics using *asterisks*
+3. Format missing information as: [PLACEHOLDER: *missing information description*]
+4. Format recommendations as: [RECOMMENDED: *specific recommendation*]
+
+Example format:
+"The study will enroll [PLACEHOLDER: *specific number to be determined based on power calculations*] participants.
+[RECOMMENDED: *Consider adding stratification factors based on disease severity*]."
+'''
+            # Generate content
+            return self.gpt_handler.generate_content(context_prompt)
             
         except Exception as e:
             logger.error(f"Error generating {section_name}: {str(e)}")
@@ -52,11 +69,9 @@ class TemplateSectionGenerator:
     def generate_complete_protocol(self, study_type: str, synopsis_content: str) -> Dict:
         """Generate complete protocol with appropriate sections"""
         try:
-            # Get study configuration
             study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
             sections = study_config.get('required_sections', [])
             
-            # Generate each section
             generated_sections = {}
             for section_name in sections:
                 if self.should_include_section(section_name, study_type):

@@ -22,7 +22,13 @@ def render_input_section():
         try:
             synopsis_content = process_file_content(uploaded_file)
             st.session_state.synopsis_input = synopsis_content
-            st.success("✅ File uploaded successfully!")
+            
+            # Validate content length
+            if len(synopsis_content.strip()) < 50:
+                st.warning("⚠️ Synopsis content seems too short. Please ensure all content is included.")
+            else:
+                st.success("✅ File uploaded successfully!")
+                
         except Exception as e:
             st.error(f"Error processing file: {str(e)}")
             synopsis_content = ""
@@ -36,8 +42,12 @@ def render_input_section():
         key="synopsis_input"
     )
     
-    # Confirm button
+    # Validate content and show confirm button
     if synopsis_content.strip():
+        # Validate content length
+        if len(synopsis_content.strip()) < 50:
+            st.warning("⚠️ Synopsis content seems too short. Please ensure all content is included.")
+        
         confirm_button = st.button(
             "Process Synopsis",
             type="primary",
@@ -51,7 +61,10 @@ def render_input_section():
                     # Initialize synopsis validator
                     validator = SynopsisValidator()
                     
-                    # Validate synopsis using the correct method name
+                    # Store full content
+                    synopsis_content = synopsis_content.strip()
+                    
+                    # Validate synopsis
                     validation_result = validator.validate_synopsis(synopsis_content)
                     
                     if validation_result and validation_result.get('study_type'):
