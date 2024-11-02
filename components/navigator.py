@@ -99,89 +99,92 @@ def generate_all_sections():
 
 def render_navigator():
     """Render the section navigator with enhanced UI and validation feedback"""
-    # Check connection status first
-    if not check_connection():
-        st.sidebar.error("⚠️ Connection issues detected. Please refresh the page.")
-        return
-        
-    st.sidebar.markdown("## 🚀 Protocol Generation")
-    
-    # Initialize sections status
-    _initialize_sections_status()
-    
-    # Check prerequisites
-    can_generate = (
-        st.session_state.get('synopsis_content') is not None and 
-        st.session_state.get('study_type') is not None
-    )
-
-    if can_generate:
-        # Add enhanced button styling
-        st.sidebar.markdown("""
-            <style>
-            div.stButton > button:first-child {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                padding: 0.75rem;
-                border-radius: 10px;
-                margin: 10px 0;
-                width: 100%;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-
-        # Generate button with unique key
-        current_time = int(time.time())
-        if st.sidebar.button(
-            "🚀 Generate Complete Protocol",
-            help="Generate all protocol sections from your synopsis",
-            use_container_width=True,
-            key=f"nav_generate_protocol_{current_time}"
-        ):
-            logger.info("Generate protocol button clicked")
-            with st.spinner("Generating protocol..."):
-                if generate_all_sections():
-                    st.sidebar.success("✅ Protocol generated successfully!")
-    else:
-        if not st.session_state.get('synopsis_content'):
-            st.sidebar.warning("⚠️ Please upload a synopsis first")
-        if not st.session_state.get('study_type'):
-            st.sidebar.warning("⚠️ Please select a study type")
-
-    # Section Navigation
-    st.sidebar.markdown("---")
-    st.sidebar.header("📑 Protocol Sections")
-    
-    # Show section navigation with validation status
-    if study_type := st.session_state.get('study_type'):
-        study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
-        sections = study_config.get('required_sections', [])
-        
-        # Overall progress with validation score
-        completed = sum(1 for status in st.session_state.sections_status.values() 
-                       if status == 'Generated')
-        total = len(sections)
-        progress = completed / total if total > 0 else 0
-        
-        # Add quality score if available
-        if validation_results := st.session_state.get('validation_results'):
-            quality_score = validation_results.get('overall_score', 0)
-            st.sidebar.progress(progress, text=f"Progress: {completed}/{total} sections (Quality: {quality_score:.1f}%)")
-        else:
-            st.sidebar.progress(progress, text=f"Progress: {completed}/{total} sections")
-
-        # Section buttons with unique keys
-        for section in sections:
-            status = st.session_state.sections_status.get(section, 'Not Started')
+    try:
+        # Check connection status first
+        if not check_connection():
+            st.sidebar.error("⚠️ Connection issues detected. Please refresh the page.")
+            return
             
-            # Add timestamp to ensure unique keys
-            button_key = f"nav_section_{section}_{current_time}"
-            
+        st.sidebar.markdown("## 🚀 Protocol Generation")
+        
+        # Initialize sections status
+        _initialize_sections_status()
+        
+        # Check prerequisites
+        can_generate = (
+            st.session_state.get('synopsis_content') is not None and 
+            st.session_state.get('study_type') is not None
+        )
+
+        if can_generate:
+            # Add enhanced button styling
+            st.sidebar.markdown("""
+                <style>
+                div.stButton > button:first-child {
+                    background-color: #4CAF50;
+                    color: white;
+                    font-weight: bold;
+                    padding: 0.75rem;
+                    border-radius: 10px;
+                    margin: 10px 0;
+                    width: 100%;
+                }
+                </style>
+            """, unsafe_allow_html=True)
+
+            # Generate button
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
             if st.sidebar.button(
-                section.replace('_', ' ').title(),
-                key=button_key,
-                help=f"Edit {section.replace('_', ' ').title()} section"
+                "🚀 Generate Complete Protocol",
+                help="Generate all protocol sections from your synopsis",
+                use_container_width=True,
+                key=f"nav_generate_{timestamp}"
             ):
-                logger.info(f"Selected section: {section}")
-                st.session_state.current_section = section
+                logger.info("Generate protocol button clicked")
+                with st.spinner("Generating protocol..."):
+                    if generate_all_sections():
+                        st.sidebar.success("✅ Protocol generated successfully!")
+        else:
+            if not st.session_state.get('synopsis_content'):
+                st.sidebar.warning("⚠️ Please upload a synopsis first")
+            if not st.session_state.get('study_type'):
+                st.sidebar.warning("⚠️ Please select a study type")
+
+        # Section Navigation
+        st.sidebar.markdown("---")
+        st.sidebar.header("📑 Protocol Sections")
+        
+        # Show section navigation with validation status
+        if study_type := st.session_state.get('study_type'):
+            study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
+            sections = study_config.get('required_sections', [])
+            
+            # Overall progress with validation score
+            completed = sum(1 for status in st.session_state.sections_status.values() 
+                           if status == 'Generated')
+            total = len(sections)
+            progress = completed / total if total > 0 else 0
+            
+            # Add quality score if available
+            if validation_results := st.session_state.get('validation_results'):
+                quality_score = validation_results.get('overall_score', 0)
+                st.sidebar.progress(progress, text=f"Progress: {completed}/{total} sections (Quality: {quality_score:.1f}%)")
+            else:
+                st.sidebar.progress(progress, text=f"Progress: {completed}/{total} sections")
+
+            # Section buttons
+            for idx, section in enumerate(sections):
+                status = st.session_state.sections_status.get(section, 'Not Started')
+                button_text = f"{section.replace('_', ' ').title()}"
+                
+                if st.sidebar.button(
+                    button_text,
+                    key=f"nav_section_{section}_{timestamp}_{idx}",
+                    help=f"Edit {section.replace('_', ' ').title()} section"
+                ):
+                    logger.info(f"Selected section: {section}")
+                    st.session_state.current_section = section
+                    
+    except Exception as e:
+        logger.error(f"Error in navigator rendering: {str(e)}")
+        st.sidebar.error("An error occurred while rendering the navigator")
