@@ -13,6 +13,8 @@ def render_input_section():
     # Initialize session state for synopsis input if not exists
     if 'synopsis_input' not in st.session_state:
         st.session_state.synopsis_input = ''
+    if 'show_process_button' not in st.session_state:
+        st.session_state.show_process_button = False
     
     # Add file uploader
     uploaded_file = st.file_uploader(
@@ -27,6 +29,7 @@ def render_input_section():
         try:
             synopsis_content = process_file_content(uploaded_file)
             st.session_state.synopsis_input = synopsis_content
+            st.session_state.show_process_button = True
             
             # Validate content length
             if len(synopsis_content.strip()) < 50:
@@ -43,10 +46,11 @@ def render_input_section():
         value=st.session_state.synopsis_input,
         height=300,
         help="Enter your study synopsis here or use the file uploader above.",
-        key="synopsis_text_input"
+        key="synopsis_text_input",
+        on_change=lambda: setattr(st.session_state, 'show_process_button', bool(st.session_state.synopsis_text_input.strip()))
     )
     
-    # Process text input if present (regardless of file upload)
+    # Process text input if present
     if synopsis_text.strip():
         # Initialize improver for early analysis
         improver = ProtocolImprover()
@@ -55,31 +59,41 @@ def render_input_section():
         # Analyze content for missing information
         missing_info = improver.analyze_synopsis(synopsis_text)
         
+        # Always show missing information analysis
+        st.markdown("### 📋 Synopsis Analysis")
+        
+        # Display missing information prominently
         if missing_info['critical_missing']:
-            st.error("⚠️ Critical Information Missing")
+            missing_count = len(missing_info['critical_fields'])
+            st.error(f"⚠️ Found {missing_count} missing critical items")
             
-            # Display missing fields with input collection
-            st.markdown("### Required Information")
+            # Group missing fields by category
+            st.markdown("#### Required Information")
+            col1, col2 = st.columns([1, 2])
+            
             missing_fields_inputs = {}
             for field, description in missing_info['critical_fields'].items():
-                field_input = st.text_input(
-                    f"{field.replace('_', ' ').title()}",
-                    key=f"missing_{field}",
-                    help=description
-                )
-                missing_fields_inputs[field] = field_input
+                with col1:
+                    st.markdown(f"**{field.replace('_', ' ').title()}**")
+                with col2:
+                    field_input = st.text_input(
+                        label=description,
+                        key=f"missing_{field}",
+                        help=f"Add details about {field.replace('_', ' ')}"
+                    )
+                    missing_fields_inputs[field] = field_input
             
-            # Show process button if all critical fields are filled
-            if all(missing_fields_inputs.values()):
+            # Show process button if text is present
+            if synopsis_text.strip():
                 show_process_button = True
-            else:
-                st.warning("Please fill in all required fields before proceeding")
-                show_process_button = False
+                if not all(missing_fields_inputs.values()):
+                    st.warning("⚠️ Filling in missing information is recommended but not required")
         else:
+            st.success("✅ All critical information appears to be present")
             show_process_button = True
         
-        # Show process button if conditions are met
-        if show_process_button:
+        # Always show process button if we have content
+        if synopsis_text.strip():
             if st.button(
                 "Process Synopsis",
                 type="primary",
