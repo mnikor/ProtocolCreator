@@ -46,5 +46,41 @@ COMPREHENSIVE_STUDY_CONFIGS = {
             'safety',
             'endpoints'
         ]
+    },
+    'observational': {
+        'required_sections': [
+            'background',
+            'objectives',
+            'study_design',
+            'population',
+            'data_collection',
+            'statistical_analysis',
+            'bias_assessment',
+            'endpoints'
+        ]
+    },
+    'medical_device': {
+        'required_sections': [
+            'background',
+            'objectives',
+            'device_description',
+            'study_design',
+            'population',
+            'procedures',
+            'safety_monitoring',
+            'performance_endpoints'
+        ]
+    },
+    'diagnostic': {
+        'required_sections': [
+            'background',
+            'objectives',
+            'test_description',
+            'study_design',
+            'population',
+            'reference_standard',
+            'statistical_analysis',
+            'performance_metrics'
+        ]
     }
 }
