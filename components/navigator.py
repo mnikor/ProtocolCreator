@@ -1,11 +1,7 @@
 import streamlit as st
 from datetime import datetime
 import logging
-import time
 from utils.template_section_generator import TemplateSectionGenerator
-from utils.protocol_formatter import ProtocolFormatter
-from utils.protocol_validator import ProtocolValidator
-from utils.protocol_quality_ui import render_quality_assessment
 from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
 
 logger = logging.getLogger(__name__)
@@ -35,9 +31,9 @@ def _initialize_sections_status():
                 st.session_state.sections_status[section] = 'Not Started'
 
 def generate_all_sections():
-    """Generate all protocol sections with enhanced validation and progress tracking"""
+    """Generate all protocol sections"""
     try:
-        with st.spinner("Generating protocol..."):
+        with st.spinner("🔄 Generating protocol..."):
             # Initialize generator
             generator = TemplateSectionGenerator()
             
@@ -55,9 +51,8 @@ def generate_all_sections():
             )
             
             if result and result.get("sections"):
-                # Update section statuses and progress
+                # Update section statuses
                 sections = result["sections"]
-                validation_results = result["validation_results"]
                 timestamp = datetime.now().strftime("%H:%M:%S")
                 
                 for section in required_sections:
@@ -68,15 +63,11 @@ def generate_all_sections():
                 
                 # Store results in session state
                 st.session_state.generated_sections = sections
-                st.session_state.validation_results = validation_results
                 
                 st.success("✅ Protocol generated successfully!")
                 return True
             else:
-                st.error("Failed to generate protocol sections")
-                if result.get("generation_errors"):
-                    for error in result["generation_errors"]:
-                        st.error(f"• {error}")
+                st.error("❌ Failed to generate protocol sections")
                 return False
                 
     except Exception as e:
@@ -85,7 +76,7 @@ def generate_all_sections():
         return False
 
 def render_navigator():
-    """Render the section navigator with enhanced UI and validation feedback"""
+    """Render the section navigator with simplified UI"""
     try:
         # Check connection status first
         if not check_connection():
@@ -104,7 +95,7 @@ def render_navigator():
         )
 
         if can_generate:
-            # Add enhanced button styling
+            # Add button styling
             st.sidebar.markdown("""
                 <style>
                 div.stButton > button:first-child {
@@ -119,17 +110,29 @@ def render_navigator():
                 </style>
             """, unsafe_allow_html=True)
 
-            # Generate button with proper styling
+            # Generate button
             generate_button = st.sidebar.button(
                 "🚀 Generate Complete Protocol",
                 help="Generate all protocol sections from your synopsis",
                 use_container_width=True,
-                key="nav_generate"
+                key="nav_generate_button"
             )
 
             if generate_button:
                 logger.info("Generate protocol button clicked")
                 generate_all_sections()
+
+            # Display download option if protocol is generated
+            if st.session_state.get('generated_sections'):
+                st.sidebar.markdown("### Download Protocol")
+                protocol_text = "\n\n".join(st.session_state.generated_sections.values())
+                st.sidebar.download_button(
+                    "⬇️ Download Protocol",
+                    protocol_text,
+                    file_name="protocol.txt",
+                    mime="text/plain",
+                    key="nav_download_protocol"
+                )
 
         else:
             if not st.session_state.get('synopsis_content'):
@@ -141,38 +144,29 @@ def render_navigator():
         st.sidebar.markdown("---")
         st.sidebar.header("📑 Protocol Sections")
         
-        # Show section navigation with validation status
+        # Show section navigation
         if study_type := st.session_state.get('study_type'):
             study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
             sections = study_config.get('required_sections', [])
             
-            # Overall progress with validation score
+            # Overall progress
             completed = sum(1 for status in st.session_state.sections_status.values() 
                           if 'Generated' in status)
             total = len(sections)
             progress = completed / total if total > 0 else 0
             
-            # Add quality score if available
-            progress_container = st.sidebar.container()
-            with progress_container:
-                if validation_results := st.session_state.get('validation_results'):
-                    quality_score = validation_results.get('overall_score', 0)
-                    st.progress(
-                        progress,
-                        f"Progress: {completed}/{total} sections (Quality: {quality_score/10:.1f}/10)"
-                    )
-                else:
-                    st.progress(progress, f"Progress: {completed}/{total} sections")
+            # Progress bar
+            st.sidebar.progress(progress, f"Progress: {completed}/{total} sections")
 
-            # Section buttons
-            for idx, section in enumerate(sections):
+            # Section buttons with unique keys
+            for section in sections:
                 status = st.session_state.sections_status.get(section, 'Not Started')
                 status_color = "🟢" if "Generated" in status else "⚪️"
                 button_text = f"{status_color} {section.replace('_', ' ').title()}"
                 
                 if st.sidebar.button(
                     button_text,
-                    key=f"nav_section_{section}",
+                    key=f"nav_section_btn_{section}",
                     help=f"Status: {status}"
                 ):
                     logger.info(f"Selected section: {section}")
