@@ -1,6 +1,7 @@
 import streamlit as st
 import logging
 from utils.protocol_improver import ProtocolImprover
+from utils.gpt_handler import GPTHandler
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,18 @@ def render_editor():
     """Render the protocol editor with enhanced missing information detection"""
     # Initialize improver
     improver = ProtocolImprover()
+    
+    # Add custom styling
+    st.markdown("""
+        <style>
+        .suggestion-button {
+            background-color: #7c4dff !important;
+            color: white !important;
+            padding: 0.5rem !important;
+            margin-top: 0.5rem !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
     
     # Check prerequisites
     if not st.session_state.get('synopsis_content'):
@@ -66,15 +79,34 @@ def render_editor():
                         with col2:
                             # Add input field with previous value
                             previous_value = st.session_state.user_inputs.get(field_key, "")
-                            user_input = st.text_area(
+                            st.text_area(
                                 label=f"Enter information for {field.replace('_', ' ')}:",
                                 value=previous_value,
                                 key=field_key,
                                 height=100
                             )
                             
-                            if user_input:
-                                st.session_state.user_inputs[field_key] = user_input
+                            # Add AI suggestion button
+                            if st.button(f"🤖 Get AI Suggestion", key=f"suggest_{field_key}", help="Generate AI suggestion for this field"):
+                                with st.spinner("Generating suggestion..."):
+                                    # Get suggestion from GPT
+                                    prompt = f'''Based on this synopsis:
+{st.session_state.synopsis_content}
+
+Generate specific content for the {field.replace('_', ' ')} field in the {section_name} section.
+Focus on providing detailed, relevant information that matches the study context.
+Format any key points with *italic* markers.'''
+
+                                    try:
+                                        gpt_handler = GPTHandler()
+                                        suggestion = gpt_handler.generate_content(prompt)
+                                        
+                                        # Store suggestion in session state
+                                        st.session_state.user_inputs[field_key] = suggestion
+                                        st.success("✅ Suggestion generated!")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Error generating suggestion: {str(e)}")
                     
                     # Add update button for each section
                     if st.button(f"Update {section_name.title()}", key=f"update_{section_name}"):
