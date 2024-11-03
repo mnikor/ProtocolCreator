@@ -77,16 +77,37 @@ class ProtocolPDFGenerator:
             if isinstance(text, bytes):
                 text = text.decode('utf-8')
             
-            # Replace special characters
+            # Comprehensive character replacements
             replacements = {
-                '•': '-',
-                '–': '-',
-                '—': '-',
-                '"': '"',
-                '"': '"',
-                ''': "'",
-                ''': "'"
+                '•': '-',  # bullet
+                '–': '-',  # en dash
+                '—': '-',  # em dash
+                '"': '"',  # left double quote
+                '"': '"',  # right double quote
+                ''': "'",  # left single quote
+                ''': "'",  # right single quote
+                '≥': '>=', # greater than or equal
+                '≤': '<=', # less than or equal
+                '±': '+/-',  # plus-minus
+                '°': ' degrees ',  # degree
+                '×': 'x',  # multiplication
+                '→': '->',  # right arrow
+                '←': '<-',  # left arrow
+                'μ': 'u',  # micro
+                '≈': '~',  # approximately
+                '©': '(c)', # copyright
+                '®': '(R)', # registered trademark
+                '™': '(TM)', # trademark
+                '€': 'EUR', # euro
+                '£': 'GBP', # pound
+                '¥': 'JPY', # yen
+                '§': 'Section ', # section
+                '†': '*', # dagger
+                '‡': '**', # double dagger
+                '…': '...', # ellipsis
             }
+            
+            # Apply all replacements
             for old, new in replacements.items():
                 text = text.replace(old, new)
             
@@ -125,10 +146,14 @@ class ProtocolPDFGenerator:
                     for i, part in enumerate(parts):
                         if part.strip():
                             self.pdf.set_font('Arial', 'I' if i % 2 else '', 11)
+                            # Clean and encode text
+                            clean_text = part.strip()
+                            # Remove any remaining non-ASCII characters
+                            clean_text = ''.join(char if ord(char) < 128 else '_' for char in clean_text)
                             # Calculate effective page width
                             effective_width = self.pdf.w - (self.pdf.l_margin + self.pdf.r_margin)
                             # Use multi_cell with calculated width and proper line height
-                            self.pdf.multi_cell(w=effective_width, h=6, txt=part.strip())
+                            self.pdf.multi_cell(w=effective_width, h=6, txt=clean_text)
                     self.pdf.ln(4)  # Space between paragraphs
         except Exception as e:
             logger.error(f"Error in _add_paragraphs: {str(e)}")
@@ -150,7 +175,8 @@ class ProtocolPDFGenerator:
                 cells = rows[0].split('|')
                 self.pdf.set_font('Arial', 'B', 10)
                 for cell in cells:
-                    self.pdf.cell(col_width, 8, cell.strip(), 1, 0, 'C', True)
+                    clean_cell = ''.join(char if ord(char) < 128 else '_' for char in cell.strip())
+                    self.pdf.cell(col_width, 8, clean_cell, 1, 0, 'C', True)
                 self.pdf.ln()
                 
                 # Add data rows
@@ -159,8 +185,8 @@ class ProtocolPDFGenerator:
                     if row.strip():
                         cells = row.split('|')
                         for cell in cells:
-                            # Use cell with proper width and text wrapping
-                            self.pdf.cell(col_width, 6, cell.strip(), 1, 0, 'L')
+                            clean_cell = ''.join(char if ord(char) < 128 else '_' for char in cell.strip())
+                            self.pdf.cell(col_width, 6, clean_cell, 1, 0, 'L')
                         self.pdf.ln()
                 
                 self.pdf.ln(4)
@@ -189,7 +215,7 @@ class ProtocolPDFGenerator:
         try:
             # Initialize PDF
             self.pdf = CustomPDF()
-            self.setup_pdf_styles()  # Apply styles after initialization
+            self.setup_pdf_styles()
             
             # Add title page
             title = sections.get('title', 'Study Protocol')
@@ -211,7 +237,7 @@ class ProtocolPDFGenerator:
             for section_name, content in sections.items():
                 self.add_section(section_name, content)
             
-            # Get PDF bytes
+            # Get PDF bytes with proper encoding handling
             return self.pdf.output('', 'S').encode('latin-1')
             
         except Exception as e:
