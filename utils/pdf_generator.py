@@ -41,10 +41,7 @@ class ProtocolPDFGenerator:
         self.pdf.add_page()
         
         # Clean and encode title
-        clean_title = title.encode('latin-1', 'replace').decode('latin-1')
-        
-        # Add logo or header image if available
-        # self.pdf.image('logo.png', x=10, y=10, w=30)
+        clean_title = title.encode('ascii', 'replace').decode('ascii')
         
         # Add title with proper positioning and styling
         self.pdf.set_font('Arial', 'B', 24)
@@ -59,7 +56,7 @@ class ProtocolPDFGenerator:
         # Add date with proper spacing
         self.pdf.ln(20)
         self.pdf.set_font('Arial', '', 12)
-        date_str = time.strftime("%B %d, %Y").encode('latin-1', 'replace').decode('latin-1')
+        date_str = time.strftime("%B %d, %Y").encode('ascii', 'replace').decode('ascii')
         self.pdf.cell(0, 10, f'Generated: {date_str}', align='C', ln=True)
     
     def add_section(self, section_name: str, content: str):
@@ -68,7 +65,7 @@ class ProtocolPDFGenerator:
         
         # Clean and encode section name
         clean_name = section_name.replace('_', ' ').title()
-        clean_name = clean_name.encode('latin-1', 'replace').decode('latin-1')
+        clean_name = clean_name.encode('ascii', 'replace').decode('ascii')
         
         # Add section heading with proper styling
         self.pdf.set_font('Arial', 'B', 16)
@@ -118,6 +115,10 @@ class ProtocolPDFGenerator:
             if isinstance(text, bytes):
                 text = text.decode('utf-8')
             
+            # Replace bullet points with compatible character
+            text = text.replace('•', '-')
+            text = text.replace('•', '-')
+            
             paragraphs = text.split('\n')
             for paragraph in paragraphs:
                 if paragraph.strip():
@@ -127,9 +128,10 @@ class ProtocolPDFGenerator:
                         if part.strip():
                             # Toggle between regular and italic
                             self.pdf.set_font('Arial', 'I' if i % 2 else '', 11)
-                            # Encode text properly for FPDF
-                            clean_text = part.strip().encode('latin-1', 'replace').decode('latin-1')
-                            # Add text with proper line spacing using multi_cell
+                            # Clean text for PDF
+                            clean_text = part.strip()
+                            clean_text = clean_text.encode('ascii', 'replace').decode('ascii')
+                            # Add text with proper line spacing
                             self.pdf.multi_cell(0, 6, clean_text)
                     
                     # Add space between paragraphs
@@ -155,7 +157,8 @@ class ProtocolPDFGenerator:
                 cells = rows[0].split('|')
                 self.pdf.set_font('Arial', 'B', 10)
                 for cell in cells:
-                    self.pdf.cell(col_width, 8, cell.strip(), 1, 0, 'C', True)
+                    clean_cell = cell.strip().encode('ascii', 'replace').decode('ascii')
+                    self.pdf.cell(col_width, 8, clean_cell, 1, 0, 'C', True)
                 self.pdf.ln()
                 
                 # Add data rows
@@ -164,7 +167,8 @@ class ProtocolPDFGenerator:
                     if row.strip():
                         cells = row.split('|')
                         for cell in cells:
-                            self.pdf.cell(col_width, 6, cell.strip(), 1, 0, 'L')
+                            clean_cell = cell.strip().encode('ascii', 'replace').decode('ascii')
+                            self.pdf.cell(col_width, 6, clean_cell, 1, 0, 'L')
                         self.pdf.ln()
                 
                 self.pdf.ln(4)
@@ -180,7 +184,7 @@ class ProtocolPDFGenerator:
             
             for row in rows:
                 cells = re.findall(r'<t[hd]>(.*?)</t[hd]>', row)
-                formatted_cells = [cell.strip().encode('latin-1', 'replace').decode('latin-1') for cell in cells]
+                formatted_cells = [cell.strip().encode('ascii', 'replace').decode('ascii') for cell in cells]
                 formatted_row = ' | '.join(formatted_cells)
                 table_text.append(formatted_row)
                 
@@ -191,29 +195,29 @@ class ProtocolPDFGenerator:
     
     def generate_pdf(self, sections: Dict[str, str]) -> bytes:
         try:
-            # Add title page with improved styling
+            # Add title page
             title = sections.get('title', 'Study Protocol')
             self.add_title_page(title)
             
-            # Add table of contents with enhanced styling
+            # Add table of contents
             self.pdf.add_page()
             self.pdf.set_font('Arial', 'B', 16)
             self.pdf.cell(0, 10, 'Table of Contents', ln=True)
             self.pdf.ln(5)
             
-            # Add TOC entries with proper formatting
+            # Add TOC entries
             self.pdf.set_font('Arial', '', 12)
             for section_name in sections.keys():
                 clean_name = section_name.replace('_', ' ').title()
-                clean_name = clean_name.encode('latin-1', 'replace').decode('latin-1')
-                self.pdf.cell(0, 8, f'• {clean_name}', ln=True)
+                clean_name = clean_name.encode('ascii', 'replace').decode('ascii')
+                self.pdf.cell(0, 8, f'- {clean_name}', ln=True)
             
-            # Add sections with enhanced styling
+            # Add sections
             for section_name, content in sections.items():
                 self.add_section(section_name, content)
             
             # Return PDF bytes
-            return self.pdf.output(dest='S').encode('latin-1')
+            return bytes(self.pdf.output())
             
         except Exception as e:
             logger.error(f'Error generating PDF: {str(e)}')
