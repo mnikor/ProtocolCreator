@@ -31,11 +31,10 @@ class ProtocolPDFGenerator:
         self.setup_pdf_styles()
     
     def setup_pdf_styles(self):
-        """Setup PDF styles and formatting"""
+        '''Setup PDF styles and formatting'''
         # Set margins for better readability
         self.pdf.set_margins(25, 25, 25)
-        # Set line height for better spacing
-        self.pdf.set_line_height(6)
+        # Line height is handled by multi_cell spacing
     
     def add_title_page(self, title: str):
         """Add a title page to the PDF with improved styling"""
@@ -130,7 +129,7 @@ class ProtocolPDFGenerator:
                             self.pdf.set_font('Arial', 'I' if i % 2 else '', 11)
                             # Encode text properly for FPDF
                             clean_text = part.strip().encode('latin-1', 'replace').decode('latin-1')
-                            # Add text with proper line spacing
+                            # Add text with proper line spacing using multi_cell
                             self.pdf.multi_cell(0, 6, clean_text)
                     
                     # Add space between paragraphs

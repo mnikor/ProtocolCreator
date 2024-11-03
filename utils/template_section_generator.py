@@ -165,8 +165,13 @@ Generate the content using formal scientific writing style. Mark uncertainties o
             study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
             sections = study_config.get('required_sections', [])
             
+            if not sections:
+                logger.error(f"No sections defined for study type: {study_type}")
+                raise ValueError(f"No sections defined for study type: {study_type}")
+            
             generated_sections = {}
             for section_name in sections:
+                logger.info(f"Generating section: {section_name}")
                 if self.should_include_section(section_name, study_type):
                     section_content = self.generate_section(
                         section_name=section_name,
@@ -175,7 +180,12 @@ Generate the content using formal scientific writing style. Mark uncertainties o
                     )
                     if section_content:
                         generated_sections[section_name] = section_content
+                    else:
+                        logger.warning(f"No content generated for section: {section_name}")
+                else:
+                    logger.info(f"Section {section_name} excluded for study type {study_type}")
             
+            logger.info(f"Generated {len(generated_sections)} sections out of {len(sections)} required")
             return {"sections": generated_sections}
             
         except Exception as e:
