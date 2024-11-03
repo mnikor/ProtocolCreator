@@ -118,18 +118,16 @@ def render_navigator():
 def generate_docx(sections):
     '''Generate DOCX document with enhanced formatting'''
     docx_bytes = BytesIO()
-    
-    # Generate DOCX
     doc = Document()
     
-    # Add title
+    # Add title with proper encoding
     title = doc.add_heading('Study Protocol', 0)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     
-    # Add date
+    # Add date with proper encoding
     date_para = doc.add_paragraph()
     date_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    date_para.add_run(f'Generated: {time.strftime("%B %d, %Y")}')
+    date_para.add_run(time.strftime("%B %d, %Y"))
     
     # Add table of contents
     doc.add_heading('Table of Contents', level=1)
@@ -139,101 +137,86 @@ def generate_docx(sections):
     
     doc.add_page_break()
     
-    # Add sections
+    # Add sections with proper encoding
     for section_name, content in sections.items():
         # Add section heading
         doc.add_heading(section_name.replace('_', ' ').title(), level=1)
         
-        # Process content parts
-        if '```mermaid' in content:
-            parts = content.split('```mermaid')
-            
-            # Add first part (text before mermaid diagram)
-            if parts[0].strip():
-                add_text_with_formatting(doc, parts[0])
-            
-            # Process mermaid diagrams and remaining text
-            for part in parts[1:]:
-                # Find end of mermaid section
-                diagram_end = part.find('```')
-                if diagram_end != -1:
-                    # Add diagram as text box
-                    diagram_code = part[:diagram_end].strip()
-                    diagram_para = doc.add_paragraph()
-                    diagram_para.add_run('Study Flow Diagram:').bold = True
-                    box_para = doc.add_paragraph()
-                    box_para.add_run(diagram_code)
-                    
-                    # Add remaining text
-                    remaining_text = part[diagram_end + 3:].strip()
-                    if remaining_text:
-                        add_text_with_formatting(doc, remaining_text)
-        else:
-            # No diagram, just add text content
-            add_text_with_formatting(doc, content)
-            
-        # Add page break between sections
+        # Process content with proper encoding handling
+        add_text_with_formatting(doc, content)
         doc.add_page_break()
     
     # Save document
     doc.save(docx_bytes)
     docx_bytes.seek(0)
-    return docx_bytes
+    return docx_bytes.getvalue()
 
 def add_text_with_formatting(doc, text):
-    '''Add text to document with enhanced formatting'''
-    # Handle HTML tables
-    if '<table' in text:
-        # Convert HTML tables to Word tables
-        parts = text.split('<table')
-        for i, part in enumerate(parts):
-            if i == 0:
-                if part.strip():
-                    add_paragraphs_with_formatting(doc, part)
-                continue
-                
-            table_end = part.find('</table>')
-            if table_end != -1:
-                table_html = '<table' + part[:table_end + 8]
-                remaining_text = part[table_end + 8:]
-                
-                # Convert HTML table to Word table
-                rows = re.findall(r'<tr>(.*?)</tr>', table_html, re.DOTALL)
-                if rows:
-                    # Count columns from first row
-                    first_row_cells = re.findall(r'<t[hd]>(.*?)</t[hd]>', rows[0])
-                    table = doc.add_table(rows=len(rows), cols=len(first_row_cells))
-                    table.style = 'Table Grid'
+    '''Add text to document with proper encoding'''
+    try:
+        # Convert text to string if it's bytes
+        if isinstance(text, bytes):
+            text = text.decode('utf-8')
+        
+        # Handle HTML tables
+        if '<table' in text:
+            parts = text.split('<table')
+            
+            # Add text before first table
+            if parts[0].strip():
+                add_paragraphs_with_formatting(doc, parts[0])
+            
+            # Process each table
+            for part in parts[1:]:
+                table_end = part.find('</table>')
+                if table_end != -1:
+                    table_html = '<table' + part[:table_end + 8]
+                    remaining_text = part[table_end + 8:]
                     
-                    # Fill table
-                    for i, row in enumerate(rows):
-                        cells = re.findall(r'<t[hd]>(.*?)</t[hd]>', row)
-                        for j, cell_content in enumerate(cells):
-                            # Clean and format cell content
-                            clean_content = cell_content.strip()
-                            table.cell(i, j).text = clean_content
-                            
-                            # Apply header formatting
-                            if i == 0:
-                                table.cell(i, j).paragraphs[0].runs[0].bold = True
-                
-                # Add remaining text
-                if remaining_text.strip():
-                    add_paragraphs_with_formatting(doc, remaining_text)
-    else:
-        add_paragraphs_with_formatting(doc, text)
+                    # Convert HTML table to Word table
+                    rows = re.findall(r'<tr>(.*?)</tr>', table_html, re.DOTALL)
+                    if rows:
+                        # Count columns from first row
+                        first_row_cells = re.findall(r'<t[hd]>(.*?)</t[hd]>', rows[0])
+                        table = doc.add_table(rows=len(rows), cols=len(first_row_cells))
+                        table.style = 'Table Grid'
+                        
+                        # Fill table
+                        for i, row in enumerate(rows):
+                            cells = re.findall(r'<t[hd]>(.*?)</t[hd]>', row)
+                            for j, cell_content in enumerate(cells):
+                                table.cell(i, j).text = cell_content.strip()
+                                if i == 0:
+                                    table.cell(i, j).paragraphs[0].runs[0].bold = True
+                    
+                    # Add remaining text
+                    if remaining_text.strip():
+                        add_paragraphs_with_formatting(doc, remaining_text)
+        else:
+            add_paragraphs_with_formatting(doc, text)
+    except Exception as e:
+        logger.error(f"Error in add_text_with_formatting: {str(e)}")
+        raise
 
 def add_paragraphs_with_formatting(doc, text):
-    '''Add paragraphs with italic formatting'''
-    for para in text.split('\n'):
-        if para.strip():
-            p = doc.add_paragraph()
-            parts = para.split('*')
-            for i, part in enumerate(parts):
-                if part.strip():
-                    run = p.add_run(part.strip())
-                    if i % 2:  # Odd indices are italic
-                        run.italic = True
-                        run.font.size = Pt(11)  # Set font size for italic text
-                    else:
-                        run.font.size = Pt(11)  # Set font size for regular text
+    '''Add paragraphs with proper encoding'''
+    try:
+        # Convert text to string if it's bytes
+        if isinstance(text, bytes):
+            text = text.decode('utf-8')
+            
+        # Split into paragraphs
+        for para in text.split('\n'):
+            if para.strip():
+                p = doc.add_paragraph()
+                # Handle italic formatting
+                parts = para.split('*')
+                for i, part in enumerate(parts):
+                    if part.strip():
+                        run = p.add_run(part.strip())
+                        if i % 2:  # Odd indices are italic
+                            run.italic = True
+                        run.font.size = Pt(11)
+    except Exception as e:
+        logger.error(f"Error in add_paragraphs_with_formatting: {str(e)}")
+        raise
