@@ -36,30 +36,20 @@ class ProtocolPDFGenerator:
         try:
             self.pdf.add_page()
 
-            # Add title
-            if 'title' in sections:
-                self.pdf.set_font('Arial', 'B', 14)
-                self.pdf.multi_cell(0, 10, sections['title'])
-                self.pdf.ln(10)
-
             # Add content sections
             for section_name, content in sections.items():
-                if section_name != 'title':  # Skip title as it's already added
-                    # Add section title
-                    self.pdf.set_font('Arial', 'B', 12)
-                    self.pdf.cell(0, 10, section_name.replace('_', ' ').title(), ln=True)
-                    self.pdf.ln(5)
+                # Add section title
+                self.pdf.set_font('Arial', 'B', 12)
+                self.pdf.cell(0, 10, section_name.replace('_', ' ').title(), ln=True)
+                self.pdf.ln(5)  # Space between title and content
 
-                    # Add section content
-                    self.pdf.set_font('Arial', '', 11)
-                    # Clean text for PDF compatibility
-                    clean_content = content.encode('latin-1', 'replace').decode('latin-1')
-                    self.pdf.multi_cell(0, 6, clean_content)
-                    self.pdf.ln(10)
+                # Add section content
+                self.pdf.set_font('Arial', '', 10)
+                self.pdf.multi_cell(0, 10, content)
+                self.pdf.ln(10)  # Space between sections
 
             # Return PDF bytes
             return bytes(self.pdf.output())
-
         except Exception as e:
             logger.error(f"Error generating PDF: {str(e)}")
             raise
