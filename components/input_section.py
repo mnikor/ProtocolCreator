@@ -16,38 +16,41 @@ def render_input_section():
     if 'show_process_button' not in st.session_state:
         st.session_state.show_process_button = False
     
-    col1, col2 = st.columns([2, 1])
+    # File uploader first
+    uploaded_file = st.file_uploader(
+        "Upload Synopsis File",
+        type=["txt", "docx", "pdf"],
+        help="Upload synopsis (TXT, DOCX, PDF)",
+        key="synopsis_file_uploader"
+    )
     
-    with col1:
-        # Synopsis text input - always show this
-        synopsis_text = st.text_area(
-            "Enter your synopsis text",
-            value=st.session_state.synopsis_input,
-            height=300,
-            help="Enter your study synopsis here",
-            key="synopsis_text_input"
-        )
+    # Add some spacing
+    st.markdown("<br>", unsafe_allow_html=True)
     
-    with col2:
-        # File uploader in second column
-        uploaded_file = st.file_uploader(
-            "Or upload file",
-            type=["txt", "docx", "pdf"],
-            help="Upload synopsis (TXT, DOCX, PDF)"
-        )
-        
-        # Process uploaded file if present
-        if uploaded_file:
-            try:
-                synopsis_content = process_file_content(uploaded_file)
-                st.session_state.synopsis_input = synopsis_content
-                synopsis_text = synopsis_content  # Update text area
-                if len(synopsis_content.strip()) < 50:
-                    st.warning("⚠️ Synopsis seems too short")
-                else:
-                    st.success("✅ File uploaded!")
-            except Exception as e:
-                st.error(f"Error: {str(e)}")
+    # Or divider
+    st.markdown("**OR**")
+    
+    # Synopsis text input below
+    synopsis_text = st.text_area(
+        "Enter Synopsis Text",
+        value=st.session_state.synopsis_input,
+        height=300,
+        help="Enter your study synopsis here",
+        key="synopsis_text_input"
+    )
+    
+    # Process uploaded file if present
+    if uploaded_file:
+        try:
+            synopsis_content = process_file_content(uploaded_file)
+            st.session_state.synopsis_input = synopsis_content
+            synopsis_text = synopsis_content  # Update text area
+            if len(synopsis_content.strip()) < 50:
+                st.warning("⚠️ Synopsis seems too short")
+            else:
+                st.success("✅ File uploaded!")
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
     
     # Analyze synopsis immediately if text is present
     if synopsis_text.strip():

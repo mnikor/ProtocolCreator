@@ -10,13 +10,20 @@ class CustomPDF(FPDF):
     def __init__(self):
         super().__init__()
         self.set_auto_page_break(auto=True, margin=15)
-        # Use built-in Arial font
+        # Use built-in Arial font for better compatibility
         self.set_font('Arial', '')
         
+    def header(self):
+        # Add header with page number at the top right
+        self.set_y(10)
+        self.set_font('Arial', 'I', 8)
+        self.cell(0, 10, f'Protocol - Page {self.page_no()}', 0, 0, 'R')
+        
     def footer(self):
+        # Add footer with generation date
         self.set_y(-15)
         self.set_font('Arial', 'I', 8)
-        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
+        self.cell(0, 10, f'Generated: {time.strftime("%B %d, %Y")}', 0, 0, 'C')
 
 class ProtocolPDFGenerator:
     def __init__(self):
@@ -25,7 +32,10 @@ class ProtocolPDFGenerator:
     
     def setup_pdf_styles(self):
         """Setup PDF styles and formatting"""
-        self.pdf.set_margins(20, 20, 20)
+        # Set margins for better readability
+        self.pdf.set_margins(25, 25, 25)
+        # Set line height for better spacing
+        self.pdf.set_line_height(6)
     
     def add_title_page(self, title: str):
         """Add a title page to the PDF with improved styling"""
@@ -34,10 +44,18 @@ class ProtocolPDFGenerator:
         # Clean and encode title
         clean_title = title.encode('latin-1', 'replace').decode('latin-1')
         
-        # Add title with proper positioning
+        # Add logo or header image if available
+        # self.pdf.image('logo.png', x=10, y=10, w=30)
+        
+        # Add title with proper positioning and styling
         self.pdf.set_font('Arial', 'B', 24)
         self.pdf.ln(60)
         self.pdf.cell(0, 10, clean_title, align='C', ln=True)
+        
+        # Add subtitle
+        self.pdf.set_font('Arial', 'I', 14)
+        self.pdf.ln(10)
+        self.pdf.cell(0, 10, 'Clinical Study Protocol', align='C', ln=True)
         
         # Add date with proper spacing
         self.pdf.ln(20)
@@ -53,43 +71,49 @@ class ProtocolPDFGenerator:
         clean_name = section_name.replace('_', ' ').title()
         clean_name = clean_name.encode('latin-1', 'replace').decode('latin-1')
         
-        # Add section heading
+        # Add section heading with proper styling
         self.pdf.set_font('Arial', 'B', 16)
         self.pdf.cell(0, 10, clean_name, ln=True)
         self.pdf.ln(5)
         
-        # Process content
+        # Process content with improved formatting
         self.pdf.set_font('Arial', '', 11)
         self._add_formatted_text(content)
     
     def _add_formatted_text(self, text: str):
-        # Handle HTML tables first
-        if '<table' in text:
-            parts = text.split('<table')
-            
-            # Add text before first table
-            if parts[0].strip():
-                self._add_paragraphs(parts[0])
-            
-            # Process each table and remaining text
-            for part in parts[1:]:
-                table_end = part.find('</table>')
-                if table_end != -1:
-                    table_html = '<table' + part[:table_end + 8]
-                    remaining_text = part[table_end + 8:]
-                    
-                    # Convert and add table
-                    table_text = self._convert_html_table(table_html)
-                    if table_text:
-                        self._add_paragraphs(table_text)
-                    
-                    # Add remaining text
-                    if remaining_text.strip():
-                        self._add_paragraphs(remaining_text)
-        else:
-            self._add_paragraphs(text)
-
+        """Add formatted text with enhanced styling"""
+        try:
+            # Handle HTML tables first
+            if '<table' in text:
+                parts = text.split('<table')
+                
+                # Add text before first table
+                if parts[0].strip():
+                    self._add_paragraphs(parts[0])
+                
+                # Process each table and remaining text
+                for part in parts[1:]:
+                    table_end = part.find('</table>')
+                    if table_end != -1:
+                        table_html = '<table' + part[:table_end + 8]
+                        remaining_text = part[table_end + 8:]
+                        
+                        # Convert and add table with improved styling
+                        table_text = self._convert_html_table(table_html)
+                        if table_text:
+                            self._add_table(table_text)
+                        
+                        # Add remaining text
+                        if remaining_text.strip():
+                            self._add_paragraphs(remaining_text)
+            else:
+                self._add_paragraphs(text)
+        except Exception as e:
+            logger.error(f"Error in _add_formatted_text: {str(e)}")
+            raise
+    
     def _add_paragraphs(self, text: str):
+        """Add paragraphs with improved formatting"""
         try:
             # Ensure text is properly encoded
             if isinstance(text, bytes):
@@ -98,7 +122,7 @@ class ProtocolPDFGenerator:
             paragraphs = text.split('\n')
             for paragraph in paragraphs:
                 if paragraph.strip():
-                    # Split by asterisks and add formatting
+                    # Split by asterisks for italic formatting
                     parts = paragraph.split('*')
                     for i, part in enumerate(parts):
                         if part.strip():
@@ -106,12 +130,47 @@ class ProtocolPDFGenerator:
                             self.pdf.set_font('Arial', 'I' if i % 2 else '', 11)
                             # Encode text properly for FPDF
                             clean_text = part.strip().encode('latin-1', 'replace').decode('latin-1')
-                            self.pdf.multi_cell(0, 5, clean_text)
+                            # Add text with proper line spacing
+                            self.pdf.multi_cell(0, 6, clean_text)
                     
                     # Add space between paragraphs
-                    self.pdf.ln(3)
+                    self.pdf.ln(4)
         except Exception as e:
             logger.error(f"Error in _add_paragraphs: {str(e)}")
+            raise
+    
+    def _add_table(self, table_text: str):
+        """Add table with improved styling"""
+        try:
+            # Add table header
+            self.pdf.ln(4)
+            self.pdf.set_fill_color(240, 240, 240)  # Light gray background for header
+            
+            rows = table_text.split('\n')
+            if rows:
+                # Calculate column widths
+                cols = rows[0].count('|') + 1
+                col_width = (self.pdf.w - 50) / cols  # Account for margins
+                
+                # Add header row
+                cells = rows[0].split('|')
+                self.pdf.set_font('Arial', 'B', 10)
+                for cell in cells:
+                    self.pdf.cell(col_width, 8, cell.strip(), 1, 0, 'C', True)
+                self.pdf.ln()
+                
+                # Add data rows
+                self.pdf.set_font('Arial', '', 10)
+                for row in rows[1:]:
+                    if row.strip():
+                        cells = row.split('|')
+                        for cell in cells:
+                            self.pdf.cell(col_width, 6, cell.strip(), 1, 0, 'L')
+                        self.pdf.ln()
+                
+                self.pdf.ln(4)
+        except Exception as e:
+            logger.error(f"Error in _add_table: {str(e)}")
             raise
     
     def _convert_html_table(self, table_html: str) -> str:
@@ -126,31 +185,31 @@ class ProtocolPDFGenerator:
                 formatted_row = ' | '.join(formatted_cells)
                 table_text.append(formatted_row)
                 
-            return '\n'.join('  ' + row for row in table_text)
+            return '\n'.join(table_text)
         except Exception as e:
             logger.error(f"Error converting HTML table: {str(e)}")
             return ""
     
     def generate_pdf(self, sections: Dict[str, str]) -> bytes:
         try:
-            # Add title page
-            self.add_title_page('Study Protocol')
+            # Add title page with improved styling
+            title = sections.get('title', 'Study Protocol')
+            self.add_title_page(title)
             
-            # Add table of contents
+            # Add table of contents with enhanced styling
             self.pdf.add_page()
-            self.pdf.set_font('Arial', 'B', 14)
+            self.pdf.set_font('Arial', 'B', 16)
             self.pdf.cell(0, 10, 'Table of Contents', ln=True)
             self.pdf.ln(5)
             
-            # Add TOC entries
+            # Add TOC entries with proper formatting
             self.pdf.set_font('Arial', '', 12)
             for section_name in sections.keys():
-                # Clean section name for PDF
                 clean_name = section_name.replace('_', ' ').title()
                 clean_name = clean_name.encode('latin-1', 'replace').decode('latin-1')
-                self.pdf.cell(0, 8, f'- {clean_name}', ln=True)
+                self.pdf.cell(0, 8, f'• {clean_name}', ln=True)
             
-            # Add sections
+            # Add sections with enhanced styling
             for section_name, content in sections.items():
                 self.add_section(section_name, content)
             
