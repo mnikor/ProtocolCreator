@@ -8,9 +8,15 @@ import re
 logger = logging.getLogger(__name__)
 
 class CustomPDF(FPDF):
+    def __init__(self):
+        super().__init__()
+        self.add_font('NotoSans', '', 'Helvetica')
+        self.add_font('NotoSans', 'B', 'Helvetica-Bold')
+        self.add_font('NotoSans', 'I', 'Helvetica-Oblique')
+    
     def footer(self):
         self.set_y(-15)
-        self.set_font('Arial', 'I', 8)
+        self.set_font('NotoSans', 'I', 8)
         self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
 class ProtocolPDFGenerator:
@@ -30,13 +36,13 @@ class ProtocolPDFGenerator:
         self.pdf.add_page()
         
         # Add title with proper positioning
-        self.pdf.set_font('Arial', 'B', 24)
+        self.pdf.set_font('NotoSans', 'B', 24)
         self.pdf.ln(60)
         self.pdf.cell(0, 10, title, align='C', ln=True)
         
         # Add date with proper spacing
         self.pdf.ln(20)
-        self.pdf.set_font('Arial', '', 12)
+        self.pdf.set_font('NotoSans', '', 12)
         self.pdf.cell(0, 10, f'Generated: {time.strftime("%B %d, %Y")}', align='C', ln=True)
         
         # Add a line separator
@@ -48,12 +54,12 @@ class ProtocolPDFGenerator:
         self.pdf.add_page()
         
         # Add section heading with proper styling
-        self.pdf.set_font('Arial', 'B', 16)
+        self.pdf.set_font('NotoSans', 'B', 16)
         self.pdf.cell(0, 10, section_name.replace('_', ' ').title(), ln=True)
         self.pdf.ln(5)
         
         # Process content
-        self.pdf.set_font('Arial', '', 11)
+        self.pdf.set_font('NotoSans', '', 11)
         
         # Handle Mermaid diagrams
         if '```mermaid' in content:
@@ -69,11 +75,11 @@ class ProtocolPDFGenerator:
                 if diagram_end != -1:
                     # Add diagram heading
                     self.pdf.ln(5)
-                    self.pdf.set_font('Arial', 'B', 12)
+                    self.pdf.set_font('NotoSans', 'B', 12)
                     self.pdf.cell(0, 10, 'Study Flow Diagram:', ln=True)
                     
                     # Add diagram content in a box
-                    self.pdf.set_font('Arial', '', 10)
+                    self.pdf.set_font('NotoSans', '', 10)
                     diagram_code = part[:diagram_end].strip()
                     
                     # Draw a box around the diagram
@@ -106,7 +112,7 @@ class ProtocolPDFGenerator:
                 for i, part in enumerate(parts):
                     if part.strip():
                         # Toggle between regular and italic
-                        self.pdf.set_font('Arial', 'I' if i % 2 else '', 11)
+                        self.pdf.set_font('NotoSans', 'I' if i % 2 else '', 11)
                         self.pdf.multi_cell(0, 5, part.strip())
                 
                 # Add space between paragraphs
@@ -121,7 +127,7 @@ class ProtocolPDFGenerator:
         for row in rows:
             # Extract cells (both th and td)
             cells = re.findall(r'<t[hd]>(.*?)</t[hd]>', row)
-            table_text.append(' | '.join(cell.strip() for cell in cells))
+            table_text.append(' - '.join(cell.strip() for cell in cells))
         return '\n'.join(table_text)
     
     def generate_pdf(self, sections: Dict[str, str]) -> bytes:
@@ -132,14 +138,14 @@ class ProtocolPDFGenerator:
             
             # Add table of contents
             self.pdf.add_page()
-            self.pdf.set_font('Arial', 'B', 14)
+            self.pdf.set_font('NotoSans', 'B', 14)
             self.pdf.cell(0, 10, 'Table of Contents', ln=True)
             self.pdf.ln(5)
             
-            # Add TOC entries
-            self.pdf.set_font('Arial', '', 12)
+            # Add TOC entries with dashes instead of bullets
+            self.pdf.set_font('NotoSans', '', 12)
             for section_name in sections.keys():
-                self.pdf.cell(0, 8, f'• {section_name.replace("_", " ").title()}', ln=True)
+                self.pdf.cell(0, 8, f'- {section_name.replace("_", " ").title()}', ln=True)
             
             # Add sections with page breaks
             for section_name, content in sections.items():
@@ -147,7 +153,7 @@ class ProtocolPDFGenerator:
             
             # Get PDF bytes
             pdf_bytes = io.BytesIO()
-            self.pdf.output(pdf_bytes)
+            self.pdf.output(pdf_bytes, 'F')  # Use 'F' for binary output
             pdf_bytes.seek(0)
             return pdf_bytes.getvalue()
             
