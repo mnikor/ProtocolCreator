@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class CustomPDF(FPDF):
     def __init__(self):
         super().__init__()
-        self.set_auto_page_break(auto=True, margin=15)
+        self.set_auto_page_break(auto=True, margin=30)  # Updated margin
         # Use built-in Arial font for better compatibility
         self.set_font('Arial', '')
         
@@ -33,8 +33,9 @@ class ProtocolPDFGenerator:
     
     def setup_pdf_styles(self):
         '''Setup PDF styles and formatting'''
-        # Set margins for better readability
-        self.pdf.set_margins(25, 25, 25)
+        # Set wider margins for better readability
+        self.pdf.set_margins(30, 30, 30)  # Left, Top, Right margins
+        self.pdf.set_auto_page_break(auto=True, margin=30)  # Bottom margin
     
     def add_title_page(self, title: str):
         """Add a title page to the PDF with improved styling"""
@@ -124,24 +125,26 @@ class ProtocolPDFGenerator:
                     for i, part in enumerate(parts):
                         if part.strip():
                             self.pdf.set_font('Arial', 'I' if i % 2 else '', 11)
-                            self.pdf.multi_cell(0, 6, part.strip())
-                    self.pdf.ln(4)
+                            # Calculate effective page width
+                            effective_width = self.pdf.w - (self.pdf.l_margin + self.pdf.r_margin)
+                            # Use multi_cell with calculated width and proper line height
+                            self.pdf.multi_cell(w=effective_width, h=6, txt=part.strip())
+                    self.pdf.ln(4)  # Space between paragraphs
         except Exception as e:
             logger.error(f"Error in _add_paragraphs: {str(e)}")
             raise
     
     def _add_table(self, table_text: str):
-        """Add table with consistent styling"""
         try:
-            # Add table header
             self.pdf.ln(4)
-            self.pdf.set_fill_color(240, 240, 240)  # Light gray background for header
+            self.pdf.set_fill_color(240, 240, 240)
             
             rows = table_text.split('\n')
             if rows:
-                # Calculate column widths
+                # Calculate column widths based on effective page width
+                effective_width = self.pdf.w - (self.pdf.l_margin + self.pdf.r_margin)
                 cols = rows[0].count('|') + 1
-                col_width = (self.pdf.w - 50) / cols  # Account for margins
+                col_width = effective_width / cols
                 
                 # Add header row
                 cells = rows[0].split('|')
@@ -156,6 +159,7 @@ class ProtocolPDFGenerator:
                     if row.strip():
                         cells = row.split('|')
                         for cell in cells:
+                            # Use cell with proper width and text wrapping
                             self.pdf.cell(col_width, 6, cell.strip(), 1, 0, 'L')
                         self.pdf.ln()
                 
@@ -185,6 +189,7 @@ class ProtocolPDFGenerator:
         try:
             # Initialize PDF
             self.pdf = CustomPDF()
+            self.setup_pdf_styles()  # Apply styles after initialization
             
             # Add title page
             title = sections.get('title', 'Study Protocol')
