@@ -8,6 +8,8 @@ from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import os
+from weasyprint import HTML, CSS
+from weasyprint.text.fonts import FontConfiguration
 
 logger = logging.getLogger(__name__)
 
@@ -240,42 +242,117 @@ def render_navigator():
                         if not os.path.exists('temp'):
                             os.makedirs('temp')
                         
-                        # Generate DOCX
+                        # Generate DOCX first
                         doc = create_docx(generated_sections)
                         temp_docx = 'temp/protocol.docx'
-                        temp_pdf = 'temp/protocol.pdf'
-                        
-                        # Save DOCX
                         doc.save(temp_docx)
                         
-                        # Convert to PDF using docx2pdf
-                        from docx2pdf import convert
-                        convert(temp_docx, temp_pdf)
+                        # Add DOCX download button
+                        with open(temp_docx, 'rb') as f:
+                            docx_data = f.read()
+                            st.sidebar.download_button(
+                                label="📄 Download DOCX",
+                                data=docx_data,
+                                file_name="protocol.docx",
+                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                use_container_width=True
+                            )
                         
-                        # Add download buttons
-                        col1, col2 = st.sidebar.columns(2)
+                        # Generate PDF using WeasyPrint
+                        # Create HTML content from sections
+                        html_content = '''
+                        <html>
+                            <head>
+                                <style>
+                                    @page {
+                                        margin: 2.5cm;
+                                        @top-right {
+                                            content: counter(page);
+                                        }
+                                    }
+                                    body {
+                                        font-family: Arial, sans-serif;
+                                        line-height: 1.5;
+                                    }
+                                    h1 {
+                                        color: #2c3e50;
+                                        margin-top: 1em;
+                                        margin-bottom: 0.5em;
+                                    }
+                                    .toc-entry {
+                                        margin: 0.5em 0;
+                                        padding-left: 20px;
+                                    }
+                                    .content {
+                                        text-align: justify;
+                                    }
+                                    .italic {
+                                        font-style: italic;
+                                    }
+                                </style>
+                            </head>
+                            <body>
+                                <h1 style="text-align: center;">Study Protocol</h1>
+                                <div style="text-align: center; margin: 20px 0;">
+                                    Generated: ''' + time.strftime("%B %d, %Y") + '''
+                                </div>
+                                
+                                <h1>Table of Contents</h1>
+                        '''
                         
-                        with col1:
-                            with open(temp_docx, 'rb') as f:
-                                docx_data = f.read()
-                                st.download_button(
-                                    label="📄 Download DOCX",
-                                    data=docx_data,
-                                    file_name="protocol.docx",
-                                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                    use_container_width=True
-                                )
+                        # Add TOC entries
+                        for section in generated_sections:
+                            html_content += f'<div class="toc-entry">{section.replace("_", " ").title()}</div>'
                         
-                        with col2:
-                            with open(temp_pdf, 'rb') as f:
-                                pdf_data = f.read()
-                                st.download_button(
-                                    label="📥 Download PDF",
-                                    data=pdf_data,
-                                    file_name="protocol.pdf",
-                                    mime="application/pdf",
-                                    use_container_width=True
-                                )
+                        # Add sections
+                        for section, content in generated_sections.items():
+                            html_content += f'''
+                                <h1>{section.replace("_", " ").title()}</h1>
+                                <div class="content">
+                            '''
+                            
+                            # Handle italic markers
+                            paragraphs = content.split('\n')
+                            for para in paragraphs:
+                                if para.strip():
+                                    parts = para.split('*')
+                                    formatted_para = ''
+                                    for i, part in enumerate(parts):
+                                        if part.strip():
+                                            if i % 2:  # Odd indices are italic
+                                                formatted_para += f'<span class="italic">{part}</span>'
+                                            else:
+                                                formatted_para += part
+                                    html_content += f'<p>{formatted_para}</p>'
+                            
+                            html_content += '</div>'
+                        
+                        html_content += '''
+                            </body>
+                        </html>
+                        '''
+                        
+                        # Configure fonts
+                        font_config = FontConfiguration()
+                        
+                        # Generate PDF
+                        temp_pdf = 'temp/protocol.pdf'
+                        HTML(string=html_content).write_pdf(
+                            temp_pdf,
+                            font_config=font_config,
+                            presentational_hints=True
+                        )
+                        
+                        # Add PDF download button
+                        with open(temp_pdf, 'rb') as f:
+                            pdf_data = f.read()
+                            st.sidebar.download_button(
+                                label="📥 Download PDF",
+                                data=pdf_data,
+                                file_name="protocol.pdf",
+                                mime="application/pdf",
+                                use_container_width=True
+                            )
                         
                         # Cleanup temporary files
                         os.remove(temp_docx)
