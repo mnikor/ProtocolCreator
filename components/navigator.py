@@ -22,61 +22,94 @@ def render_navigator():
         if 'generated_sections' not in st.session_state:
             st.session_state.generated_sections = {}
             
-        # Show generation button if synopsis is present but sections aren't generated
-        if st.session_state.synopsis_content and st.session_state.study_type and not st.session_state.generated_sections:
-            st.sidebar.markdown("### 🚀 Generate Protocol")
-            if st.sidebar.button("Generate Complete Protocol", type="primary", use_container_width=True):
-                with st.spinner("Generating protocol sections..."):
-                    try:
-                        # Generate protocol sections
-                        generator = TemplateSectionGenerator()
-                        result = generator.generate_complete_protocol(
-                            study_type=st.session_state.study_type,
-                            synopsis_content=st.session_state.synopsis_content
-                        )
-                        st.session_state.generated_sections = result["sections"]
-                        st.success("✅ Protocol sections generated successfully!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error generating protocol: {str(e)}")
-        
-        # Add download options if sections are generated
-        if generated_sections := st.session_state.get('generated_sections'):
-            st.sidebar.markdown('### 📥 Download Protocol')
+        # Show study information in sidebar
+        if st.session_state.synopsis_content and st.session_state.study_type:
+            st.sidebar.markdown("### 📋 Study Information")
+            st.sidebar.info(f"Study Type: {st.session_state.study_type.replace('_', ' ').title()}")
             
-            try:
-                # Generate both formats
-                docx_bytes = generate_docx(generated_sections)
+            # Show generation progress
+            if not st.session_state.generated_sections:
+                st.sidebar.markdown("### 🚀 Generate Protocol")
+                if st.sidebar.button("Generate Complete Protocol", type="primary", use_container_width=True):
+                    with st.spinner("Generating protocol sections..."):
+                        try:
+                            # Get required sections for study type
+                            from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
+                            study_config = COMPREHENSIVE_STUDY_CONFIGS.get(st.session_state.study_type, {})
+                            required_sections = study_config.get('required_sections', [])
+                            
+                            # Show progress for each section
+                            progress_text = st.sidebar.empty()
+                            progress_bar = st.sidebar.progress(0)
+                            
+                            # Generate protocol sections
+                            generator = TemplateSectionGenerator()
+                            result = {"sections": {}}
+                            
+                            for idx, section_name in enumerate(required_sections):
+                                progress_text.text(f"Generating {section_name.replace('_', ' ').title()}...")
+                                progress = (idx + 1) / len(required_sections)
+                                progress_bar.progress(progress)
+                                
+                                section_content = generator.generate_section(
+                                    section_name=section_name,
+                                    synopsis_content=st.session_state.synopsis_content,
+                                    study_type=st.session_state.study_type
+                                )
+                                if section_content:
+                                    result["sections"][section_name] = section_content
+                            
+                            st.session_state.generated_sections = result["sections"]
+                            progress_bar.empty()
+                            progress_text.empty()
+                            st.success("✅ Protocol sections generated successfully!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error generating protocol: {str(e)}")
+            else:
+                st.sidebar.markdown("### 📝 Generated Sections")
+                for section in st.session_state.generated_sections.keys():
+                    st.sidebar.markdown(f"✓ {section.replace('_', ' ').title()}")
+        
+            # Add download options if sections are generated
+            if generated_sections := st.session_state.get('generated_sections'):
+                st.sidebar.markdown('### 📥 Download Protocol')
                 
-                # Generate PDF with improved styling
-                pdf_generator = ProtocolPDFGenerator()
-                pdf_bytes = pdf_generator.generate_pdf(generated_sections)
-                
-                # Add download buttons in columns
-                col1, col2 = st.sidebar.columns(2)
-                
-                with col1:
-                    st.download_button(
-                        label='📄 DOCX',
-                        data=docx_bytes,
-                        file_name='protocol.docx',
-                        mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                        use_container_width=True
-                    )
-                
-                with col2:
-                    st.download_button(
-                        label='📑 PDF',
-                        data=pdf_bytes,
-                        file_name='protocol.pdf',
-                        mime='application/pdf',
-                        use_container_width=True
-                    )
-                
-            except Exception as e:
-                error_msg = str(e)
-                logger.error(f'Error creating documents: {error_msg}')
-                st.sidebar.error(f'Error creating documents: {error_msg}')
+                try:
+                    # Generate both formats with progress indication
+                    with st.spinner("Preparing documents..."):
+                        # Generate DOCX
+                        docx_bytes = generate_docx(generated_sections)
+                        
+                        # Generate PDF with improved styling
+                        pdf_generator = ProtocolPDFGenerator()
+                        pdf_bytes = pdf_generator.generate_pdf(generated_sections)
+                    
+                    # Add download buttons in columns
+                    col1, col2 = st.sidebar.columns(2)
+                    
+                    with col1:
+                        st.download_button(
+                            label='📄 DOCX',
+                            data=docx_bytes,
+                            file_name='protocol.docx',
+                            mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                            use_container_width=True
+                        )
+                    
+                    with col2:
+                        st.download_button(
+                            label='📑 PDF',
+                            data=pdf_bytes,
+                            file_name='protocol.pdf',
+                            mime='application/pdf',
+                            use_container_width=True
+                        )
+                    
+                except Exception as e:
+                    error_msg = str(e)
+                    logger.error(f'Error creating documents: {error_msg}')
+                    st.sidebar.error(f'Error creating documents: {error_msg}')
     
     except Exception as e:
         logger.error(f'Error in navigator: {str(e)}')
