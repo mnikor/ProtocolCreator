@@ -8,3 +8,4 @@ PyPDF2
 plotly
 python-dotenv
 fpdf2
+fpdf

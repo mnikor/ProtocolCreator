@@ -89,24 +89,19 @@ def create_pdf(generated_sections):
         pdf.set_title('Study Protocol')
         pdf.set_author('Protocol Development Assistant')
         
-        # Add custom font for better unicode support
-        pdf.add_font('DejaVu', '', '/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf', uni=True)
-        pdf.add_font('DejaVu', 'B', '/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf', uni=True)
-        pdf.add_font('DejaVu', 'I', '/usr/share/fonts/truetype/dejavu/DejaVuSerif-Italic.ttf', uni=True)
-        
         # Title page
         pdf.add_page()
-        pdf.set_font('DejaVu', 'B', 24)
+        pdf.set_font('Arial', 'B', 24)
         pdf.cell(0, 20, 'Study Protocol', align='C', ln=True)
         pdf.ln(20)
         
         # Add date
-        pdf.set_font('DejaVu', '', 12)
+        pdf.set_font('Arial', '', 12)
         pdf.cell(0, 10, f'Generated: {time.strftime("%B %d, %Y")}', align='C', ln=True)
         
         # Table of contents
         pdf.add_page()
-        pdf.set_font('DejaVu', 'B', 16)
+        pdf.set_font('Arial', 'B', 16)
         pdf.cell(0, 10, 'Table of Contents', ln=True)
         pdf.ln(5)
         
@@ -114,8 +109,8 @@ def create_pdf(generated_sections):
         section_pages = {}
         current_page = pdf.page_no() + 1
         
-        # Add TOC entries with page numbers and dots
-        pdf.set_font('DejaVu', '', 12)
+        # Add TOC entries with dots
+        pdf.set_font('Arial', '', 12)
         for section in generated_sections:
             section_title = section.replace('_', ' ').title()
             section_pages[section] = current_page
@@ -136,12 +131,12 @@ def create_pdf(generated_sections):
             pdf.add_page()
             
             # Section heading
-            pdf.set_font('DejaVu', 'B', 14)
+            pdf.set_font('Arial', 'B', 14)
             pdf.cell(0, 10, section.replace('_', ' ').title(), ln=True)
             pdf.ln(5)
             
             # Process content with careful text handling
-            pdf.set_font('DejaVu', '', 11)
+            pdf.set_font('Arial', '', 11)
             
             # Split content into manageable chunks
             paragraphs = content.split('\n')
@@ -149,19 +144,12 @@ def create_pdf(generated_sections):
                 if para.strip():
                     # Handle italic markers
                     parts = para.split('*')
-                    
-                    # Calculate total width for proper text wrapping
-                    text_width = 170  # Page width minus margins
-                    
                     for i, part in enumerate(parts):
                         if part.strip():
-                            # Toggle between normal and italic font
-                            pdf.set_font('DejaVu', 'I' if i % 2 else '', 11)
-                            
-                            # Use multi_cell with fixed width for proper text wrapping
+                            pdf.set_font('Arial', 'I' if i % 2 else '', 11)
                             pdf.multi_cell(
-                                w=text_width,
-                                h=5,    # Line height
+                                w=170,     # Fixed width with margins
+                                h=5,       # Line height
                                 txt=part.strip(),
                                 align='J'  # Justified text alignment
                             )
@@ -175,7 +163,7 @@ def create_pdf(generated_sections):
         total_pages = pdf.page_no()
         for page in range(1, total_pages + 1):
             pdf.page = page
-            pdf.set_font('DejaVu', '', 10)
+            pdf.set_font('Arial', '', 10)
             pdf.set_y(-15)
             pdf.cell(0, 10, f'Page {page} of {total_pages}', align='C')
         
