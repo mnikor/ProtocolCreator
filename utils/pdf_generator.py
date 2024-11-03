@@ -17,14 +17,16 @@ class CustomPDF(FPDF):
         # Add header with page number at the top right
         self.set_y(10)
         self.set_font('Arial', 'I', 8)
-        self.cell(0, 10, f'Protocol - Page {self.page_no()}', 0, 0, 'R')
+        header_text = f'Protocol - Page {self.page_no()}'.encode('latin-1', 'replace').decode('latin-1')
+        self.cell(0, 10, header_text, 0, 0, 'R')
         
     def footer(self):
         # Add footer with generation date
         self.set_y(-15)
         self.set_font('Arial', 'I', 8)
         date_str = time.strftime("%B %d, %Y")
-        self.cell(0, 10, f'Generated: {date_str}', 0, 0, 'C')
+        footer_text = f'Generated: {date_str}'.encode('latin-1', 'replace').decode('latin-1')
+        self.cell(0, 10, footer_text, 0, 0, 'C')
 
 class ProtocolPDFGenerator:
     def __init__(self):
@@ -44,6 +46,7 @@ class ProtocolPDFGenerator:
         # Add title with proper positioning and styling
         self.pdf.set_font('Arial', 'B', 24)
         self.pdf.ln(60)
+        title = title.encode('latin-1', 'replace').decode('latin-1')
         self.pdf.cell(0, 10, title, align='C', ln=True)
         
         # Add subtitle
@@ -55,7 +58,8 @@ class ProtocolPDFGenerator:
         self.pdf.ln(20)
         self.pdf.set_font('Arial', '', 12)
         date_str = time.strftime("%B %d, %Y")
-        self.pdf.cell(0, 10, f'Generated: {date_str}', align='C', ln=True)
+        date_text = f'Generated: {date_str}'.encode('latin-1', 'replace').decode('latin-1')
+        self.pdf.cell(0, 10, date_text, align='C', ln=True)
     
     def add_section(self, section_name: str, content: str):
         """Add a section to the PDF with enhanced formatting"""
@@ -63,6 +67,7 @@ class ProtocolPDFGenerator:
         
         # Add section heading with proper styling
         clean_name = section_name.replace('_', ' ').title()
+        clean_name = clean_name.encode('latin-1', 'replace').decode('latin-1')
         self.pdf.set_font('Arial', 'B', 16)
         self.pdf.cell(0, 10, clean_name, ln=True)
         self.pdf.ln(5)
@@ -73,10 +78,6 @@ class ProtocolPDFGenerator:
 
     def _add_formatted_text(self, text: str):
         try:
-            # Convert and clean text once at the start
-            if isinstance(text, bytes):
-                text = text.decode('utf-8')
-            
             # Process tables first
             if '<table' in text:
                 parts = text.split('<table')
@@ -112,21 +113,20 @@ class ProtocolPDFGenerator:
                     for i, part in enumerate(parts):
                         if part.strip():
                             self.pdf.set_font('Arial', 'I' if i % 2 else '', 11)
-                            # Clean text while preserving UTF-8 characters
+                            # Clean and encode text
                             clean_text = part.strip()
-                            
-                            # Calculate effective width accounting for margins
+                            clean_text = clean_text.encode('latin-1', 'replace').decode('latin-1')
+                            # Calculate effective width
                             effective_width = self.pdf.w - (2 * self.pdf.l_margin)
-                            
-                            # Use multi_cell with proper width and UTF-8 text
+                            # Use multi_cell with proper width
                             self.pdf.multi_cell(
                                 w=effective_width,
-                                h=6,  # Line height
+                                h=6,
                                 txt=clean_text,
                                 align='L'
                             )
                     
-                    # Add proper spacing between paragraphs
+                    # Add space between paragraphs
                     self.pdf.ln(4)
         except Exception as e:
             logger.error(f"Error in _add_paragraphs: {str(e)}")
@@ -144,20 +144,22 @@ class ProtocolPDFGenerator:
                 cols = rows[0].count('|') + 1
                 col_width = effective_width / cols
                 
-                # Add header row with UTF-8 support
+                # Add header row with proper encoding
                 cells = rows[0].split('|')
                 self.pdf.set_font('Arial', 'B', 10)
                 for cell in cells:
-                    self.pdf.cell(col_width, 8, cell.strip(), 1, 0, 'C', True)
+                    cell_text = cell.strip().encode('latin-1', 'replace').decode('latin-1')
+                    self.pdf.cell(col_width, 8, cell_text, 1, 0, 'C', True)
                 self.pdf.ln()
                 
-                # Add data rows with UTF-8 support
+                # Add data rows with proper encoding
                 self.pdf.set_font('Arial', '', 10)
                 for row in rows[1:]:
                     if row.strip():
                         cells = row.split('|')
                         for cell in cells:
-                            self.pdf.cell(col_width, 6, cell.strip(), 1, 0, 'L')
+                            cell_text = cell.strip().encode('latin-1', 'replace').decode('latin-1')
+                            self.pdf.cell(col_width, 6, cell_text, 1, 0, 'L')
                         self.pdf.ln()
                 
                 self.pdf.ln(4)
@@ -195,21 +197,23 @@ class ProtocolPDFGenerator:
             # Add table of contents
             self.pdf.add_page()
             self.pdf.set_font('Arial', 'B', 16)
-            self.pdf.cell(0, 10, 'Table of Contents', ln=True)
+            toc_title = 'Table of Contents'.encode('latin-1', 'replace').decode('latin-1')
+            self.pdf.cell(0, 10, toc_title, ln=True)
             self.pdf.ln(5)
             
-            # Add TOC entries with UTF-8 encoding
+            # Add TOC entries
             self.pdf.set_font('Arial', '', 12)
             for section_name in sections.keys():
                 clean_name = section_name.replace('_', ' ').title()
+                clean_name = clean_name.encode('latin-1', 'replace').decode('latin-1')
                 self.pdf.cell(0, 8, f'- {clean_name}', ln=True)
             
             # Add sections
             for section_name, content in sections.items():
                 self.add_section(section_name, content)
             
-            # Return PDF bytes with UTF-8 encoding
-            return self.pdf.output().encode('utf-8')
+            # Return PDF bytes
+            return bytes(self.pdf.output())
             
         except Exception as e:
             logger.error(f'Error generating PDF: {str(e)}')
