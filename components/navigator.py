@@ -1,7 +1,6 @@
 import streamlit as st
 import logging
 from utils.template_section_generator import TemplateSectionGenerator
-from utils.pdf_generator import ProtocolPDFGenerator
 from io import BytesIO
 from docx import Document
 from docx.shared import Pt, Inches
@@ -76,12 +75,11 @@ def render_navigator():
                 st.sidebar.markdown('### 📥 Download Protocol')
                 
                 try:
-                    # Generate DOCX only for now
+                    # Generate DOCX
                     with st.spinner("Preparing document..."):
-                        # Generate DOCX
                         docx_bytes = generate_docx(generated_sections)
                     
-                    # Add single download button
+                    # Add download button
                     st.sidebar.download_button(
                         label='📄 Download DOCX',
                         data=docx_bytes,
@@ -142,6 +140,28 @@ def add_text_with_formatting(doc, text):
         if isinstance(text, bytes):
             text = text.decode('utf-8')
         
+        # Replace special characters with ASCII equivalents
+        replacements = {
+            '"': '"',
+            '"': '"',
+            ''': "'",
+            ''': "'",
+            '•': '-',
+            '–': '-',
+            '—': '-',
+            '…': '...',
+            '°': ' degrees ',
+            '±': '+/-',
+            '×': 'x',
+            '÷': '/',
+            '≥': '>=',
+            '≤': '<=',
+            '≈': '~',
+            '≠': '!='
+        }
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        
         # Handle HTML tables
         if '<table' in text:
             parts = text.split('<table')
@@ -169,8 +189,12 @@ def add_text_with_formatting(doc, text):
                         for i, row in enumerate(rows):
                             cells = re.findall(r'<t[hd]>(.*?)</t[hd]>', row)
                             for j, cell_content in enumerate(cells):
-                                table.cell(i, j).text = cell_content.strip()
-                                if i == 0:  # Make header row bold
+                                clean_content = cell_content.strip()
+                                # Replace special characters in table cells
+                                for old, new in replacements.items():
+                                    clean_content = clean_content.replace(old, new)
+                                table.cell(i, j).text = clean_content
+                                if i == 0:
                                     table.cell(i, j).paragraphs[0].runs[0].bold = True
                     
                     # Add remaining text
