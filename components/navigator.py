@@ -4,11 +4,9 @@ import time
 from utils.template_section_generator import TemplateSectionGenerator
 from utils.synopsis_validator import SynopsisValidator
 from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
-from io import BytesIO
 from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from fpdf import FPDF
 import os
 
 logger = logging.getLogger(__name__)
@@ -79,99 +77,6 @@ def create_docx(generated_sections):
     except Exception as e:
         logger.error(f"Error creating DOCX: {str(e)}")
         raise Exception(f"Failed to create DOCX document: {str(e)}")
-
-def create_pdf(generated_sections):
-    try:
-        pdf = FPDF()
-        pdf.set_margins(20, 20, 20)  # Add margins
-        
-        # Set document properties
-        pdf.set_title('Study Protocol')
-        pdf.set_author('Protocol Development Assistant')
-        
-        # Title page
-        pdf.add_page()
-        pdf.set_font('Arial', 'B', 24)
-        pdf.cell(0, 20, 'Study Protocol', align='C', ln=True)
-        pdf.ln(20)
-        
-        # Add date
-        pdf.set_font('Arial', '', 12)
-        pdf.cell(0, 10, f'Generated: {time.strftime("%B %d, %Y")}', align='C', ln=True)
-        
-        # Table of contents
-        pdf.add_page()
-        pdf.set_font('Arial', 'B', 16)
-        pdf.cell(0, 10, 'Table of Contents', ln=True)
-        pdf.ln(5)
-        
-        # Track page numbers for TOC
-        section_pages = {}
-        current_page = pdf.page_no() + 1
-        
-        # Add TOC entries with dots
-        pdf.set_font('Arial', '', 12)
-        for section in generated_sections:
-            section_title = section.replace('_', ' ').title()
-            section_pages[section] = current_page
-            
-            # Calculate dots
-            title_width = pdf.get_string_width(section_title)
-            page_num_width = pdf.get_string_width(str(current_page))
-            dots_width = 170 - title_width - page_num_width
-            num_dots = int(dots_width / pdf.get_string_width('.'))
-            dots = '.' * num_dots
-            
-            # Print TOC line
-            pdf.cell(0, 8, f'{section_title}{dots}{current_page}', ln=True)
-            current_page += 1
-        
-        # Content pages
-        for section, content in generated_sections.items():
-            pdf.add_page()
-            
-            # Section heading
-            pdf.set_font('Arial', 'B', 14)
-            pdf.cell(0, 10, section.replace('_', ' ').title(), ln=True)
-            pdf.ln(5)
-            
-            # Process content with careful text handling
-            pdf.set_font('Arial', '', 11)
-            
-            # Split content into manageable chunks
-            paragraphs = content.split('\n')
-            for para in paragraphs:
-                if para.strip():
-                    # Handle italic markers
-                    parts = para.split('*')
-                    for i, part in enumerate(parts):
-                        if part.strip():
-                            pdf.set_font('Arial', 'I' if i % 2 else '', 11)
-                            pdf.multi_cell(
-                                w=170,     # Fixed width with margins
-                                h=5,       # Line height
-                                txt=part.strip(),
-                                align='J'  # Justified text alignment
-                            )
-                    pdf.ln(3)
-                else:
-                    pdf.ln(5)
-            
-            pdf.ln(10)
-        
-        # Add page numbers
-        total_pages = pdf.page_no()
-        for page in range(1, total_pages + 1):
-            pdf.page = page
-            pdf.set_font('Arial', '', 10)
-            pdf.set_y(-15)
-            pdf.cell(0, 10, f'Page {page} of {total_pages}', align='C')
-        
-        return pdf
-        
-    except Exception as e:
-        logger.error(f"Error creating PDF: {str(e)}")
-        raise Exception(f"Failed to create PDF document: {str(e)}")
 
 def render_navigator():
     """Render the section navigator with improved generation tracking"""
@@ -331,41 +236,51 @@ def render_navigator():
                     st.sidebar.markdown("### 📥 Download Protocol")
                     
                     try:
-                        # Create document bytes
-                        docx_bytes = BytesIO()
-                        pdf_bytes = BytesIO()
+                        # Create temporary directory if it doesn't exist
+                        if not os.path.exists('temp'):
+                            os.makedirs('temp')
                         
                         # Generate DOCX
                         doc = create_docx(generated_sections)
-                        doc.save(docx_bytes)
-                        docx_bytes.seek(0)
+                        temp_docx = 'temp/protocol.docx'
+                        temp_pdf = 'temp/protocol.pdf'
                         
-                        # Generate PDF
-                        pdf = create_pdf(generated_sections)
-                        pdf.output(pdf_bytes)
-                        pdf_bytes.seek(0)
+                        # Save DOCX
+                        doc.save(temp_docx)
+                        
+                        # Convert to PDF using docx2pdf
+                        from docx2pdf import convert
+                        convert(temp_docx, temp_pdf)
                         
                         # Add download buttons
                         col1, col2 = st.sidebar.columns(2)
                         
                         with col1:
-                            st.download_button(
-                                label="📄 Download DOCX",
-                                data=docx_bytes,
-                                file_name="protocol.docx",
-                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                use_container_width=True
-                            )
+                            with open(temp_docx, 'rb') as f:
+                                docx_data = f.read()
+                                st.download_button(
+                                    label="📄 Download DOCX",
+                                    data=docx_data,
+                                    file_name="protocol.docx",
+                                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                    use_container_width=True
+                                )
                         
                         with col2:
-                            st.download_button(
-                                label="📥 Download PDF",
-                                data=pdf_bytes,
-                                file_name="protocol.pdf",
-                                mime="application/pdf",
-                                use_container_width=True
-                            )
-                            
+                            with open(temp_pdf, 'rb') as f:
+                                pdf_data = f.read()
+                                st.download_button(
+                                    label="📥 Download PDF",
+                                    data=pdf_data,
+                                    file_name="protocol.pdf",
+                                    mime="application/pdf",
+                                    use_container_width=True
+                                )
+                        
+                        # Cleanup temporary files
+                        os.remove(temp_docx)
+                        os.remove(temp_pdf)
+                        
                     except Exception as e:
                         error_msg = str(e)
                         logger.error(f"Document creation error: {error_msg}")
