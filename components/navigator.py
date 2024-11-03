@@ -48,7 +48,7 @@ def render_navigator():
                 # Generate both formats
                 docx_bytes = generate_docx(generated_sections)
                 
-                # Generate PDF with new styling
+                # Generate PDF with improved styling
                 pdf_generator = ProtocolPDFGenerator()
                 pdf_bytes = pdf_generator.generate_pdf(generated_sections)
                 
@@ -83,7 +83,7 @@ def render_navigator():
         st.error(f'An error occurred while rendering the navigator: {str(e)}')
 
 def generate_docx(sections):
-    '''Generate DOCX document'''
+    '''Generate DOCX document with enhanced formatting'''
     docx_bytes = BytesIO()
     
     # Generate DOCX
@@ -148,7 +148,7 @@ def generate_docx(sections):
     return docx_bytes
 
 def add_text_with_formatting(doc, text):
-    '''Add text to document with proper formatting'''
+    '''Add text to document with enhanced formatting'''
     # Handle HTML tables
     if '<table' in text:
         # Convert HTML tables to Word tables
@@ -176,7 +176,13 @@ def add_text_with_formatting(doc, text):
                     for i, row in enumerate(rows):
                         cells = re.findall(r'<t[hd]>(.*?)</t[hd]>', row)
                         for j, cell_content in enumerate(cells):
-                            table.cell(i, j).text = cell_content.strip()
+                            # Clean and format cell content
+                            clean_content = cell_content.strip()
+                            table.cell(i, j).text = clean_content
+                            
+                            # Apply header formatting
+                            if i == 0:
+                                table.cell(i, j).paragraphs[0].runs[0].bold = True
                 
                 # Add remaining text
                 if remaining_text.strip():
@@ -195,3 +201,6 @@ def add_paragraphs_with_formatting(doc, text):
                     run = p.add_run(part.strip())
                     if i % 2:  # Odd indices are italic
                         run.italic = True
+                        run.font.size = Pt(11)  # Set font size for italic text
+                    else:
+                        run.font.size = Pt(11)  # Set font size for regular text

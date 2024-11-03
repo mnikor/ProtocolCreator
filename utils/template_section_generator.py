@@ -11,36 +11,46 @@ class TemplateSectionGenerator:
         self.gpt_handler = GPTHandler()
     
     def generate_study_schema(self, study_type: str) -> str:
-        """Generate Mermaid diagram for study schema"""
+        """Generate Mermaid diagram with enhanced styling"""
         if study_type.startswith('phase'):
             phase = study_type[-1]
-            return f'''
-            graph TD
-                A[Screening] --> B[Randomization]
-                B --> C[Treatment Phase]
-                C --> D[Follow-up]
-                
-                subgraph "Phase {phase} Study Flow"
-                A
-                B
-                C
-                D
-                end
-            '''
+            return f'''```mermaid
+    graph TD
+        A[Screening] --> B[Randomization]
+        B --> C[Treatment Phase]
+        C --> D[Follow-up]
+        
+        style A fill:#f9f,stroke:#333,stroke-width:4px
+        style B fill:#bbf,stroke:#333,stroke-width:4px
+        style C fill:#dfd,stroke:#333,stroke-width:4px
+        style D fill:#fdd,stroke:#333,stroke-width:4px
+        
+        subgraph "Phase {phase} Study Flow"
+        A
+        B
+        C
+        D
+        end
+    ```'''
         elif study_type == 'observational':
-            return '''
-            graph TD
-                A[Enrollment] --> B[Data Collection]
-                B --> C[Follow-up]
-                C --> D[Analysis]
-                
-                subgraph "Observational Study Flow"
-                A
-                B
-                C
-                D
-                end
-            '''
+            return '''```mermaid
+    graph TD
+        A[Enrollment] --> B[Data Collection]
+        B --> C[Follow-up]
+        C --> D[Analysis]
+        
+        style A fill:#f9f,stroke:#333,stroke-width:4px
+        style B fill:#bbf,stroke:#333,stroke-width:4px
+        style C fill:#dfd,stroke:#333,stroke-width:4px
+        style D fill:#fdd,stroke:#333,stroke-width:4px
+        
+        subgraph "Observational Study Flow"
+        A
+        B
+        C
+        D
+        end
+    ```'''
         return None
 
     def generate_study_schedule_table(self, study_type: str, synopsis_content: str) -> str:
@@ -54,17 +64,21 @@ Include screening, treatment, and follow-up visits.'''
 
         table_content = self.gpt_handler.generate_content(prompt)
         
-        # Convert to HTML table format
-        return f'''
-        <table class="study-schedule">
-            <tr>
-                <th>Visit</th>
-                <th>Timepoint</th>
-                <th>Procedures</th>
-            </tr>
-            {table_content}
-        </table>
-        '''
+        # Convert pipe-separated text to HTML table if needed
+        if '|' in table_content and '<table' not in table_content:
+            rows = [row.strip() for row in table_content.split('\n') if row.strip()]
+            if rows:
+                table_html = '<table class="study-schedule">'
+                for i, row in enumerate(rows):
+                    cells = [cell.strip() for cell in row.split('|')]
+                    table_html += '<tr>'
+                    cell_tag = 'th' if i == 0 else 'td'
+                    table_html += ''.join(f'<{cell_tag}>{cell}</{cell_tag}>' for cell in cells)
+                    table_html += '</tr>'
+                table_html += '</table>'
+                return table_html
+        
+        return table_content
 
     def get_section_template(self, section_name: str, study_type: str) -> str:
         """Get the appropriate template for the section based on study type"""
@@ -94,6 +108,14 @@ Include screening, treatment, and follow-up visits.'''
                 logger.info(f"Section {section_name} excluded for study type {study_type}")
                 return ""
                 
+            # Special handling for title section
+            if section_name == "title":
+                title_template = self.get_section_template("title", study_type)
+                return self.gpt_handler.generate_content(
+                    prompt=f"Based on this synopsis:\n{synopsis_content}\n\n{title_template}",
+                    system_message="Generate a clear, descriptive study title."
+                )
+                
             # Get template
             template = self.get_section_template(section_name, study_type)
             
@@ -117,6 +139,7 @@ FORMATTING RULES (Do not include these rules in your response):
 - Format missing information as: [PLACEHOLDER: *description*]
 - Format recommendations as: [RECOMMENDED: *suggestion*]
 - Format tables using HTML table tags with appropriate classes
+- Use proper HTML table structure for all tabular data
 - Do not repeat or reference these formatting instructions in your response'''
             
             # Create user prompt focusing only on content
