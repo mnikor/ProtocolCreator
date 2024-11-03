@@ -31,23 +31,31 @@ class ProtocolPDFGenerator:
         """Add a title page to the PDF with improved styling"""
         self.pdf.add_page()
         
+        # Clean and encode title
+        clean_title = title.encode('latin-1', 'replace').decode('latin-1')
+        
         # Add title with proper positioning
         self.pdf.set_font('Arial', 'B', 24)
         self.pdf.ln(60)
-        self.pdf.cell(0, 10, title, align='C', ln=True)
+        self.pdf.cell(0, 10, clean_title, align='C', ln=True)
         
         # Add date with proper spacing
         self.pdf.ln(20)
         self.pdf.set_font('Arial', '', 12)
-        self.pdf.cell(0, 10, f'Generated: {time.strftime("%B %d, %Y")}', align='C', ln=True)
+        date_str = time.strftime("%B %d, %Y").encode('latin-1', 'replace').decode('latin-1')
+        self.pdf.cell(0, 10, f'Generated: {date_str}', align='C', ln=True)
     
     def add_section(self, section_name: str, content: str):
         """Add a section to the PDF with enhanced formatting"""
         self.pdf.add_page()
         
+        # Clean and encode section name
+        clean_name = section_name.replace('_', ' ').title()
+        clean_name = clean_name.encode('latin-1', 'replace').decode('latin-1')
+        
         # Add section heading
         self.pdf.set_font('Arial', 'B', 16)
-        self.pdf.cell(0, 10, section_name.replace('_', ' ').title(), ln=True)
+        self.pdf.cell(0, 10, clean_name, ln=True)
         self.pdf.ln(5)
         
         # Process content
@@ -55,7 +63,6 @@ class ProtocolPDFGenerator:
         self._add_formatted_text(content)
     
     def _add_formatted_text(self, text: str):
-        """Add text with proper formatting"""
         # Handle HTML tables first
         if '<table' in text:
             parts = text.split('<table')
@@ -73,44 +80,58 @@ class ProtocolPDFGenerator:
                     
                     # Convert and add table
                     table_text = self._convert_html_table(table_html)
-                    self._add_paragraphs(table_text)
+                    if table_text:
+                        self._add_paragraphs(table_text)
                     
                     # Add remaining text
                     if remaining_text.strip():
                         self._add_paragraphs(remaining_text)
         else:
             self._add_paragraphs(text)
-    
+
     def _add_paragraphs(self, text: str):
-        """Add paragraphs with proper formatting"""
-        paragraphs = text.split('\n')
-        for paragraph in paragraphs:
-            if paragraph.strip():
-                # Split by asterisks and add formatting
-                parts = paragraph.split('*')
-                for i, part in enumerate(parts):
-                    if part.strip():
-                        # Toggle between regular and italic
-                        self.pdf.set_font('Arial', 'I' if i % 2 else '', 11)
-                        self.pdf.multi_cell(0, 5, part.strip())
-                
-                # Add space between paragraphs
-                self.pdf.ln(3)
+        try:
+            # Ensure text is properly encoded
+            if isinstance(text, bytes):
+                text = text.decode('utf-8')
+            
+            paragraphs = text.split('\n')
+            for paragraph in paragraphs:
+                if paragraph.strip():
+                    # Split by asterisks and add formatting
+                    parts = paragraph.split('*')
+                    for i, part in enumerate(parts):
+                        if part.strip():
+                            # Toggle between regular and italic
+                            self.pdf.set_font('Arial', 'I' if i % 2 else '', 11)
+                            # Encode text properly for FPDF
+                            clean_text = part.strip().encode('latin-1', 'replace').decode('latin-1')
+                            self.pdf.multi_cell(0, 5, clean_text)
+                    
+                    # Add space between paragraphs
+                    self.pdf.ln(3)
+        except Exception as e:
+            logger.error(f"Error in _add_paragraphs: {str(e)}")
+            raise
     
     def _convert_html_table(self, table_html: str) -> str:
         """Convert HTML table to formatted text"""
-        rows = re.findall(r'<tr>(.*?)</tr>', table_html, re.DOTALL)
-        table_text = []
-        
-        for row in rows:
-            cells = re.findall(r'<t[hd]>(.*?)</t[hd]>', row)
-            formatted_row = ' | '.join(cell.strip() for cell in cells)
-            table_text.append(formatted_row)
+        try:
+            rows = re.findall(r'<tr>(.*?)</tr>', table_html, re.DOTALL)
+            table_text = []
             
-        return '\n'.join('  ' + row for row in table_text)
+            for row in rows:
+                cells = re.findall(r'<t[hd]>(.*?)</t[hd]>', row)
+                formatted_cells = [cell.strip().encode('latin-1', 'replace').decode('latin-1') for cell in cells]
+                formatted_row = ' | '.join(formatted_cells)
+                table_text.append(formatted_row)
+                
+            return '\n'.join('  ' + row for row in table_text)
+        except Exception as e:
+            logger.error(f"Error converting HTML table: {str(e)}")
+            return ""
     
     def generate_pdf(self, sections: Dict[str, str]) -> bytes:
-        '''Generate PDF from protocol sections'''
         try:
             # Add title page
             self.add_title_page('Study Protocol')
@@ -124,14 +145,17 @@ class ProtocolPDFGenerator:
             # Add TOC entries
             self.pdf.set_font('Arial', '', 12)
             for section_name in sections.keys():
-                self.pdf.cell(0, 8, f'- {section_name.replace("_", " ").title()}', ln=True)
+                # Clean section name for PDF
+                clean_name = section_name.replace('_', ' ').title()
+                clean_name = clean_name.encode('latin-1', 'replace').decode('latin-1')
+                self.pdf.cell(0, 8, f'- {clean_name}', ln=True)
             
             # Add sections
             for section_name, content in sections.items():
                 self.add_section(section_name, content)
             
-            # Save to string/bytes buffer
-            return bytes(self.pdf.output())
+            # Return PDF bytes
+            return self.pdf.output(dest='S').encode('latin-1')
             
         except Exception as e:
             logger.error(f'Error generating PDF: {str(e)}')
