@@ -1,7 +1,6 @@
 import streamlit as st
 import logging
 from utils.template_section_generator import TemplateSectionGenerator
-from utils.pdf_generator import ProtocolPDFGenerator
 from io import BytesIO
 from docx import Document
 from docx.shared import Pt, Inches
@@ -21,34 +20,19 @@ def render_navigator():
                 # Generate DOCX
                 docx_bytes = generate_docx(generated_sections)
                 
-                # Generate PDF
-                pdf_bytes = generate_pdf(generated_sections)
-                
-                # Add download buttons
-                col1, col2 = st.sidebar.columns(2)
-                
-                with col1:
-                    st.download_button(
-                        label='📄 DOCX',
-                        data=docx_bytes,
-                        file_name='protocol.docx',
-                        mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                        use_container_width=True
-                    )
-                
-                with col2:
-                    st.download_button(
-                        label='📑 PDF',
-                        data=pdf_bytes,
-                        file_name='protocol.pdf',
-                        mime='application/pdf',
-                        use_container_width=True
-                    )
+                # Add download button
+                st.sidebar.download_button(
+                    label='📄 Download DOCX',
+                    data=docx_bytes,
+                    file_name='protocol.docx',
+                    mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    use_container_width=True
+                )
                 
             except Exception as e:
                 error_msg = str(e)
-                logger.error(f'Error creating documents: {error_msg}')
-                st.sidebar.error(f'Error creating documents: {error_msg}')
+                logger.error(f'Error creating document: {error_msg}')
+                st.sidebar.error(f'Error creating document: {error_msg}')
     
     except Exception as e:
         logger.error(f'Error in navigator: {str(e)}')
@@ -106,15 +90,6 @@ def generate_docx(sections):
     doc.save(docx_bytes)
     docx_bytes.seek(0)
     return docx_bytes
-
-def generate_pdf(sections):
-    '''Generate PDF document'''
-    try:
-        pdf_generator = ProtocolPDFGenerator()
-        return pdf_generator.generate_pdf(sections)
-    except Exception as e:
-        logger.error(f'Error generating PDF: {str(e)}')
-        raise
 
 def add_text_with_formatting(doc, text):
     '''Add text to document with proper formatting'''
