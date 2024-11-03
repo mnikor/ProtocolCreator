@@ -76,40 +76,24 @@ def render_navigator():
                 st.sidebar.markdown('### 📥 Download Protocol')
                 
                 try:
-                    # Generate both formats with progress indication
-                    with st.spinner("Preparing documents..."):
+                    # Generate DOCX only for now
+                    with st.spinner("Preparing document..."):
                         # Generate DOCX
                         docx_bytes = generate_docx(generated_sections)
-                        
-                        # Generate PDF with improved styling
-                        pdf_generator = ProtocolPDFGenerator()
-                        pdf_bytes = pdf_generator.generate_pdf(generated_sections)
                     
-                    # Add download buttons in columns
-                    col1, col2 = st.sidebar.columns(2)
-                    
-                    with col1:
-                        st.download_button(
-                            label='📄 DOCX',
-                            data=docx_bytes,
-                            file_name='protocol.docx',
-                            mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                            use_container_width=True
-                        )
-                    
-                    with col2:
-                        st.download_button(
-                            label='📑 PDF',
-                            data=pdf_bytes,
-                            file_name='protocol.pdf',
-                            mime='application/pdf',
-                            use_container_width=True
-                        )
+                    # Add single download button
+                    st.sidebar.download_button(
+                        label='📄 Download DOCX',
+                        data=docx_bytes,
+                        file_name='protocol.docx',
+                        mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                        use_container_width=True
+                    )
                     
                 except Exception as e:
                     error_msg = str(e)
-                    logger.error(f'Error creating documents: {error_msg}')
-                    st.sidebar.error(f'Error creating documents: {error_msg}')
+                    logger.error(f'Error creating document: {error_msg}')
+                    st.sidebar.error(f'Error creating document: {error_msg}')
     
     except Exception as e:
         logger.error(f'Error in navigator: {str(e)}')
@@ -142,7 +126,7 @@ def generate_docx(sections):
         # Add section heading
         doc.add_heading(section_name.replace('_', ' ').title(), level=1)
         
-        # Process content with proper encoding handling
+        # Process content with proper encoding
         add_text_with_formatting(doc, content)
         doc.add_page_break()
     
@@ -186,7 +170,7 @@ def add_text_with_formatting(doc, text):
                             cells = re.findall(r'<t[hd]>(.*?)</t[hd]>', row)
                             for j, cell_content in enumerate(cells):
                                 table.cell(i, j).text = cell_content.strip()
-                                if i == 0:
+                                if i == 0:  # Make header row bold
                                     table.cell(i, j).paragraphs[0].runs[0].bold = True
                     
                     # Add remaining text
