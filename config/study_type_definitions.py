@@ -1,6 +1,7 @@
 COMPREHENSIVE_STUDY_CONFIGS = {
     'phase1': {
         'required_sections': [
+            'title',  # Add title first
             'background',
             'objectives',
             'study_design',
@@ -13,6 +14,7 @@ COMPREHENSIVE_STUDY_CONFIGS = {
     },
     'phase2': {
         'required_sections': [
+            'title',  # Add title first
             'background',
             'objectives',
             'study_design',
@@ -25,6 +27,7 @@ COMPREHENSIVE_STUDY_CONFIGS = {
     },
     'phase3': {
         'required_sections': [
+            'title',  # Add title first
             'background',
             'objectives',
             'study_design',
@@ -37,6 +40,7 @@ COMPREHENSIVE_STUDY_CONFIGS = {
     },
     'phase4': {
         'required_sections': [
+            'title',  # Add title first
             'background',
             'objectives',
             'study_design',
@@ -49,6 +53,7 @@ COMPREHENSIVE_STUDY_CONFIGS = {
     },
     'observational': {
         'required_sections': [
+            'title',  # Add title first
             'background',
             'objectives',
             'study_design',
@@ -61,6 +66,7 @@ COMPREHENSIVE_STUDY_CONFIGS = {
     },
     'medical_device': {
         'required_sections': [
+            'title',  # Add title first
             'background',
             'objectives',
             'device_description',
@@ -73,6 +79,7 @@ COMPREHENSIVE_STUDY_CONFIGS = {
     },
     'diagnostic': {
         'required_sections': [
+            'title',  # Add title first
             'background',
             'objectives',
             'test_description',
@@ -85,6 +92,7 @@ COMPREHENSIVE_STUDY_CONFIGS = {
     },
     'systematic_review': {
         'required_sections': [
+            'title',  # Add title first
             'background',
             'objectives',
             'search_strategy',
@@ -97,6 +105,7 @@ COMPREHENSIVE_STUDY_CONFIGS = {
     },
     'secondary_rwe': {
         'required_sections': [
+            'title',  # Add title first
             'background',
             'objectives',
             'data_source',
@@ -109,6 +118,7 @@ COMPREHENSIVE_STUDY_CONFIGS = {
     },
     'patient_survey': {
         'required_sections': [
+            'title',  # Add title first
             'background',
             'objectives',
             'survey_design',

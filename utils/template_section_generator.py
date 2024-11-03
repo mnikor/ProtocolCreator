@@ -104,17 +104,17 @@ Include screening, treatment, and follow-up visits.'''
             if not synopsis_content.strip():
                 raise ValueError("Synopsis content is empty")
                 
-            if not self.should_include_section(section_name, study_type):
-                logger.info(f"Section {section_name} excluded for study type {study_type}")
-                return ""
-                
-            # Special handling for title section
+            # Special handling for title section - move this before should_include_section check
             if section_name == "title":
                 title_template = self.get_section_template("title", study_type)
                 return self.gpt_handler.generate_content(
                     prompt=f"Based on this synopsis:\n{synopsis_content}\n\n{title_template}",
                     system_message="Generate a clear, descriptive study title."
                 )
+                
+            if not self.should_include_section(section_name, study_type):
+                logger.info(f"Section {section_name} excluded for study type {study_type}")
+                return ""
                 
             # Get template
             template = self.get_section_template(section_name, study_type)
