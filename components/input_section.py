@@ -15,6 +15,8 @@ def render_input_section():
         st.session_state.synopsis_input = ''
     if 'show_process_button' not in st.session_state:
         st.session_state.show_process_button = False
+    if 'ai_instructions' not in st.session_state:
+        st.session_state.ai_instructions = ''
     
     # File uploader first
     uploaded_file = st.file_uploader(
@@ -38,6 +40,19 @@ def render_input_section():
         help="Enter your study synopsis here",
         key="synopsis_text_input"
     )
+
+    # Add AI instructions text area
+    ai_instructions = st.text_area(
+        "Additional Instructions for AI (Optional)",
+        height=100,
+        help="Add specific instructions for the AI, e.g., 'Add additional biomarker assessments', 'Include quality of life endpoints', etc.",
+        placeholder="Enter any additional instructions for protocol generation...",
+        key="ai_instructions_input"
+    )
+    
+    # Store AI instructions in session state
+    if ai_instructions:
+        st.session_state.ai_instructions = ai_instructions
     
     # Process uploaded file if present
     if uploaded_file:
@@ -112,12 +127,16 @@ def render_input_section():
                         help="Begin protocol development"
                     ):
                         try:
-                            # Combine synopsis text with any missing field inputs
+                            # Combine synopsis text with any missing field inputs and AI instructions
                             final_synopsis = synopsis_text
                             if missing_info['critical_missing']:
                                 for field in missing_info['critical_fields']:
                                     if value := st.session_state.get(f"missing_{field}"):
                                         final_synopsis += f"\n{field.replace('_', ' ').title()}: {value}"
+                            
+                            # Add AI instructions if provided
+                            if ai_instructions := st.session_state.get('ai_instructions'):
+                                final_synopsis += f"\n\nAdditional Instructions:\n{ai_instructions}"
                             
                             # Store synopsis and study type
                             st.session_state.synopsis_content = final_synopsis
