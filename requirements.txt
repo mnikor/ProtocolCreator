@@ -10,3 +10,5 @@ fpdf2
 fpdf
 weasyprint==60.1
 streamlit-mermaid>=0.1.0
+beautifulsoup4>=4.9.3
+fpdf2>=2.7.5

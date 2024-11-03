@@ -8,10 +8,143 @@ from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import os
-from weasyprint import HTML, CSS
-from weasyprint.text.fonts import FontConfiguration
+from fpdf import FPDF
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
+
+class PDF(FPDF):
+    def __init__(self):
+        super().__init__()
+        
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Arial', 'I', 8)
+        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
+
+def extract_table_data(html_table):
+    '''Extract data from HTML table string'''
+    try:
+        soup = BeautifulSoup(html_table, 'html.parser')
+        rows = []
+        
+        # Get headers
+        headers = []
+        for th in soup.find_all('th'):
+            headers.append(th.text.strip())
+        if headers:
+            rows.append(headers)
+            
+        # Get data rows
+        for tr in soup.find_all('tr')[1:]:  # Skip header row
+            row = []
+            for td in tr.find_all('td'):
+                row.append(td.text.strip())
+            if row:
+                rows.append(row)
+                
+        return rows
+    except:
+        return None
+
+def create_pdf_table(pdf, rows):
+    '''Create PDF table from data rows'''
+    if not rows:
+        return
+        
+    # Calculate column widths
+    n_cols = len(rows[0])
+    col_width = pdf.get_page_width() / n_cols - 20
+    
+    # Add table headers
+    pdf.set_font('Arial', 'B', 10)
+    for header in rows[0]:
+        pdf.cell(col_width, 7, header, 1)
+    pdf.ln()
+    
+    # Add table data
+    pdf.set_font('Arial', '', 10)
+    for row in rows[1:]:
+        for cell in row:
+            pdf.cell(col_width, 6, cell, 1)
+        pdf.ln()
+
+def create_pdf(generated_sections):
+    try:
+        # Initialize PDF
+        pdf = PDF()
+        pdf.set_margins(20, 20, 20)
+        
+        # Title page
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 24)
+        pdf.cell(0, 20, 'Study Protocol', align='C', ln=True)
+        pdf.ln(20)
+        
+        # Add date
+        pdf.set_font('Arial', '', 12)
+        pdf.cell(0, 10, f'Generated: {time.strftime("%B %d, %Y")}', align='C', ln=True)
+        
+        # Table of contents
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 16)
+        pdf.cell(0, 10, 'Table of Contents', ln=True)
+        pdf.ln(5)
+        
+        # TOC entries with page numbers
+        pdf.set_font('Arial', '', 12)
+        toc_pages = {}
+        current_page = pdf.page_no() + 1
+        
+        for section in generated_sections:
+            section_title = section.replace('_', ' ').title()
+            toc_pages[section] = current_page
+            
+            # Add TOC entry with dots
+            dots = '.' * (50 - len(section_title))
+            pdf.cell(0, 8, f'{section_title} {dots} {current_page}', ln=True)
+            current_page += 1
+        
+        # Content pages
+        for section, content in generated_sections.items():
+            pdf.add_page()
+            
+            # Section heading
+            pdf.set_font('Arial', 'B', 14)
+            pdf.cell(0, 10, section.replace('_', ' ').title(), ln=True)
+            pdf.ln(5)
+            
+            # Process content
+            pdf.set_font('Arial', '', 11)
+            paragraphs = content.split('\n')
+            
+            for para in paragraphs:
+                if para.strip():
+                    if para.startswith('<table'):
+                        # Convert HTML table to PDF table
+                        rows = extract_table_data(para)
+                        if rows:
+                            create_pdf_table(pdf, rows)
+                            pdf.ln(5)
+                    elif para.startswith('```mermaid'):
+                        # Skip mermaid diagrams in PDF for now
+                        continue
+                    else:
+                        # Handle italic text
+                        parts = para.split('*')
+                        for i, part in enumerate(parts):
+                            if part.strip():
+                                pdf.set_font('Arial', 'I' if i % 2 else '', 11)
+                                pdf.multi_cell(0, 5, part.strip())
+                        pdf.ln(3)
+                else:
+                    pdf.ln(5)
+        
+        return pdf
+        
+    except Exception as e:
+        logger.error(f"Error creating PDF: {str(e)}")
+        raise Exception(f"Failed to create PDF document: {str(e)}")
 
 def check_connection():
     """Check if application can establish necessary connections"""
@@ -258,111 +391,36 @@ def render_navigator():
                                 use_container_width=True
                             )
                         
-                        # Generate PDF using WeasyPrint
-                        # Create HTML content from sections
-                        html_content = '''
-                        <html>
-                            <head>
-                                <style>
-                                    @page {
-                                        margin: 2.5cm;
-                                        @top-right {
-                                            content: counter(page);
-                                        }
-                                    }
-                                    body {
-                                        font-family: Arial, sans-serif;
-                                        line-height: 1.5;
-                                    }
-                                    h1 {
-                                        color: #2c3e50;
-                                        margin-top: 1em;
-                                        margin-bottom: 0.5em;
-                                    }
-                                    .toc-entry {
-                                        margin: 0.5em 0;
-                                        padding-left: 20px;
-                                    }
-                                    .content {
-                                        text-align: justify;
-                                    }
-                                    .italic {
-                                        font-style: italic;
-                                    }
-                                </style>
-                            </head>
-                            <body>
-                                <h1 style="text-align: center;">Study Protocol</h1>
-                                <div style="text-align: center; margin: 20px 0;">
-                                    Generated: ''' + time.strftime("%B %d, %Y") + '''
-                                </div>
-                                
-                                <h1>Table of Contents</h1>
-                        '''
-                        
-                        # Add TOC entries
-                        for section in generated_sections:
-                            html_content += f'<div class="toc-entry">{section.replace("_", " ").title()}</div>'
-                        
-                        # Add sections
-                        for section, content in generated_sections.items():
-                            html_content += f'''
-                                <h1>{section.replace("_", " ").title()}</h1>
-                                <div class="content">
-                            '''
+                        # Generate and download PDF
+                        try:
+                            pdf = create_pdf(generated_sections)
+                            temp_pdf = 'temp/protocol.pdf'
+                            pdf.output(temp_pdf)
                             
-                            # Handle italic markers
-                            paragraphs = content.split('\n')
-                            for para in paragraphs:
-                                if para.strip():
-                                    parts = para.split('*')
-                                    formatted_para = ''
-                                    for i, part in enumerate(parts):
-                                        if part.strip():
-                                            if i % 2:  # Odd indices are italic
-                                                formatted_para += f'<span class="italic">{part}</span>'
-                                            else:
-                                                formatted_para += part
-                                    html_content += f'<p>{formatted_para}</p>'
+                            with open(temp_pdf, 'rb') as f:
+                                pdf_data = f.read()
+                                st.sidebar.download_button(
+                                    label="📥 Download PDF",
+                                    data=pdf_data,
+                                    file_name="protocol.pdf",
+                                    mime="application/pdf",
+                                    use_container_width=True
+                                )
                             
-                            html_content += '</div>'
+                            # Cleanup PDF file
+                            os.remove(temp_pdf)
+                            
+                        except Exception as e:
+                            logger.error(f"Error creating PDF: {str(e)}")
+                            st.sidebar.warning("⚠️ PDF generation failed. Please try DOCX format.")
                         
-                        html_content += '''
-                            </body>
-                        </html>
-                        '''
-                        
-                        # Configure fonts
-                        font_config = FontConfiguration()
-                        
-                        # Generate PDF
-                        temp_pdf = 'temp/protocol.pdf'
-                        HTML(string=html_content).write_pdf(
-                            temp_pdf,
-                            font_config=font_config,
-                            presentational_hints=True
-                        )
-                        
-                        # Add PDF download button
-                        with open(temp_pdf, 'rb') as f:
-                            pdf_data = f.read()
-                            st.sidebar.download_button(
-                                label="📥 Download PDF",
-                                data=pdf_data,
-                                file_name="protocol.pdf",
-                                mime="application/pdf",
-                                use_container_width=True
-                            )
-                        
-                        # Cleanup temporary files
+                        # Cleanup DOCX file
                         os.remove(temp_docx)
-                        os.remove(temp_pdf)
                         
                     except Exception as e:
-                        error_msg = str(e)
-                        logger.error(f"Document creation error: {error_msg}")
-                        st.sidebar.error(f"Error creating documents: {error_msg}")
+                        logger.error(f"Error preparing downloads: {str(e)}")
+                        st.sidebar.error("Error preparing downloads. Please try again.")
                         
     except Exception as e:
-        logger.error(f"Error in navigator rendering: {str(e)}")
-        st.sidebar.error("An error occurred while rendering the navigator")
+        logger.error(f"Error in navigator: {str(e)}")
+        st.error(f"An error occurred: {str(e)}")
