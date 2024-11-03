@@ -1,6 +1,5 @@
 import logging
 from fpdf import FPDF
-import io
 from typing import Dict
 import time
 import re
@@ -111,7 +110,7 @@ class ProtocolPDFGenerator:
         return '\n'.join('  ' + row for row in table_text)
     
     def generate_pdf(self, sections: Dict[str, str]) -> bytes:
-        """Generate PDF from protocol sections"""
+        '''Generate PDF from protocol sections'''
         try:
             # Add title page
             self.add_title_page('Study Protocol')
@@ -131,11 +130,8 @@ class ProtocolPDFGenerator:
             for section_name, content in sections.items():
                 self.add_section(section_name, content)
             
-            # Get PDF bytes
-            pdf_bytes = io.BytesIO()
-            self.pdf.output(pdf_bytes)
-            pdf_bytes.seek(0)
-            return pdf_bytes.getvalue()
+            # Save to string/bytes buffer
+            return bytes(self.pdf.output())
             
         except Exception as e:
             logger.error(f'Error generating PDF: {str(e)}')
