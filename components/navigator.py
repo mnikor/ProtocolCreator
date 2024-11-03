@@ -15,7 +15,7 @@ def render_navigator():
     try:
         # Add download options if sections are generated
         if generated_sections := st.session_state.get('generated_sections'):
-            st.sidebar.markdown("### 📥 Download Protocol")
+            st.sidebar.markdown('### 📥 Download Protocol')
             
             try:
                 # Create document bytes
@@ -54,11 +54,12 @@ def render_navigator():
                             diagram_code = part[:diagram_end].strip()
                             
                             try:
-                                # Convert diagram to image
+                                # Convert diagram to image if converter is working
                                 diagram_image = render_mermaid_to_image(diagram_code)
-                                doc.add_picture(BytesIO(diagram_image))
+                                if diagram_image:
+                                    doc.add_picture(BytesIO(diagram_image))
                             except Exception as e:
-                                logger.error(f"Error rendering diagram: {str(e)}")
+                                logger.error(f'Error rendering diagram: {str(e)}')
                             
                             # Add remaining text
                             remaining_text = part[diagram_end + 3:].strip()
@@ -71,21 +72,21 @@ def render_navigator():
                 
                 # Add download button
                 st.sidebar.download_button(
-                    label="📄 Download Protocol",
+                    label='📄 Download Protocol',
                     data=docx_bytes,
-                    file_name="protocol.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    file_name='protocol.docx',
+                    mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                     use_container_width=True
                 )
                 
             except Exception as e:
                 error_msg = str(e)
-                logger.error(f"Error creating document: {error_msg}")
-                st.sidebar.error(f"Error creating documents: {error_msg}")
+                logger.error(f'Error creating document: {error_msg}')
+                st.sidebar.error(f'Error creating documents: {error_msg}')
     
     except Exception as e:
-        logger.error(f"Error in navigator: {str(e)}")
-        st.error(f"An error occurred while rendering the navigator: {str(e)}")
+        logger.error(f'Error in navigator: {str(e)}')
+        st.error(f'An error occurred while rendering the navigator: {str(e)}')
 
 def add_text_with_formatting(doc, text):
     '''Add text to document with proper formatting'''
