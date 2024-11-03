@@ -1,29 +1,48 @@
 import streamlit as st
 import logging
 import time
-from utils.template_section_generator import TemplateSectionGenerator
-from utils.synopsis_validator import SynopsisValidator
-from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
 from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import os
 from fpdf import FPDF
 from bs4 import BeautifulSoup
+import io
 
 logger = logging.getLogger(__name__)
 
 class PDF(FPDF):
     def __init__(self):
         super().__init__()
-        
+        self.set_auto_page_break(auto=True, margin=15)
+    
     def footer(self):
         self.set_y(-15)
         self.set_font('Arial', 'I', 8)
-        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
+        self.cell(0, 10, f'Page {self.page_no()}', align='C')
 
-def extract_table_data(html_table):
-    '''Extract data from HTML table string'''
+def process_mermaid_diagram(content: str) -> tuple[str, bytes]:
+    """Extract and convert Mermaid diagram to image"""
+    if '```mermaid' in content:
+        start = content.find('```mermaid') + 10
+        end = content.find('```', start)
+        if end != -1:
+            diagram_code = content[start:end].strip()
+            # Convert diagram to image
+            try:
+                from utils.mermaid_helper import render_mermaid_to_image
+                diagram_image = render_mermaid_to_image(diagram_code)
+                # Replace Mermaid code with placeholder
+                content = content[:content.find('```mermaid')] + \
+                         '[DIAGRAM_PLACEHOLDER]' + \
+                         content[end + 3:]
+                return content, diagram_image
+            except Exception as e:
+                logger.error(f"Error rendering Mermaid diagram: {str(e)}")
+    return content, None
+
+def extract_table_data(html_table: str) -> list:
+    """Extract data from HTML table string"""
     try:
         soup = BeautifulSoup(html_table, 'html.parser')
         rows = []
@@ -47,39 +66,68 @@ def extract_table_data(html_table):
     except:
         return None
 
-def create_pdf_table(pdf, rows):
-    '''Create PDF table from data rows'''
+def create_pdf_table(pdf: PDF, rows: list):
+    """Create PDF table with proper column widths"""
     if not rows:
         return
         
-    # Calculate column widths
+    # Calculate optimal column widths
     n_cols = len(rows[0])
-    col_width = pdf.get_page_width() / n_cols - 20
+    page_width = pdf.get_page_width() - 40  # Account for margins
+    col_width = page_width / n_cols
     
-    # Add table headers
+    # Table header
     pdf.set_font('Arial', 'B', 10)
     for header in rows[0]:
-        pdf.cell(col_width, 7, header, 1)
+        pdf.cell(col_width, 7, header.strip(), border=1)
     pdf.ln()
     
-    # Add table data
+    # Table data
     pdf.set_font('Arial', '', 10)
     for row in rows[1:]:
         for cell in row:
-            pdf.cell(col_width, 6, cell, 1)
+            pdf.cell(col_width, 6, cell.strip(), border=1)
         pdf.ln()
+    
+    pdf.ln(5)
 
-def create_pdf(generated_sections):
+def process_text_content(pdf: PDF, content: str):
+    """Process text content with tables and formatting"""
+    paragraphs = content.split('\n')
+    
+    for para in paragraphs:
+        if not para.strip():
+            pdf.ln(5)
+            continue
+            
+        if para.strip().startswith('<table'):
+            try:
+                rows = extract_table_data(para)
+                if rows:
+                    create_pdf_table(pdf, rows)
+                    pdf.ln(5)
+            except:
+                # If table processing fails, treat as normal text
+                pdf.multi_cell(0, 5, para.strip())
+        else:
+            # Handle italic text
+            parts = para.split('*')
+            for i, part in enumerate(parts):
+                if part.strip():
+                    pdf.set_font('Arial', 'I' if i % 2 else '', 11)
+                    pdf.multi_cell(0, 5, part.strip())
+            pdf.ln(3)
+
+def create_pdf(generated_sections: dict) -> PDF:
+    """Create PDF document with proper formatting"""
     try:
         # Initialize PDF
         pdf = PDF()
-        pdf.set_margins(20, 20, 20)
+        pdf.add_page()
         
         # Title page
-        pdf.add_page()
         pdf.set_font('Arial', 'B', 24)
         pdf.cell(0, 20, 'Study Protocol', align='C', ln=True)
-        pdf.ln(20)
         
         # Add date
         pdf.set_font('Arial', '', 12)
@@ -89,18 +137,16 @@ def create_pdf(generated_sections):
         pdf.add_page()
         pdf.set_font('Arial', 'B', 16)
         pdf.cell(0, 10, 'Table of Contents', ln=True)
-        pdf.ln(5)
         
-        # TOC entries with page numbers
+        # Track page numbers for TOC
+        section_pages = {}
+        current_page = 3  # Start after TOC
+        
+        # Add TOC entries
         pdf.set_font('Arial', '', 12)
-        toc_pages = {}
-        current_page = pdf.page_no() + 1
-        
         for section in generated_sections:
             section_title = section.replace('_', ' ').title()
-            toc_pages[section] = current_page
-            
-            # Add TOC entry with dots
+            section_pages[section] = current_page
             dots = '.' * (50 - len(section_title))
             pdf.cell(0, 8, f'{section_title} {dots} {current_page}', ln=True)
             current_page += 1
@@ -114,31 +160,35 @@ def create_pdf(generated_sections):
             pdf.cell(0, 10, section.replace('_', ' ').title(), ln=True)
             pdf.ln(5)
             
-            # Process content
-            pdf.set_font('Arial', '', 11)
-            paragraphs = content.split('\n')
+            # Content processing
+            content, diagram = process_mermaid_diagram(content)
             
-            for para in paragraphs:
-                if para.strip():
-                    if para.startswith('<table'):
-                        # Convert HTML table to PDF table
-                        rows = extract_table_data(para)
-                        if rows:
-                            create_pdf_table(pdf, rows)
-                            pdf.ln(5)
-                    elif para.startswith('```mermaid'):
-                        # Skip mermaid diagrams in PDF for now
-                        continue
-                    else:
-                        # Handle italic text
-                        parts = para.split('*')
-                        for i, part in enumerate(parts):
-                            if part.strip():
-                                pdf.set_font('Arial', 'I' if i % 2 else '', 11)
-                                pdf.multi_cell(0, 5, part.strip())
-                        pdf.ln(3)
-                else:
-                    pdf.ln(5)
+            # Add diagram if present
+            if diagram:
+                pdf.image(io.BytesIO(diagram), x=10, w=190)
+                pdf.ln(5)
+            
+            # Process remaining content
+            parts = content.split('<table')
+            
+            # Add first part (text before first table)
+            if parts[0].strip():
+                process_text_content(pdf, parts[0])
+            
+            # Process tables and remaining text
+            for i, part in enumerate(parts[1:], 1):
+                table_end = part.find('</table>')
+                if table_end != -1:
+                    # Extract and convert table
+                    table_html = '<table' + part[:table_end + 8]
+                    table_data = extract_table_data(table_html)
+                    if table_data:
+                        create_pdf_table(pdf, table_data)
+                    
+                    # Process remaining text
+                    remaining_text = part[table_end + 8:].strip()
+                    if remaining_text:
+                        process_text_content(pdf, remaining_text)
         
         return pdf
         
@@ -146,113 +196,105 @@ def create_pdf(generated_sections):
         logger.error(f"Error creating PDF: {str(e)}")
         raise Exception(f"Failed to create PDF document: {str(e)}")
 
+def add_text_with_formatting(doc: Document, text: str):
+    """Add text to document with proper formatting"""
+    for para in text.split('\n'):
+        if para.strip():
+            p = doc.add_paragraph()
+            parts = para.split('*')
+            for i, part in enumerate(parts):
+                if part.strip():
+                    run = p.add_run(part.strip())
+                    if i % 2:  # Odd indices are italic
+                        run.italic = True
+
+def add_table_to_doc(doc: Document, table_data: list):
+    """Add table to document with proper formatting"""
+    if not table_data:
+        return
+        
+    # Create table
+    table = doc.add_table(rows=len(table_data), cols=len(table_data[0]))
+    table.style = 'Table Grid'
+    
+    # Add data
+    for i, row in enumerate(table_data):
+        for j, cell in enumerate(row):
+            # Add cell content with bold headers
+            text = cell.strip()
+            cell = table.cell(i, j)
+            if i == 0:  # Header row
+                cell.paragraphs[0].runs[0].bold = True
+            cell.text = text
+            
+    doc.add_paragraph()  # Add spacing after table
+
+def create_docx(generated_sections: dict) -> Document:
+    """Create DOCX document with proper formatting"""
+    doc = Document()
+    
+    # Add title
+    doc.add_heading('Study Protocol', 0)
+    
+    # Add table of contents
+    doc.add_heading('Table of Contents', level=1)
+    for section in generated_sections:
+        doc.add_paragraph(
+            section.replace('_', ' ').title(),
+            style='TOC 1'
+        )
+    doc.add_page_break()
+    
+    # Process sections
+    for section, content in generated_sections.items():
+        # Add section heading
+        doc.add_heading(section.replace('_', ' ').title(), level=1)
+        
+        # Process content
+        content, diagram = process_mermaid_diagram(content)
+        
+        # Add diagram if present
+        if diagram:
+            doc.add_picture(io.BytesIO(diagram))
+            doc.add_paragraph()  # Add spacing
+            
+        # Process tables and text
+        parts = content.split('<table')
+        
+        # Add first part (text before first table)
+        if parts[0].strip():
+            add_text_with_formatting(doc, parts[0])
+            
+        # Process tables
+        for i, part in enumerate(parts[1:], 1):
+            table_end = part.find('</table>')
+            if table_end != -1:
+                # Extract and convert table
+                table_html = '<table' + part[:table_end + 8]
+                table_data = extract_table_data(table_html)
+                if table_data:
+                    add_table_to_doc(doc, table_data)
+                
+                # Add remaining text
+                remaining_text = part[table_end + 8:].strip()
+                if remaining_text:
+                    add_text_with_formatting(doc, remaining_text)
+                    
+    return doc
+
 def check_connection():
     """Check if application can establish necessary connections"""
     try:
+        from utils.template_section_generator import TemplateSectionGenerator
         generator = TemplateSectionGenerator()
         return True
     except Exception as e:
         logger.error(f"Connection check failed: {str(e)}")
         return False
 
-def create_docx(generated_sections):
-    try:
-        doc = Document()
-        
-        # Set up basic styles
-        styles = doc.styles
-        if 'TOC 1' not in styles:
-            toc_style = styles.add_style('TOC 1', 1)
-            toc_style.base_style = styles['Normal']
-            font = toc_style.font
-            font.size = Pt(12)
-            font.name = 'Calibri'
-        
-        # Add title
-        title = doc.add_heading('Study Protocol', 0)
-        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        doc.add_paragraph()
-        
-        # Add table of contents header
-        doc.add_heading('Table of Contents', level=1)
-        
-        # Add TOC entries as regular paragraphs with indentation
-        for section in generated_sections:
-            p = doc.add_paragraph(style='TOC 1')
-            p.paragraph_format.left_indent = Inches(0.25)
-            p.add_run(section.replace('_', ' ').title())
-        
-        doc.add_page_break()
-        
-        # Add sections with proper formatting
-        for section, content in generated_sections.items():
-            # Add section heading
-            heading = doc.add_heading(section.replace('_', ' ').title(), level=1)
-            
-            # Split content into paragraphs
-            paragraphs = content.split('\n')
-            for para in paragraphs:
-                if para.strip():
-                    p = doc.add_paragraph()
-                    # Handle formatting markers
-                    parts = para.split('*')
-                    for i, part in enumerate(parts):
-                        if part.strip():
-                            run = p.add_run(part.strip())
-                            run.font.name = 'Calibri'
-                            run.font.size = Pt(11)
-                            if i % 2:  # Odd indices are italic
-                                run.italic = True
-            
-            # Add spacing between sections
-            doc.add_paragraph()
-        
-        return doc
-        
-    except Exception as e:
-        logger.error(f"Error creating DOCX: {str(e)}")
-        raise Exception(f"Failed to create DOCX document: {str(e)}")
-
 def render_navigator():
     """Render the section navigator with improved generation tracking"""
     try:
-        # Add custom styling
-        st.markdown("""
-            <style>
-            .section-status {
-                font-size: 0.9em;
-                color: #666;
-                margin-top: 5px;
-            }
-            .progress-section {
-                background-color: #f8f9fa;
-                padding: 1rem;
-                border-radius: 10px;
-                margin-bottom: 1rem;
-            }
-            .stButton > button:first-child {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                height: 3em;
-                border-radius: 10px;
-                margin: 0.5em 0;
-                width: 100%;
-            }
-            .disabled-button {
-                opacity: 0.6;
-                cursor: not-allowed;
-            }
-            .download-buttons {
-                display: flex;
-                gap: 10px;
-            }
-            .download-buttons > div {
-                flex: 1;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-        
         # Initialize session state for progress tracking
         if 'generation_in_progress' not in st.session_state:
             st.session_state.generation_in_progress = False
@@ -268,6 +310,7 @@ def render_navigator():
         
         # Study type detection and analysis
         if synopsis_content := st.session_state.get('synopsis_content'):
+            from utils.synopsis_validator import SynopsisValidator
             validator = SynopsisValidator()
             validation_result = validator.validate_synopsis(synopsis_content)
             
@@ -287,6 +330,7 @@ def render_navigator():
             if study_type:
                 st.sidebar.markdown("### 📑 Protocol Sections")
                 
+                from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
                 study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
                 sections = study_config.get('required_sections', [])
                 
@@ -314,6 +358,7 @@ def render_navigator():
                         status_area = st.sidebar.empty()
                         
                         try:
+                            from utils.template_section_generator import TemplateSectionGenerator
                             generator = TemplateSectionGenerator()
                             sections = study_config.get('required_sections', [])
                             
