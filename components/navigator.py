@@ -216,6 +216,8 @@ def render_navigator():
         # Initialize session state for progress tracking
         if 'generation_in_progress' not in st.session_state:
             st.session_state.generation_in_progress = False
+        if 'section_status' not in st.session_state:
+            st.session_state.section_status = {}
             
         # Check connection
         if not check_connection():
