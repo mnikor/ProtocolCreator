@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class CustomPDF(FPDF):
     def __init__(self):
         super().__init__()
-        self.set_auto_page_break(auto=True, margin=30)  # Updated margin
+        self.set_auto_page_break(auto=True, margin=35)  # Updated margin
         # Use built-in Arial font for better compatibility
         self.set_font('Arial', '')
         
@@ -34,8 +34,8 @@ class ProtocolPDFGenerator:
     def setup_pdf_styles(self):
         '''Setup PDF styles and formatting'''
         # Set wider margins for better readability
-        self.pdf.set_margins(30, 30, 30)  # Left, Top, Right margins
-        self.pdf.set_auto_page_break(auto=True, margin=30)  # Bottom margin
+        self.pdf.set_margins(35, 35, 35)  # Increase left, top, right margins
+        self.pdf.set_auto_page_break(auto=True, margin=35)  # Increase bottom margin
     
     def add_title_page(self, title: str):
         """Add a title page to the PDF with improved styling"""
@@ -148,13 +148,21 @@ class ProtocolPDFGenerator:
                             self.pdf.set_font('Arial', 'I' if i % 2 else '', 11)
                             # Clean and encode text
                             clean_text = part.strip()
-                            # Remove any remaining non-ASCII characters
                             clean_text = ''.join(char if ord(char) < 128 else '_' for char in clean_text)
-                            # Calculate effective page width
-                            effective_width = self.pdf.w - (self.pdf.l_margin + self.pdf.r_margin)
-                            # Use multi_cell with calculated width and proper line height
-                            self.pdf.multi_cell(w=effective_width, h=6, txt=clean_text)
-                    self.pdf.ln(4)  # Space between paragraphs
+                            
+                            # Calculate effective width accounting for margins
+                            effective_width = self.pdf.w - (2 * self.pdf.l_margin)  # Double margin to account for both sides
+                            
+                            # Use multi_cell with proper width and height
+                            self.pdf.multi_cell(
+                                w=effective_width,
+                                h=6,  # Line height
+                                txt=clean_text,
+                                align='L'  # Left alignment
+                            )
+                    
+                    # Add proper spacing between paragraphs
+                    self.pdf.ln(4)
         except Exception as e:
             logger.error(f"Error in _add_paragraphs: {str(e)}")
             raise
@@ -166,8 +174,8 @@ class ProtocolPDFGenerator:
             
             rows = table_text.split('\n')
             if rows:
-                # Calculate column widths based on effective page width
-                effective_width = self.pdf.w - (self.pdf.l_margin + self.pdf.r_margin)
+                # Calculate effective width for table
+                effective_width = self.pdf.w - (2 * self.pdf.l_margin)
                 cols = rows[0].count('|') + 1
                 col_width = effective_width / cols
                 
