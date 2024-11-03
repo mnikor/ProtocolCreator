@@ -2,6 +2,7 @@ import streamlit as st
 import logging
 from utils.protocol_improver import ProtocolImprover
 from utils.gpt_handler import GPTHandler
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +12,8 @@ def update_section_content(section_name: str):
         content = st.session_state.generated_sections[section_name]
         for field_key, value in st.session_state.user_inputs.items():
             if field_key.startswith(f"{section_name}_"):
-                field = field_key.replace(f"{section_name}_", "")
+                # Extract field name without timestamp
+                field = '_'.join(field_key.split('_')[1:-2])  # Exclude section name, index and timestamp
                 placeholder = f"[PLACEHOLDER: *{field}*]"
                 content = content.replace(placeholder, value)
         
@@ -69,8 +71,9 @@ def render_editor():
                 if analysis['missing_fields']:
                     st.markdown(f"### 📝 {section_name.replace('_', ' ').title()}")
                     
-                    for field in analysis['missing_fields']:
-                        field_key = f"{section_name}_{field}"
+                    for idx, field in enumerate(analysis['missing_fields']):
+                        # Generate truly unique key using section, field, index and timestamp
+                        field_key = f"{section_name}_{field}_{idx}_{int(time.time())}"
                         col1, col2 = st.columns([2, 3])
                         
                         with col1:
@@ -87,7 +90,8 @@ def render_editor():
                             )
                             
                             # Add AI suggestion button
-                            if st.button(f"🤖 Get AI Suggestion", key=f"suggest_{field_key}", help="Generate AI suggestion for this field"):
+                            suggest_key = f"suggest_{field_key}"
+                            if st.button(f"🤖 Get AI Suggestion", key=suggest_key, help="Generate AI suggestion for this field"):
                                 with st.spinner("Generating suggestion..."):
                                     # Get suggestion from GPT
                                     prompt = f'''Based on this synopsis:
@@ -109,7 +113,8 @@ Format any key points with *italic* markers.'''
                                         st.error(f"Error generating suggestion: {str(e)}")
                     
                     # Add update button for each section
-                    if st.button(f"Update {section_name.title()}", key=f"update_{section_name}"):
+                    update_key = f"update_{section_name}_{int(time.time())}"
+                    if st.button(f"Update {section_name.title()}", key=update_key):
                         update_section_content(section_name)
                     
                     st.markdown("---")
@@ -120,11 +125,12 @@ Format any key points with *italic* markers.'''
         st.markdown("## 📄 Protocol Sections")
         for section_name, content in generated_sections.items():
             with st.expander(f"📝 {section_name.replace('_', ' ').title()}", expanded=False):
+                content_key = f"content_view_{section_name}_{int(time.time())}"
                 st.text_area(
                     "Section Content",
                     value=content,
                     height=200,
-                    key=f"content_{section_name}",
+                    key=content_key,
                     disabled=True
                 )
                 
@@ -139,13 +145,14 @@ Format any key points with *italic* markers.'''
         if st.session_state.user_inputs:
             st.markdown("---")
             st.markdown("### 🔄 Update All Sections")
-            if st.button("Update Protocol with All Input", type="primary"):
+            update_all_key = f"update_all_{int(time.time())}"
+            if st.button("Update Protocol with All Input", type="primary", key=update_all_key):
                 try:
                     updated_sections = dict(generated_sections)
                     for field_key, value in st.session_state.user_inputs.items():
                         section_name = field_key.split('_')[0]
                         if section_name in updated_sections:
-                            field = '_'.join(field_key.split('_')[1:])
+                            field = '_'.join(field_key.split('_')[1:-2])  # Extract field without index and timestamp
                             placeholder = f"[PLACEHOLDER: *{field}*]"
                             updated_sections[section_name] = updated_sections[section_name].replace(
                                 placeholder, value

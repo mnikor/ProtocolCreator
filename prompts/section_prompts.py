@@ -1,252 +1,284 @@
 
 SECTION_PROMPTS = {
-   # Full Clinical Protocol Generation Prompt with Example Outputs
-   # Full Clinical Protocol Generation Prompt with Example Outputs and Table Guidance
+    # Title
+    "title": """
+    Generate a descriptive Title for the study. This should clearly indicate:
+    - Study focus (e.g., intervention, condition)
+    - Phase of the study (if applicable)
+    - Population or key demographics
+    - If title specifics are missing, use *[PLACEHOLDER: Confirm study title]*.
 
-   # Background
-   """
-   Generate a comprehensive Background section with clinical context, treatment landscape, and study rationale based on the provided synopsis. Follow document guidelines for clarity and conciseness.
+    # Example Output:
+    """
+    [PLACEHOLDER: *Confirm study title and include intervention and target population*].
+    """
 
-   1. **Disease Background**:
-      - Describe disease prevalence, impact, and unmet needs. If prevalence data or historical treatment details are missing, insert *[PLACEHOLDER: Insert disease-specific statistics]*.
-      - Avoid marketing language; use "commonly used treatments" rather than "groundbreaking treatments."
+    *Validate the title for clarity and alignment with the study objectives.*
+    """,
 
-   2. **Current Treatment Landscape**:
-      - Outline current treatment options, limitations, and how this study addresses unmet needs. If details on treatment limitations are missing, add *[PLACEHOLDER: Confirm treatment landscape details]*.
+    # Background
+    "background": """
+    Generate a comprehensive Background section with clinical context, treatment landscape, and study rationale based on the provided synopsis. Follow document guidelines for clarity and conciseness.
 
-   3. **Study Rationale**:
-      - Explain why the chosen population, study design, and interventions are appropriate. Include justification for any specific patient demographics or exclusion criteria if relevant.
-      - If rationale details are absent, add *[PLACEHOLDER: Provide rationale for study population selection and study design]*.
+    1. **Disease Background**:
+       - Describe disease prevalence, impact, and unmet needs. If prevalence data or historical treatment details are missing, insert *[PLACEHOLDER: Insert disease-specific statistics]*.
+       - Avoid marketing language; use "commonly used treatments" rather than "groundbreaking treatments."
 
-   4. **Formatting and Presentation**:
-      - Use headers for subtopics and avoid introductory language. Aim for varied sentence structure to prevent repetitive phrasing.
+    2. **Current Treatment Landscape**:
+       - Outline current treatment options, limitations, and how this study addresses unmet needs. If details on treatment limitations are missing, add *[PLACEHOLDER: Confirm treatment landscape details]*.
 
-   # Example Output:
-   """
-   [PLACEHOLDER: *Insert disease-specific statistics for incidence and prevalence*].
-   [SUGGESTED CONTENT: *Describe the limitations of current treatment approaches and validate with recent studies*].
-   """
+    3. **Study Rationale**:
+       - Explain why the chosen population, study design, and interventions are appropriate. Include justification for any specific patient demographics or exclusion criteria if relevant.
+       - If rationale details are absent, add *[PLACEHOLDER: Provide rationale for study population selection and study design]*.
 
-   *Validate any placeholders with relevant literature or study-specific data.*
-   """
+    4. **Formatting and Presentation**:
+       - Use headers for subtopics and avoid introductory language. Aim for varied sentence structure to prevent repetitive phrasing.
 
-   ---
+    # Example Output:
+    """
+    [PLACEHOLDER: *Insert disease-specific statistics for incidence and prevalence*].
+    [SUGGESTED CONTENT: *Describe the limitations of current treatment approaches and validate with recent studies*].
+    """
 
-   # Objectives
-   """
-   Generate the Objectives section, ensuring primary and secondary objectives are clearly aligned with endpoints. If objectives are missing, include placeholders with validation recommendations.
+    *Validate any placeholders with relevant literature or study-specific data.*
+    """,
 
-   1. **Primary Objective(s)**:
-      - Define the primary focus, e.g., "Evaluate safety of [study intervention] in [population]." Use *[PLACEHOLDER: Define primary objective(s)]* if specific objectives are not provided.
+    # Objectives
+    "objectives": """
+    Generate the Objectives section, ensuring primary and secondary objectives are clearly aligned with endpoints. If objectives are missing, include placeholders with validation recommendations.
 
-   2. **Secondary Objective(s)**:
-      - Add secondary outcomes of interest (e.g., biomarker responses, QoL measures). If absent, include *[PLACEHOLDER: Confirm secondary objectives]*.
+    1. **Primary Objective(s)**:
+       - Define the primary focus, e.g., "Evaluate safety of [study intervention] in [population]." Use *[PLACEHOLDER: Define primary objective(s)]* if specific objectives are not provided.
 
-   3. **Endpoints and Hypothesis**:
-      - List endpoints in a table format for clarity, including the objectives and the measurement methods.
-      - **Table Guidance**: Use tables to organize endpoints with associated objectives and measurement methods.
+    2. **Secondary Objective(s)**:
+       - Add secondary outcomes of interest (e.g., biomarker responses, QoL measures). If absent, include *[PLACEHOLDER: Confirm secondary objectives]*.
 
-   # Example Output:
-   """
-   [PLACEHOLDER: *Confirm primary objective, such as overall survival or progression-free survival*].
-   [SUGGESTED CONTENT: *Secondary objectives might include quality of life or biomarker measures; validate with study scope*].
-   """
+    3. **Endpoints and Hypothesis**:
+       - List endpoints in a table format for clarity, including the objectives and the measurement methods.
 
-   *Validate placeholders to ensure objectives are specific and align with study scope.*
-   """
+    # Example Output:
+    """
+    [PLACEHOLDER: *Confirm primary objective, such as overall survival or progression-free survival*].
+    [SUGGESTED CONTENT: *Secondary objectives might include quality of life or biomarker measures; validate with study scope*].
+    """
 
-   ---
+    *Validate placeholders to ensure objectives are specific and align with study scope.*
+    """,
 
-   # Study Design
-   """
-   Describe the Study Design based on the provided synopsis and document standards. Include rationale for design elements and follow specific formatting instructions.
+    # Study Design
+    "study_design": """
+    Describe the Study Design based on the provided synopsis and document standards. Include rationale for design elements and follow specific formatting instructions.
 
-   1. **Overall Design**:
-      - Provide a high-level overview (e.g., double-blind, randomized) and include details like intervention assignment methods and blinding. If not specified, use *[PLACEHOLDER: Confirm overall study design details]*.
+    1. **Overall Design**:
+       - Provide a high-level overview (e.g., double-blind, randomized) and include details like intervention assignment methods and blinding. If not specified, use *[PLACEHOLDER: Confirm overall study design details]*.
 
-   2. **Intervention Groups**:
-      - Define each intervention arm, dose, and administration details. Insert *[PLACEHOLDER: Describe intervention groups and dose details]* if missing.
+    2. **Intervention Groups**:
+       - Define each intervention arm, dose, and administration details. Insert *[PLACEHOLDER: Describe intervention groups and dose details]* if missing.
 
-   3. **Study Duration**:
-      - Specify the length of each study phase. If unclear, use *[PLACEHOLDER: Specify study duration for each phase]*.
+    3. **Study Duration**:
+       - Specify the length of each study phase. If unclear, use *[PLACEHOLDER: Specify study duration for each phase]*.
 
-   4. **Study Schema**:
-      - Include a schematic diagram showing study phases if feasible.
+    4. **Study Schema**:
+       - Include a schematic diagram showing study phases if feasible.
 
-   5. **Formatting and Presentation**:
-      - **Table Guidance**: Use tables to summarize key study components, including treatment arms, dosing, and schedule, for easy reference.
+    # Example Output:
+    """
+    [PLACEHOLDER: *Define study blinding method (e.g., single-blind, double-blind)*].
+    [SUGGESTED CONTENT: *Summarize intervention groups and validate duration with study timeline*].
+    """
 
-   # Example Output:
-   """
-   [PLACEHOLDER: *Define study blinding method (e.g., single-blind, double-blind)*].
-   [SUGGESTED CONTENT: *Summarize intervention groups and validate duration with study timeline*].
-   """
+    *Validate placeholders with study coordinators for comprehensive detail.*
+    """,
 
-   *Validate placeholders with study coordinators for comprehensive detail.*
-   """
+    # Population
+    "population": """
+    Generate the Population section including key demographic details, eligibility, and sample size. If specifics are missing, use placeholders.
 
-   ---
+    1. **Inclusion Criteria**:
+       - Detail the requirements for participant eligibility (e.g., age, disease status). Use *[PLACEHOLDER: Confirm inclusion criteria]* if incomplete.
 
-   # Endpoints and Outcomes
-   """
-   Generate the Endpoints and Outcomes section, aligned with primary and secondary objectives. If any endpoints are missing, use placeholders.
+    2. **Exclusion Criteria**:
+       - Define exclusion factors to avoid potential confounders. Insert *[PLACEHOLDER: Confirm exclusion criteria]* if needed.
 
-   1. **Primary Endpoint**:
-      - Define the main outcome, e.g., “Overall survival.” If absent, add *[PLACEHOLDER: Define primary endpoint]*.
+    3. **Sample Size Justification**:
+       - Explain the sample size calculation or rationale, using *[PLACEHOLDER: Provide sample size details]* if information is missing.
 
-   2. **Secondary Endpoints**:
-      - List secondary outcomes, including any specific biomarkers or QoL measures. Use *[PLACEHOLDER: Specify secondary endpoints]* if missing.
+    # Example Output:
+    """
+    [PLACEHOLDER: *List inclusion/exclusion criteria relevant to the study population*].
+    [SUGGESTED CONTENT: *Provide a justification for sample size based on study endpoints*].
+    """
 
-   3. **Formatting Guidance**:
-      - **Table Guidance**: Organize endpoints in a table format to link each objective to its measurement method, creating a concise and structured view.
+    *Review placeholders for accuracy and alignment with study scope.*
+    """,
 
-   # Example Output:
-   """
-   [PLACEHOLDER: *Define primary endpoint, such as progression-free survival*].
-   [SUGGESTED CONTENT: *Include relevant secondary outcomes, like QoL or symptom reduction; confirm with objectives*].
-   """
+    # Procedures
+    "procedures": """
+    Detail study procedures including assessments, treatment administration, and follow-up based on protocol requirements.
 
-   *Review placeholders for alignment with study goals.*
-   """
+    1. **Screening Procedures**:
+       - Outline screening assessments and initial evaluations. Use *[PLACEHOLDER: Specify screening procedures]* if missing.
 
-   ---
+    2. **Treatment Administration**:
+       - Describe how the intervention will be administered, including frequency and dosage. Insert *[PLACEHOLDER: Describe treatment procedures]* if not provided.
 
-   # Data Sources and Collection Methods
-   """
-   Detail the data sources and collection methods according to document requirements. Use placeholders for any missing information.
+    3. **Follow-up Procedures**:
+       - Specify follow-up schedule and assessments. If unclear, add *[PLACEHOLDER: Confirm follow-up procedures]*.
 
-   1. **Data Sources**:
-      - List all sources (e.g., EHR, claims data). If data sources are not fully specified, add *[PLACEHOLDER: Confirm data sources]*.
+    # Example Output:
+    """
+    [PLACEHOLDER: *List screening procedures and follow-up intervals*].
+    [SUGGESTED CONTENT: *Provide specifics on treatment administration and follow-up assessments*].
+    """
 
-   2. **Data Collection Procedures**:
-      - Describe procedures, such as electronic data capture or paper CRFs, and timing. If specific methods are missing, insert *[PLACEHOLDER: Define data collection method]*.
+    *Validate each placeholder with study design requirements for accuracy.*
+    """,
 
-   3. **Formatting and Presentation**:
-      - **Table Guidance**: Use tables to list data sources, collection frequencies, and responsible parties, providing a clear and organized summary.
+    # Statistical Analysis Plan
+    "statistical_analysis": """
+    Generate a detailed Statistical Analysis Plan in line with study objectives. Use placeholders for missing methods or sample size calculations and provide recommendations for validation.
 
-   # Example Output:
-   """
-   [PLACEHOLDER: *Specify primary data sources like Flatiron or SEER-Medicare*].
-   [SUGGESTED CONTENT: *Consider other secondary data sources; validate with data management*].
-   """
+    1. **Primary Analysis**:
+       - Specify primary statistical methods (e.g., Cox regression for survival analysis). If these are missing, add *[PLACEHOLDER: Confirm primary analysis method]*.
 
-   *Confirm placeholders with the data management team.*
-   """
+    2. **Sample Size Calculation**:
+       - Specify sample size and power calculations. If not provided, add *[PLACEHOLDER: Insert sample size details]*.
 
-   ---
+    # Example Output:
+    """
+    [PLACEHOLDER: *Specify statistical methods like Cox regression or Kaplan-Meier analysis*].
+    [SUGGESTED CONTENT: *Include sample size and power calculation details; validate with a statistician*].
+    """
 
-   # Statistical Analysis Plan
-   """
-   Generate a detailed Statistical Analysis Plan in line with study objectives. Use placeholders for missing methods or sample size calculations and provide recommendations for validation.
+    *Validate placeholders with a biostatistician to ensure methodological rigor.*
+    """,
 
-   1. **Primary Analysis**:
-      - Specify primary statistical methods (e.g., Cox regression for survival analysis). If these are missing, add *[PLACEHOLDER: Confirm primary analysis method]*.
+    # Safety and Risk Management
+    "safety": """
+    Generate a detailed Safety and Risk Management section for the protocol, focusing on regular monitoring, adverse event reporting, and adherence to ICH E6 guidelines.
 
-   2. **Sample Size Calculation**:
-      - Specify sample size and power calculations. If not provided, add *[PLACEHOLDER: Insert sample size details]*.
+    1. **Vital Signs and Clinical Assessments**:
+       - Specify measurements (e.g., heart rate, blood pressure) and assessment schedules based on the synopsis. If any timing or frequency details are missing, insert *[PLACEHOLDER: Define schedule for specific vital sign assessments]*.
 
-   3. **Formatting Guidance**:
-      - Use structured paragraphs or bullet points for clarity.
+    2. **Adverse Events and Serious Adverse Events (SAEs)**:
+       - Describe the AE and SAE capture process, including specific reporting timelines and follow-up procedures. If these details are missing, add *[PLACEHOLDER: Confirm AE and SAE reporting protocols]*.
 
-   # Example Output:
-   """
-   [PLACEHOLDER: *Specify statistical methods like Cox regression or Kaplan-Meier analysis*].
-   [SUGGESTED CONTENT: *Include sample size and power calculation details; validate with a statistician*].
-   """
+    # Example Output:
+    """
+    [PLACEHOLDER: *Specify timelines for SAE reporting and monitoring*].
+    [SUGGESTED CONTENT: *Detail adverse event monitoring according to ICH guidelines*].
+    """
 
-   *Validate placeholders with a biostatistician to ensure methodological rigor.*
-   """
+    *Please validate any placeholders to ensure that this Safety section meets study-specific and regulatory requirements.*
+    """,
 
-   ---
+    # Ethical Considerations
+    "ethical_considerations": """
+    Create an Ethical Considerations section covering:
 
-   # Safety and Risk Management
-   """
-   Generate a detailed Safety and Risk Management section for the protocol, focusing on regular monitoring, adverse event reporting, and adherence to ICH E6 guidelines. Structure content based on available information from the synopsis. If key safety details are missing, provide clear placeholders in *italic font* with validation recommendations.
+    1. **Regulatory Compliance**:
+       - Outline adherence to Good Clinical Practice (GCP) and applicable regulations.
 
-   1. **Vital Signs and Clinical Assessments**:
-      - Specify measurements (e.g., heart rate, blood pressure) and assessment schedules based on the synopsis. If any timing or frequency details are missing, insert *[PLACEHOLDER: Define schedule for specific vital sign assessments]* and recommend validation with clinical study coordinators.
+    2. **Informed Consent**:
+       - Describe the informed consent process, including information shared with participants.
 
-   2. **Adverse Events and Serious Adverse Events (SAEs)**:
-      - Describe the AE and SAE capture process, including specific reporting timelines and follow-up procedures. If these details are missing, add *[PLACEHOLDER: Confirm AE and SAE reporting protocols]*.
+    3. **Data Privacy**:
+       - Mention measures for data confidentiality and participant privacy.
 
-   3. **Formatting and Presentation**:
-      - **Table Guidance**: Use a table format to outline each safety assessment, frequency, and rationale for clear reference.
+    If any details are not specified, add *[PLACEHOLDER: Confirm ethical considerations]*.
 
-   # Example Output:
-   """
-   [PLACEHOLDER: *Specify timelines for SAE reporting and monitoring*].
-   [SUGGESTED CONTENT: *Detail adverse event monitoring according to ICH guidelines; validate with regulatory team*].
-   """
+    # Example Output:
+    """
+    [PLACEHOLDER: *Confirm GCP and informed consent requirements*].
+    [SUGGESTED CONTENT: *Detail participant rights and data protection measures*].
+    """
 
-   *Please validate any placeholders to ensure that this Safety section meets study-specific and regulatory requirements.*
-   """
+    *Validate placeholders with ethics and regulatory teams.*
+    """,
 
-   ---
+    # Data Monitoring and Quality Control
+    "data_monitoring": """
+    Generate a Data Monitoring and Quality Control section detailing:
 
-   # Informed Consent Process
-   """
-   Generate an Informed Consent Process section, describing how participants will be informed about the study and how consent will be documented. Follow ethical and regulatory standards, and include placeholders for any missing details.
+    1. **Data Validation**:
+       - Describe measures for data consistency and accuracy (e.g., validation checks).
 
-   1. **Consent Procedures**:
-      - Describe the process for obtaining informed consent, including who will obtain it and when. If specifics are missing, insert *[PLACEHOLDER: Specify consent process details]*.
+    2. **Monitoring Visits**:
+       - Mention frequency and scope of monitoring visits to sites.
 
-   2. **Participant Information**:
-      - Outline the key information that will be provided to participants, including study purpose, procedures, risks, and benefits. If certain details are not available, add *[PLACEHOLDER: Confirm participant information content]*.
+    3. **Audit Procedures**:
+       - Outline audit processes for data integrity.
 
-   # Example Output:
-   """
-   [PLACEHOLDER: *Describe who will obtain consent and where it will be documented*].
-   [SUGGESTED CONTENT: *Ensure consent form covers risks, benefits, and study procedures; confirm with IRB*].
-   """
+    If any information is missing, insert *[PLACEHOLDER: Confirm quality control and monitoring details]*.
 
-   *Validate any placeholders to align with IRB and regulatory requirements.*
-   """
+    # Example Output:
+    """
+    [PLACEHOLDER: *Define monitoring intervals and data validation requirements*].
+    [SUGGESTED CONTENT: *Detail frequency of monitoring visits and audit standards*].
+    """
 
-   ---
+    *Confirm placeholders with data management to ensure protocol compliance.*
+    """,
 
-   # Randomization and Blinding
-   """
-   Generate a Randomization and Blinding section based on study design requirements. Detail the process for randomization, any blinding procedures, and use placeholders for missing details.
+    # Completion and Discontinuation Criteria
+    "completion_criteria": """
+    Define the Completion and Discontinuation Criteria for the study, including:
 
-   1. **Randomization Process**:
-      - Explain the method used for randomization (e.g., stratified, simple randomization). If the method is not specified, add *[PLACEHOLDER: Confirm randomization method]*.
+    1. **Participant Withdrawal**:
+       - Detail the conditions under which a participant might withdraw.
 
-   2. **Blinding Procedures**:
-      - Describe whether the study is single-blind, double-blind, or open-label, and explain how blinding will be maintained. If unclear, add *[PLACEHOLDER: Specify blinding approach]*.
+    2. **Study Termination**:
+       - Specify criteria that would trigger early termination of the study.
 
-   # Example Output:
-   """
-   [PLACEHOLDER: *Specify whether study is blinded and method used to conceal allocation*].
-   [SUGGESTED CONTENT: *Consider central randomization for unbiased assignment; confirm with study design requirements*].
-   """
+    Use *[PLACEHOLDER: Confirm discontinuation criteria]* for any missing details.
 
-   *Validate any placeholders with the clinical team for study integrity.*
-   """
+    # Example Output:
+    """
+    [PLACEHOLDER: *Specify withdrawal and study termination conditions*].
+    [SUGGESTED CONTENT: *Outline criteria for early study termination if applicable*].
+    """
 
-   ---
+    *Validate placeholders for consistency with study requirements.*
+    """,
 
-   # Quality Control and Data Management
-   """
-   Generate a Quality Control and Data Management section, detailing processes for ensuring data quality and handling. Include placeholders for any missing details.
+    # Informed Consent Process
+    "informed_consent": """
+    Detail the Informed Consent Process, focusing on procedural aspects:
 
-   1. **Quality Control Measures**:
-      - Describe quality control practices (e.g., monitoring visits, data validation checks). If not specified, add *[PLACEHOLDER: Confirm quality control procedures]*.
+    1. **Consent Documentation**:
+       - Describe how consent will be documented.
 
-   2. **Data Collection and Entry**:
-      - Explain data collection and entry methods, specifying electronic or paper-based systems. If missing, use *[PLACEHOLDER: Define data entry method]*.
+    2. **Information Disclosure**:
+       - Outline how key information (risks, benefits) is conveyed to participants.
 
-   3. **Data Security and Confidentiality**:
-      - Outline how data will be securely stored and accessed. If security protocols are not detailed, add *[PLACEHOLDER: Confirm data security and confidentiality measures]*.
+    Use *[PLACEHOLDER: Confirm consent process and documentation]* if specifics are absent.
 
-   # Example Output:
-   """
-   [PLACEHOLDER: *Specify data validation checks and monitoring schedule*].
-   [SUGGESTED CONTENT: *Consider regular data audits to ensure accuracy; validate with data management team*].
-   """
+    # Example Output:
+    """
+    [PLACEHOLDER: *Describe who will obtain consent and where it will be documented*].
+    [SUGGESTED CONTENT: *Ensure consent form covers risks, benefits, and study procedures*].
+    """
 
-   *Confirm placeholders with data management to ensure protocol compliance.*
-   """
+    *Validate any placeholders to align with IRB and regulatory requirements.*
+    """,
 
+    # Randomization and Blinding
+    "randomization_and_blinding": """
+    Generate a Randomization and Blinding section based on study design requirements. Detail the process for randomization, any blinding procedures, and use placeholders for missing details.
 
+    1. **Randomization Process**:
+       - Explain the method used for randomization (e.g., stratified, simple randomization). If the method is not specified, add *[PLACEHOLDER: Confirm randomization method]*.
 
+    2. **Blinding Procedures**:
+       - Describe whether the study is single-blind, double-blind, or open-label, and explain how blinding will be maintained. If unclear, add *[PLACEHOLDER: Specify blinding approach]*.
+
+    # Example Output:
+    """
+    [PLACEHOLDER: *Specify whether study is blinded and method used to conceal allocation*].
+    [SUGGESTED CONTENT: *Consider central randomization for unbiased assignment*].
+    """
+
+    *Validate any placeholders with the clinical team for study integrity.*
+    """
 }
+
