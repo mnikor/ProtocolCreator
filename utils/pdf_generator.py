@@ -37,7 +37,6 @@ class ProtocolPDFGenerator:
         '''Setup PDF styles and formatting'''
         # Set margins for better readability
         self.pdf.set_margins(25, 25, 25)
-        # Line height is handled by multi_cell spacing
     
     def add_title_page(self, title: str):
         """Add a title page to the PDF with improved styling"""
@@ -212,7 +211,6 @@ class ProtocolPDFGenerator:
             # Add table of contents
             self.pdf.add_page()
             self.pdf.set_font('Arial', 'B', 16)
-            # Encode TOC title
             toc_title = 'Table of Contents'.encode('latin-1', 'replace').decode('latin-1')
             self.pdf.cell(0, 10, toc_title, ln=True)
             self.pdf.ln(5)
@@ -224,12 +222,12 @@ class ProtocolPDFGenerator:
                 clean_name = clean_name.encode('latin-1', 'replace').decode('latin-1')
                 self.pdf.cell(0, 8, f'- {clean_name}', ln=True)
             
-            # Add sections with proper encoding
+            # Add sections
             for section_name, content in sections.items():
                 self.add_section(section_name, content)
             
-            # Return PDF bytes
-            return self.pdf.output().encode('latin-1')
+            # Return PDF bytes directly
+            return bytes(self.pdf.output())
             
         except Exception as e:
             logger.error(f'Error generating PDF: {str(e)}')
