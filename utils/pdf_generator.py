@@ -77,40 +77,6 @@ class ProtocolPDFGenerator:
             if isinstance(text, bytes):
                 text = text.decode('utf-8')
             
-            # Comprehensive character replacements
-            replacements = {
-                '•': '-',  # bullet
-                '–': '-',  # en dash
-                '—': '-',  # em dash
-                '"': '"',  # left double quote
-                '"': '"',  # right double quote
-                ''': "'",  # left single quote
-                ''': "'",  # right single quote
-                '≥': '>=', # greater than or equal
-                '≤': '<=', # less than or equal
-                '±': '+/-',  # plus-minus
-                '°': ' degrees ',  # degree
-                '×': 'x',  # multiplication
-                '→': '->',  # right arrow
-                '←': '<-',  # left arrow
-                'μ': 'u',  # micro
-                '≈': '~',  # approximately
-                '©': '(c)', # copyright
-                '®': '(R)', # registered trademark
-                '™': '(TM)', # trademark
-                '€': 'EUR', # euro
-                '£': 'GBP', # pound
-                '¥': 'JPY', # yen
-                '§': 'Section ', # section
-                '†': '*', # dagger
-                '‡': '**', # double dagger
-                '…': '...', # ellipsis
-            }
-            
-            # Apply all replacements
-            for old, new in replacements.items():
-                text = text.replace(old, new)
-            
             # Process tables first
             if '<table' in text:
                 parts = text.split('<table')
@@ -146,19 +112,18 @@ class ProtocolPDFGenerator:
                     for i, part in enumerate(parts):
                         if part.strip():
                             self.pdf.set_font('Arial', 'I' if i % 2 else '', 11)
-                            # Clean and encode text
+                            # Clean text while preserving UTF-8 characters
                             clean_text = part.strip()
-                            clean_text = ''.join(char if ord(char) < 128 else '_' for char in clean_text)
                             
                             # Calculate effective width accounting for margins
-                            effective_width = self.pdf.w - (2 * self.pdf.l_margin)  # Double margin to account for both sides
+                            effective_width = self.pdf.w - (2 * self.pdf.l_margin)
                             
-                            # Use multi_cell with proper width and height
+                            # Use multi_cell with proper width and UTF-8 text
                             self.pdf.multi_cell(
                                 w=effective_width,
                                 h=6,  # Line height
                                 txt=clean_text,
-                                align='L'  # Left alignment
+                                align='L'
                             )
                     
                     # Add proper spacing between paragraphs
@@ -179,22 +144,20 @@ class ProtocolPDFGenerator:
                 cols = rows[0].count('|') + 1
                 col_width = effective_width / cols
                 
-                # Add header row
+                # Add header row with UTF-8 support
                 cells = rows[0].split('|')
                 self.pdf.set_font('Arial', 'B', 10)
                 for cell in cells:
-                    clean_cell = ''.join(char if ord(char) < 128 else '_' for char in cell.strip())
-                    self.pdf.cell(col_width, 8, clean_cell, 1, 0, 'C', True)
+                    self.pdf.cell(col_width, 8, cell.strip(), 1, 0, 'C', True)
                 self.pdf.ln()
                 
-                # Add data rows
+                # Add data rows with UTF-8 support
                 self.pdf.set_font('Arial', '', 10)
                 for row in rows[1:]:
                     if row.strip():
                         cells = row.split('|')
                         for cell in cells:
-                            clean_cell = ''.join(char if ord(char) < 128 else '_' for char in cell.strip())
-                            self.pdf.cell(col_width, 6, clean_cell, 1, 0, 'L')
+                            self.pdf.cell(col_width, 6, cell.strip(), 1, 0, 'L')
                         self.pdf.ln()
                 
                 self.pdf.ln(4)
@@ -235,7 +198,7 @@ class ProtocolPDFGenerator:
             self.pdf.cell(0, 10, 'Table of Contents', ln=True)
             self.pdf.ln(5)
             
-            # Add TOC entries
+            # Add TOC entries with UTF-8 encoding
             self.pdf.set_font('Arial', '', 12)
             for section_name in sections.keys():
                 clean_name = section_name.replace('_', ' ').title()
@@ -245,8 +208,8 @@ class ProtocolPDFGenerator:
             for section_name, content in sections.items():
                 self.add_section(section_name, content)
             
-            # Get PDF bytes with proper encoding handling
-            return self.pdf.output('', 'S').encode('latin-1')
+            # Return PDF bytes with UTF-8 encoding
+            return self.pdf.output().encode('utf-8')
             
         except Exception as e:
             logger.error(f'Error generating PDF: {str(e)}')
