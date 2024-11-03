@@ -6,5 +6,5 @@ graphviz
 PyPDF2
 plotly
 python-dotenv
-fpdf2
+fpdf
 streamlit-mermaid>=0.1.0
