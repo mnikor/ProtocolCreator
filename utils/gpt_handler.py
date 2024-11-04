@@ -7,13 +7,25 @@ logger = logging.getLogger(__name__)
 class GPTHandler:
     def __init__(self):
         try:
-            api_key = os.environ.get('OPENAI_API_KEY')
-            if not api_key:
-                raise ValueError("OpenAI API key not found in environment")
-            self.client = OpenAI(api_key=api_key)
+            self.api_key = os.environ.get('OPENAI_API_KEY')
+            if not self.api_key:
+                raise ValueError("OpenAI API key not found")
+                
+            self.client = OpenAI(api_key=self.api_key)
+            
+            # Test connection with a simple completion
+            test_response = self.client.chat.completions.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": "test"}],
+                max_tokens=5
+            )
+            if not test_response.choices:
+                raise ValueError("Failed to get valid response from OpenAI API")
+                
             logger.info("GPT handler initialized successfully")
+            
         except Exception as e:
-            logger.error(f"Error initializing GPT handler: {str(e)}")
+            logger.error(f"Failed to initialize GPT handler: {str(e)}")
             raise
 
     def generate_content(self, prompt: str, system_message: str = None) -> str:

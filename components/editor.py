@@ -105,19 +105,32 @@ def render_missing_field_input(field: str, section_name: str, field_key: str):
         
         suggest_key = f"suggest_{field_key}"
         if st.button("🤖 Get AI Suggestion", key=suggest_key, help="Generate AI suggestion for this field"):
-            logger.info(f"AI suggestion button clicked for field: {field} in section: {section_name}")
             try:
+                logger.info(f"AI suggestion button clicked for {field} in {section_name}")
+                
+                # Initialize GPT handler first to catch any initialization errors
+                with st.spinner("Initializing AI..."):
+                    gpt_handler = GPTHandler()
+                    logger.info("GPT handler initialized")
+                    
+                # Then generate suggestion
                 with st.spinner("Generating suggestion..."):
+                    logger.info("Starting suggestion generation")
                     suggestion = generate_ai_suggestion(field, section_name)
+                    
                     if suggestion:
+                        logger.info("Suggestion generated successfully")
                         st.session_state.user_inputs[field_key] = suggestion
                         st.success("✅ AI suggestion generated!")
                         st.rerun()
                     else:
-                        st.error("Failed to generate suggestion - no content returned")
+                        logger.error("No suggestion generated")
+                        st.error("Failed to generate suggestion. Please try again.")
+                        
             except Exception as e:
-                st.error(f"Error generating suggestion: {str(e)}")
-                logger.error(f"AI suggestion error: {str(e)}")
+                error_msg = str(e)
+                logger.error(f"Error in AI suggestion flow: {error_msg}")
+                st.error(f"Error generating suggestion: {error_msg}")
 
 def render_missing_information(analysis_results):
     """Render missing information collection interface"""
@@ -170,7 +183,7 @@ def render_protocol_sections(analysis_results):
                         st.text_area(
                             "Section Content",
                             value=sections[section_name],
-                            height=300,  # Increased height for better visibility
+                            height=300,
                             key=content_key,
                             disabled=True
                         )
