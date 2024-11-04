@@ -15,22 +15,23 @@ def update_section_content(section_name: str, field: str, new_content: str):
 
 def generate_ai_suggestion(field: str, section_name: str) -> str:
     try:
-        synopsis_content = st.session_state.get('synopsis_content')
-        study_type = st.session_state.get('study_type')
-        
-        if not synopsis_content or not study_type:
-            st.error("⚠️ Missing required context. Please ensure protocol is generated first.")
+        if 'synopsis_content' not in st.session_state:
+            st.error("No synopsis content found")
             return None
             
+        if 'study_type' not in st.session_state:
+            st.error("Study type not detected")
+            return None
+        
         # Create GPT handler
         gpt_handler = GPTHandler()
         
         # Build prompt
         context = f'''Based on this synopsis:
-{synopsis_content}
+{st.session_state.synopsis_content}
 
 Generate specific content for the {field.replace('_', ' ')} field in the {section_name} section.
-This is for a {study_type} study.
+This is for a {st.session_state.study_type} study.
 
 Requirements:
 - Be specific and detailed
@@ -44,7 +45,11 @@ Requirements:
             system_message="You are a protocol development expert. Generate focused, scientific content."
         )
         
-        return suggestion
+        if suggestion:
+            return suggestion
+        else:
+            st.error("Failed to generate suggestion - no content returned")
+            return None
             
     except Exception as e:
         logger.error(f"AI suggestion error: {str(e)}")
@@ -63,16 +68,27 @@ def render_editor():
             
         # Show generated sections first
         st.markdown("## 📄 Generated Protocol Sections")
-        for section_name, content in st.session_state.generated_sections.items():
-            with st.expander(f"📝 {section_name.replace('_', ' ').title()}", expanded=False):
-                content_key = f"content_view_{section_name}"
-                st.text_area(
-                    "Section Content",
-                    value=content,
-                    height=200,
-                    key=content_key,
-                    disabled=True
-                )
+        
+        # Reordered sections display
+        ordered_sections = [
+            'title', 'background', 'objectives', 'study_design', 
+            'population', 'procedures', 'statistical_analysis', 
+            'safety', 'endpoints', 'ethical_considerations'
+        ]
+        
+        # Display sections in the specified order
+        for section_name in ordered_sections:
+            if section_name in st.session_state.generated_sections:
+                content = st.session_state.generated_sections[section_name]
+                with st.expander(f"📝 {section_name.replace('_', ' ').title()}", expanded=False):
+                    content_key = f"content_view_{section_name}"
+                    st.text_area(
+                        "Section Content",
+                        value=content,
+                        height=200,
+                        key=content_key,
+                        disabled=True
+                    )
         
         # Initialize improver
         improver = ProtocolImprover()
@@ -88,54 +104,64 @@ def render_editor():
             st.warning(f"Found {missing_count} items that need your attention")
             
             # Group missing fields by section
-            for section_name, analysis in analysis_results['section_analyses'].items():
-                if analysis['missing_fields']:
-                    st.markdown(f"### 📝 {section_name.replace('_', ' ').title()}")
-                    
-                    for idx, field in enumerate(analysis['missing_fields']):
-                        field_key = f"{section_name}_{field}_{idx}"
+            for section_name in ordered_sections:
+                if section_name in analysis_results['section_analyses']:
+                    analysis = analysis_results['section_analyses'][section_name]
+                    if analysis['missing_fields']:
+                        st.markdown(f"### 📝 {section_name.replace('_', ' ').title()}")
                         
-                        # Initialize state for this field if not exists
-                        if field_key not in st.session_state.editor_states:
-                            st.session_state.editor_states[field_key] = ""
+                        for idx, field in enumerate(analysis['missing_fields']):
+                            field_key = f"{section_name}_{field}_{idx}"
                             
-                        # Add input field
-                        current_value = st.text_area(
-                            label=f"Enter information for {field.replace('_', ' ')}:",
-                            value=st.session_state.editor_states[field_key],
-                            key=field_key,
-                            height=100
-                        )
-                        
-                        # Store value back in session state
-                        st.session_state.editor_states[field_key] = current_value
-                        
-                        # Add buttons in columns
-                        col1, col2 = st.columns(2)
-                        
-                        # AI Suggestion button in first column
-                        with col1:
-                            if st.button("🤖 Get AI Suggestion", key=f"suggest_{field_key}"):
-                                with st.spinner("Generating suggestion..."):
-                                    suggestion = generate_ai_suggestion(field, section_name)
-                                    if suggestion:
-                                        st.session_state.editor_states[field_key] = suggestion
-                                        st.success("✅ AI suggestion generated!")
-                                        st.rerun()
-                                    else:
-                                        st.error("Failed to generate suggestion")
-                        
-                        # Show Update Section button whenever there's content
-                        with col2:
-                            if current_value.strip():  # Show button if there's any content
-                                if st.button("📝 Update Section", key=f"update_{field_key}"):
-                                    update_section_content(
-                                        section_name=section_name,
-                                        field=field,
-                                        new_content=current_value
-                                    )
-                                    st.success("✅ Section updated!")
-                                    st.rerun()
+                            # Initialize state for this field if not exists
+                            if field_key not in st.session_state.editor_states:
+                                st.session_state.editor_states[field_key] = ""
+                                
+                            # Add input field
+                            current_value = st.text_area(
+                                label=f"Enter information for {field.replace('_', ' ')}:",
+                                value=st.session_state.editor_states[field_key],
+                                key=field_key,
+                                height=100
+                            )
+                            
+                            # Store value back in session state
+                            st.session_state.editor_states[field_key] = current_value
+                            
+                            # Add buttons in columns
+                            col1, col2 = st.columns(2)
+                            
+                            # AI Suggestion button in first column
+                            with col1:
+                                if st.button("🤖 Get AI Suggestion", key=f"suggest_{field_key}"):
+                                    try:
+                                        with st.spinner("Generating suggestion..."):
+                                            suggestion = generate_ai_suggestion(field, section_name)
+                                            if suggestion:
+                                                # Update state first
+                                                st.session_state.editor_states[field_key] = suggestion
+                                                st.success("✅ AI suggestion generated!")
+                                                # Use consistent rerun method
+                                                st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Error: {str(e)}")
+                            
+                            # Show Update Section button whenever there's content
+                            with col2:
+                                current_text = st.session_state.editor_states.get(field_key, "").strip()
+                                if current_text:  # Show button if there's any content
+                                    if st.button("📝 Update Section", key=f"update_{field_key}"):
+                                        try:
+                                            update_section_content(
+                                                section_name=section_name,
+                                                field=field,
+                                                new_content=current_text
+                                            )
+                                            st.success("✅ Section updated!")
+                                            # Use consistent rerun method
+                                            st.rerun()
+                                        except Exception as e:
+                                            st.error(f"Error: {str(e)}")
         else:
             st.success("✅ All required information has been provided")
             
