@@ -39,7 +39,6 @@ Requirements:
 - Format key points with *italic* markers
 - Be concise but comprehensive'''
 
-        # Generate suggestion
         suggestion = gpt_handler.generate_content(
             prompt=context,
             system_message="You are a protocol development expert. Generate focused, scientific content."
@@ -62,7 +61,7 @@ def render_editor():
         if not st.session_state.get('generated_sections'):
             return
             
-        # Initialize all session state variables first
+        # Initialize session state
         if 'editor_states' not in st.session_state:
             st.session_state.editor_states = {}
             
@@ -117,20 +116,21 @@ def render_editor():
                             if field_key not in st.session_state.editor_states:
                                 st.session_state.editor_states[field_key] = ""
                                 
-                            # Add input field
+                            # Add input field with proper state management
                             current_value = st.text_area(
                                 label=f"Enter information for {field.replace('_', ' ')}:",
                                 value=st.session_state.editor_states[field_key],
                                 key=field_key,
-                                height=100
+                                height=100,
+                                help=f"Enter details for {field.replace('_', ' ')}"
                             )
-                            
-                            # Store value back in session state
+
+                            # Store value back in session state immediately
                             st.session_state.editor_states[field_key] = current_value
-                            
-                            # Add buttons in columns
+
+                            # Add buttons in columns whenever there's content
                             col1, col2 = st.columns(2)
-                            
+
                             # AI Suggestion button in first column
                             with col1:
                                 if st.button("🤖 Get AI Suggestion", key=f"suggest_{field_key}"):
@@ -138,27 +138,23 @@ def render_editor():
                                         with st.spinner("Generating suggestion..."):
                                             suggestion = generate_ai_suggestion(field, section_name)
                                             if suggestion:
-                                                # Update state first
                                                 st.session_state.editor_states[field_key] = suggestion
                                                 st.success("✅ AI suggestion generated!")
-                                                # Use consistent rerun method
                                                 st.rerun()
                                     except Exception as e:
                                         st.error(f"Error: {str(e)}")
-                            
-                            # Show Update Section button whenever there's content
+
+                            # Show Update Section button whenever there's content (manual or AI)
                             with col2:
-                                current_text = st.session_state.editor_states.get(field_key, "").strip()
-                                if current_text:  # Show button if there's any content
+                                if current_value.strip():  # Show button for any non-empty content
                                     if st.button("📝 Update Section", key=f"update_{field_key}"):
                                         try:
                                             update_section_content(
                                                 section_name=section_name,
                                                 field=field,
-                                                new_content=current_text
+                                                new_content=current_value
                                             )
                                             st.success("✅ Section updated!")
-                                            # Use consistent rerun method
                                             st.rerun()
                                         except Exception as e:
                                             st.error(f"Error: {str(e)}")
