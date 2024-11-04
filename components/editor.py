@@ -8,9 +8,6 @@ logger = logging.getLogger(__name__)
 
 def generate_ai_suggestion(field: str, section_name: str) -> str:
     try:
-        gpt_handler = GPTHandler()
-        
-        # First verify we have the required session state
         if not st.session_state.get('synopsis_content'):
             st.error("No synopsis content found")
             return None
@@ -19,7 +16,12 @@ def generate_ai_suggestion(field: str, section_name: str) -> str:
             st.error("Study type not detected")
             return None
         
-        context = f'''Based on this synopsis:
+        # Create GPT handler first to catch initialization errors
+        gpt_handler = GPTHandler()
+        
+        # Show spinner while processing
+        with st.spinner("Generating AI suggestion..."):
+            context = f'''Based on this synopsis:
 {st.session_state.synopsis_content}
 
 Generate specific content for the {field.replace('_', ' ')} field in the {section_name} section.
@@ -31,21 +33,21 @@ Requirements:
 - Format key points with *italic* markers
 - Be concise but comprehensive'''
 
-        with st.spinner("Generating AI suggestion..."):
             suggestion = gpt_handler.generate_content(
                 prompt=context,
                 system_message="You are a protocol development expert. Generate focused, scientific content."
             )
             
-            if not suggestion:
+            if suggestion:
+                return suggestion
+            else:
                 st.error("Failed to generate suggestion - no content returned")
                 return None
-                
-            return suggestion
             
     except Exception as e:
-        logger.error(f"AI suggestion error: {str(e)}")
-        st.error(f"Error generating suggestion: {str(e)}")
+        error_msg = str(e)
+        logger.error(f"AI suggestion error: {error_msg}")
+        st.error(f"Error generating suggestion: {error_msg}")
         return None
 
 def update_section_content(section_name: str):
@@ -82,13 +84,17 @@ def render_missing_field_input(field: str, section_name: str, field_key: str):
         
         suggest_key = f"suggest_{field_key}"
         if st.button("🤖 Get AI Suggestion", key=suggest_key, help="Generate AI suggestion for this field"):
-            suggestion = generate_ai_suggestion(field, section_name)
-            if suggestion:
-                # Update session state without rerun
-                st.session_state.user_inputs[field_key] = suggestion
-                st.success("✅ AI suggestion generated!")
-                # Force rerun after success
-                st.rerun()
+            try:
+                suggestion = generate_ai_suggestion(field, section_name)
+                if suggestion:
+                    # Update session state
+                    st.session_state.user_inputs[field_key] = suggestion
+                    st.success("✅ AI suggestion generated!")
+                    time.sleep(0.5)  # Small delay to ensure state update
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Failed to generate suggestion: {str(e)}")
+                logger.error(f"AI suggestion error: {str(e)}")
 
 def render_missing_information(analysis_results):
     """Render missing information collection interface"""

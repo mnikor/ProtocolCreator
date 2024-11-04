@@ -17,26 +17,25 @@ class GPTHandler:
 
     def generate_content(self, prompt: str, system_message: str = None) -> str:
         try:
-            if not prompt.strip():
-                raise ValueError("Empty prompt provided")
-                
             messages = []
             if system_message:
                 messages.append({"role": "system", "content": system_message})
             messages.append({"role": "user", "content": prompt})
             
             response = self.client.chat.completions.create(
-                model="gpt-4o-2024-08-06",
+                model="gpt-4",  # Fixed model name
                 messages=messages,
                 temperature=0.3,
                 max_tokens=2000
             )
             
             if not response.choices:
+                logger.error("No choices in response")
                 raise ValueError("No response choices returned from API")
                 
             content = response.choices[0].message.content
             if not content:
+                logger.error("Empty content returned")
                 raise ValueError("Empty content returned from API")
                 
             return content
