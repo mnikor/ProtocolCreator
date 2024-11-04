@@ -15,34 +15,55 @@ def generate_ai_suggestion(field: str, section_name: str) -> str:
         if not st.session_state.get('study_type'):
             st.error("Study type not detected")
             return None
+            
+        # Get section analysis results
+        improver = ProtocolImprover()
+        analysis_results = improver.analyze_protocol_sections(st.session_state.generated_sections)
+        section_analysis = analysis_results['section_analyses'].get(section_name, {})
+        recommendations = section_analysis.get('recommendations', [])
         
-        # Create GPT handler first to catch initialization errors
+        # Create GPT handler
         gpt_handler = GPTHandler()
+        logger.info(f"Generating suggestion for field: {field} in section: {section_name}")
         
-        # Show spinner while processing
-        with st.spinner("Generating AI suggestion..."):
-            context = f'''Based on this synopsis:
+        # Build comprehensive prompt
+        context = f'''Based on this synopsis:
 {st.session_state.synopsis_content}
 
 Generate specific content for the {field.replace('_', ' ')} field in the {section_name} section.
 This is for a {st.session_state.study_type} study.
 
+Section Context:
+- Current Section: {section_name.replace('_', ' ').title()}
+- Field to Complete: {field.replace('_', ' ')}'''
+
+        # Add recommendations if available
+        if recommendations:
+            context += "\n\nConsider these recommendations:"
+            for rec in recommendations:
+                context += f"\n- {rec}"
+
+        context += '''
+
 Requirements:
 - Be specific and detailed
 - Match the study context and type
 - Format key points with *italic* markers
-- Be concise but comprehensive'''
+- Be concise but comprehensive
+- Address any recommendations provided'''
 
-            suggestion = gpt_handler.generate_content(
-                prompt=context,
-                system_message="You are a protocol development expert. Generate focused, scientific content."
-            )
-            
-            if suggestion:
-                return suggestion
-            else:
-                st.error("Failed to generate suggestion - no content returned")
-                return None
+        logger.info("Sending prompt to GPT")
+        suggestion = gpt_handler.generate_content(
+            prompt=context,
+            system_message="You are a protocol development expert. Generate focused, scientific content that specifically addresses the requested field and any provided recommendations."
+        )
+        
+        if suggestion:
+            logger.info("Suggestion generated successfully")
+            return suggestion
+        else:
+            logger.error("No content returned from GPT")
+            return None
             
     except Exception as e:
         error_msg = str(e)
@@ -84,16 +105,18 @@ def render_missing_field_input(field: str, section_name: str, field_key: str):
         
         suggest_key = f"suggest_{field_key}"
         if st.button("🤖 Get AI Suggestion", key=suggest_key, help="Generate AI suggestion for this field"):
+            logger.info(f"AI suggestion button clicked for field: {field} in section: {section_name}")
             try:
-                suggestion = generate_ai_suggestion(field, section_name)
-                if suggestion:
-                    # Update session state
-                    st.session_state.user_inputs[field_key] = suggestion
-                    st.success("✅ AI suggestion generated!")
-                    time.sleep(0.5)  # Small delay to ensure state update
-                    st.rerun()
+                with st.spinner("Generating suggestion..."):
+                    suggestion = generate_ai_suggestion(field, section_name)
+                    if suggestion:
+                        st.session_state.user_inputs[field_key] = suggestion
+                        st.success("✅ AI suggestion generated!")
+                        st.rerun()
+                    else:
+                        st.error("Failed to generate suggestion - no content returned")
             except Exception as e:
-                st.error(f"Failed to generate suggestion: {str(e)}")
+                st.error(f"Error generating suggestion: {str(e)}")
                 logger.error(f"AI suggestion error: {str(e)}")
 
 def render_missing_information(analysis_results):
@@ -147,7 +170,7 @@ def render_protocol_sections(analysis_results):
                         st.text_area(
                             "Section Content",
                             value=sections[section_name],
-                            height=200,
+                            height=300,  # Increased height for better visibility
                             key=content_key,
                             disabled=True
                         )
@@ -179,6 +202,13 @@ def render_editor():
         }
         .stButton > button {
             width: 100%;
+        }
+        .recommendation-box {
+            border: 1px solid #ffa600;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #fff8e6;
         }
         </style>
     """, unsafe_allow_html=True)
