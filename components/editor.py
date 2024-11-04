@@ -120,21 +120,21 @@ def render_editor():
                                 with st.spinner("Generating suggestion..."):
                                     suggestion = generate_ai_suggestion(field, section_name)
                                     if suggestion:
-                                        # Update state through the editor_states dictionary
                                         st.session_state.editor_states[field_key] = suggestion
                                         st.success("✅ AI suggestion generated!")
                                         st.rerun()
                                     else:
                                         st.error("Failed to generate suggestion")
 
-                        # Show update button only if we have content
-                        if st.session_state.editor_states.get(field_key):
-                            with col2:
+                        # Show update button whenever the text field has content
+                        with col2:
+                            current_text = st.session_state.editor_states.get(field_key, "").strip()
+                            if current_text:  # Show button if there's any non-empty content
                                 if st.button("📝 Update Section", key=update_key):
                                     update_section_content(
                                         section_name=section_name,
                                         field=field,
-                                        new_content=st.session_state.editor_states[field_key]
+                                        new_content=current_text
                                     )
                                     st.success("✅ Section updated!")
                                     st.rerun()
