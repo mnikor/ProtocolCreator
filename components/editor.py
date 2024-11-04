@@ -5,6 +5,14 @@ from utils.gpt_handler import GPTHandler
 
 logger = logging.getLogger(__name__)
 
+def update_section_content(section_name: str, field: str, new_content: str):
+    '''Update protocol section content'''
+    if section_name in st.session_state.generated_sections:
+        current_content = st.session_state.generated_sections[section_name]
+        # Replace or append the field content
+        updated_content = f"{current_content}\n\n{field.replace('_', ' ').title()}: {new_content}"
+        st.session_state.generated_sections[section_name] = updated_content
+
 def generate_ai_suggestion(field: str, section_name: str) -> str:
     try:
         synopsis_content = st.session_state.get('synopsis_content')
@@ -102,18 +110,34 @@ def render_editor():
                         # Store value back in session state
                         st.session_state.editor_states[field_key] = current_value
                         
-                        # Add AI suggestion button
+                        # Add AI suggestion button and update button in columns
                         suggest_key = f"suggest_{field_key}"
-                        if st.button("🤖 Get AI Suggestion", key=suggest_key):
-                            with st.spinner("Generating suggestion..."):
-                                suggestion = generate_ai_suggestion(field, section_name)
-                                if suggestion:
-                                    # Update state through the editor_states dictionary
-                                    st.session_state.editor_states[field_key] = suggestion
-                                    st.success("✅ AI suggestion generated!")
-                                    st.rerun()  # Changed from experimental_rerun to rerun
-                                else:
-                                    st.error("Failed to generate suggestion")
+                        update_key = f"update_{field_key}"
+
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("🤖 Get AI Suggestion", key=suggest_key):
+                                with st.spinner("Generating suggestion..."):
+                                    suggestion = generate_ai_suggestion(field, section_name)
+                                    if suggestion:
+                                        # Update state through the editor_states dictionary
+                                        st.session_state.editor_states[field_key] = suggestion
+                                        st.success("✅ AI suggestion generated!")
+                                        st.rerun()
+                                    else:
+                                        st.error("Failed to generate suggestion")
+
+                        # Show update button only if we have content
+                        if st.session_state.editor_states.get(field_key):
+                            with col2:
+                                if st.button("📝 Update Section", key=update_key):
+                                    update_section_content(
+                                        section_name=section_name,
+                                        field=field,
+                                        new_content=st.session_state.editor_states[field_key]
+                                    )
+                                    st.success("✅ Section updated!")
+                                    st.rerun()
         else:
             st.success("✅ All required information has been provided")
             
