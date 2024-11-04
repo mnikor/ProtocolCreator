@@ -7,9 +7,17 @@ import time
 logger = logging.getLogger(__name__)
 
 def generate_ai_suggestion(field: str, section_name: str) -> str:
-    """Generate AI suggestion for a specific field"""
     try:
         gpt_handler = GPTHandler()
+        
+        # First verify we have the required session state
+        if not st.session_state.get('synopsis_content'):
+            st.error("No synopsis content found")
+            return None
+            
+        if not st.session_state.get('study_type'):
+            st.error("Study type not detected")
+            return None
         
         context = f'''Based on this synopsis:
 {st.session_state.synopsis_content}
@@ -23,20 +31,22 @@ Requirements:
 - Format key points with *italic* markers
 - Be concise but comprehensive'''
 
-        suggestion = gpt_handler.generate_content(
-            prompt=context,
-            system_message="You are a protocol development expert. Generate focused, scientific content."
-        )
-        
-        if suggestion:
+        with st.spinner("Generating AI suggestion..."):
+            suggestion = gpt_handler.generate_content(
+                prompt=context,
+                system_message="You are a protocol development expert. Generate focused, scientific content."
+            )
+            
+            if not suggestion:
+                st.error("Failed to generate suggestion - no content returned")
+                return None
+                
             return suggestion
-        else:
-            logger.error("No content generated from GPT")
-            return None
             
     except Exception as e:
         logger.error(f"AI suggestion error: {str(e)}")
-        raise
+        st.error(f"Error generating suggestion: {str(e)}")
+        return None
 
 def update_section_content(section_name: str):
     """Update section content with user inputs"""
@@ -56,7 +66,6 @@ def update_section_content(section_name: str):
         st.error(f"Error updating section: {str(e)}")
 
 def render_missing_field_input(field: str, section_name: str, field_key: str):
-    """Render input field for missing information with improved feedback"""
     col1, col2 = st.columns([2, 3])
     
     with col1:
@@ -64,7 +73,7 @@ def render_missing_field_input(field: str, section_name: str, field_key: str):
     
     with col2:
         previous_value = st.session_state.user_inputs.get(field_key, "")
-        st.text_area(
+        current_input = st.text_area(
             label=f"Enter information for {field.replace('_', ' ')}:",
             value=previous_value,
             key=field_key,
@@ -73,19 +82,13 @@ def render_missing_field_input(field: str, section_name: str, field_key: str):
         
         suggest_key = f"suggest_{field_key}"
         if st.button("🤖 Get AI Suggestion", key=suggest_key, help="Generate AI suggestion for this field"):
-            try:
-                with st.spinner("Generating AI suggestion..."):
-                    suggestion = generate_ai_suggestion(field, section_name)
-                    if suggestion:
-                        st.session_state.user_inputs[field_key] = suggestion
-                        st.success("✅ AI suggestion generated!")
-                        st.experimental_rerun()
-                    else:
-                        st.error("Failed to generate suggestion. Please try again.")
-                        
-            except Exception as e:
-                st.error(f"Error generating suggestion: {str(e)}")
-                logger.error(f"AI suggestion error: {str(e)}")
+            suggestion = generate_ai_suggestion(field, section_name)
+            if suggestion:
+                # Update session state without rerun
+                st.session_state.user_inputs[field_key] = suggestion
+                st.success("✅ AI suggestion generated!")
+                # Force rerun after success
+                st.rerun()
 
 def render_missing_information(analysis_results):
     """Render missing information collection interface"""
@@ -115,13 +118,14 @@ def render_protocol_sections(analysis_results):
     """Render protocol sections with logical grouping"""
     sections = st.session_state.generated_sections
     
-    # Group sections logically
+    # Reorder sections logically
     section_groups = {
-        "Overview": ["title", "background", "objectives"],
-        "Methods": ["study_design", "population", "procedures"],
-        "Analysis": ["statistical_analysis", "endpoints"],
-        "Safety": ["safety", "ethical_considerations"],
-        "Additional": ["data_monitoring", "completion_criteria"]
+        "Study Overview": ["title", "background", "objectives"],
+        "Study Design": ["study_design", "population"],
+        "Procedures": ["procedures", "endpoints"],
+        "Analysis": ["statistical_analysis"],
+        "Safety & Ethics": ["safety", "ethical_considerations"],
+        "Monitoring": ["data_monitoring", "completion_criteria"]
     }
     
     # Create tabs for section groups
@@ -166,6 +170,9 @@ def render_editor():
             border-radius: 4px;
             padding: 8px 16px;
             font-weight: 600;
+        }
+        .stButton > button {
+            width: 100%;
         }
         </style>
     """, unsafe_allow_html=True)
