@@ -49,6 +49,10 @@ def render_editor():
         if not st.session_state.get('generated_sections'):
             return
             
+        # Initialize all session state variables first
+        if 'editor_states' not in st.session_state:
+            st.session_state.editor_states = {}
+            
         # Show generated sections first
         st.markdown("## 📄 Generated Protocol Sections")
         for section_name, content in st.session_state.generated_sections.items():
@@ -83,25 +87,33 @@ def render_editor():
                     for idx, field in enumerate(analysis['missing_fields']):
                         field_key = f"{section_name}_{field}_{idx}"
                         
-                        # Add input field
-                        if field_key not in st.session_state:
-                            st.session_state[field_key] = ""
+                        # Initialize state for this field if not exists
+                        if field_key not in st.session_state.editor_states:
+                            st.session_state.editor_states[field_key] = ""
                             
-                        st.text_area(
+                        # Add input field
+                        current_value = st.text_area(
                             label=f"Enter information for {field.replace('_', ' ')}:",
-                            value=st.session_state[field_key],
+                            value=st.session_state.editor_states[field_key],
                             key=field_key,
                             height=100
                         )
                         
+                        # Store value back in session state
+                        st.session_state.editor_states[field_key] = current_value
+                        
                         # Add AI suggestion button
                         suggest_key = f"suggest_{field_key}"
                         if st.button("🤖 Get AI Suggestion", key=suggest_key):
-                            suggestion = generate_ai_suggestion(field, section_name)
-                            if suggestion:
-                                st.session_state[field_key] = suggestion
-                                st.success("✅ AI suggestion generated!")
-                                st.experimental_rerun()
+                            with st.spinner("Generating suggestion..."):
+                                suggestion = generate_ai_suggestion(field, section_name)
+                                if suggestion:
+                                    # Update state through the editor_states dictionary
+                                    st.session_state.editor_states[field_key] = suggestion
+                                    st.success("✅ AI suggestion generated!")
+                                    st.experimental_rerun()
+                                else:
+                                    st.error("Failed to generate suggestion")
         else:
             st.success("✅ All required information has been provided")
             
