@@ -110,13 +110,12 @@ def render_editor():
                         # Store value back in session state
                         st.session_state.editor_states[field_key] = current_value
                         
-                        # Add AI suggestion button and update button in columns
-                        suggest_key = f"suggest_{field_key}"
-                        update_key = f"update_{field_key}"
-
+                        # Add buttons in columns
                         col1, col2 = st.columns(2)
+                        
+                        # AI Suggestion button in first column
                         with col1:
-                            if st.button("🤖 Get AI Suggestion", key=suggest_key):
+                            if st.button("🤖 Get AI Suggestion", key=f"suggest_{field_key}"):
                                 with st.spinner("Generating suggestion..."):
                                     suggestion = generate_ai_suggestion(field, section_name)
                                     if suggestion:
@@ -125,16 +124,15 @@ def render_editor():
                                         st.rerun()
                                     else:
                                         st.error("Failed to generate suggestion")
-
-                        # Show update button whenever the text field has content
+                        
+                        # Show Update Section button whenever there's content
                         with col2:
-                            current_text = st.session_state.editor_states.get(field_key, "").strip()
-                            if current_text:  # Show button if there's any non-empty content
-                                if st.button("📝 Update Section", key=update_key):
+                            if current_value.strip():  # Show button if there's any content
+                                if st.button("📝 Update Section", key=f"update_{field_key}"):
                                     update_section_content(
                                         section_name=section_name,
                                         field=field,
-                                        new_content=current_text
+                                        new_content=current_value
                                     )
                                     st.success("✅ Section updated!")
                                     st.rerun()
