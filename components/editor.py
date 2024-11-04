@@ -12,8 +12,7 @@ def update_section_content(section_name: str):
         content = st.session_state.generated_sections[section_name]
         for field_key, value in st.session_state.user_inputs.items():
             if field_key.startswith(f"{section_name}_"):
-                # Extract field name without timestamp
-                field = '_'.join(field_key.split('_')[1:-2])  # Exclude section name, index and timestamp
+                field = '_'.join(field_key.split('_')[1:-2])
                 placeholder = f"[PLACEHOLDER: *{field}*]"
                 content = content.replace(placeholder, value)
         
@@ -23,9 +22,107 @@ def update_section_content(section_name: str):
     except Exception as e:
         st.error(f"Error updating section: {str(e)}")
 
+def render_missing_information(analysis_results):
+    """Render missing information collection interface"""
+    missing_count = sum(len(section['missing_fields']) 
+                      for section in analysis_results['section_analyses'].values())
+    
+    if missing_count > 0:
+        st.warning(f"Found {missing_count} items that need your attention")
+        
+        for section_name, analysis in analysis_results['section_analyses'].items():
+            if analysis['missing_fields']:
+                st.markdown(f"### 📝 {section_name.replace('_', ' ').title()}")
+                
+                for idx, field in enumerate(analysis['missing_fields']):
+                    field_key = f"{section_name}_{field}_{idx}_{int(time.time())}"
+                    col1, col2 = st.columns([2, 3])
+                    
+                    with col1:
+                        st.markdown(f"**{field.replace('_', ' ').title()}**")
+                    
+                    with col2:
+                        previous_value = st.session_state.user_inputs.get(field_key, "")
+                        st.text_area(
+                            label=f"Enter information for {field.replace('_', ' ')}:",
+                            value=previous_value,
+                            key=field_key,
+                            height=100
+                        )
+                        
+                        suggest_key = f"suggest_{field_key}"
+                        if st.button(f"🤖 Get AI Suggestion", key=suggest_key, help="Generate AI suggestion for this field"):
+                            with st.spinner("Generating suggestion..."):
+                                try:
+                                    gpt_handler = GPTHandler()
+                                    context = f"""Study Type: {st.session_state.study_type}
+                                    
+Synopsis:
+{st.session_state.synopsis_content}
+
+Generate specific, detailed content for the {field.replace('_', ' ')} field in the {section_name} section.
+Focus on providing relevant information that matches the study context and type.
+Format key points with *italic* markers.
+Be concise but comprehensive."""
+
+                                    suggestion = gpt_handler.generate_content(
+                                        prompt=context,
+                                        system_message="You are a protocol development expert. Generate focused content that follows scientific writing principles."
+                                    )
+                                    
+                                    st.session_state.user_inputs[field_key] = suggestion
+                                    st.success("✅ Suggestion generated!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error generating suggestion: {str(e)}")
+                
+                update_key = f"update_{section_name}_{int(time.time())}"
+                if st.button(f"Update {section_name.title()}", key=update_key):
+                    update_section_content(section_name)
+                
+                st.markdown("---")
+    else:
+        st.success("✅ All required information has been provided")
+
+def render_protocol_sections(analysis_results):
+    """Render protocol sections with tabs"""
+    sections = st.session_state.generated_sections
+    
+    # Group sections logically
+    section_groups = {
+        "Study Overview": ["title", "background", "objectives"],
+        "Methods": ["study_design", "population", "procedures"],
+        "Analysis": ["statistical_analysis", "endpoints"],
+        "Safety & Ethics": ["safety", "ethical_considerations"],
+        "Additional": ["data_monitoring", "completion_criteria"]
+    }
+    
+    # Create tabs for section groups
+    tabs = st.tabs([group for group in section_groups.keys() if any(section in sections for section in section_groups[group])])
+    
+    for tab, (group_name, group_sections) in zip(tabs, section_groups.items()):
+        with tab:
+            for section_name in group_sections:
+                if section_name in sections:
+                    with st.expander(f"📝 {section_name.replace('_', ' ').title()}", expanded=False):
+                        content_key = f"content_view_{section_name}_{int(time.time())}"
+                        st.text_area(
+                            "Section Content",
+                            value=sections[section_name],
+                            height=200,
+                            key=content_key,
+                            disabled=True
+                        )
+                        
+                        # Display recommendations
+                        recommendations = analysis_results['section_analyses'][section_name].get('recommendations', [])
+                        if recommendations:
+                            st.markdown("#### 💡 Recommendations")
+                            for rec in recommendations:
+                                st.info(rec)
+
 def render_editor():
-    """Render the protocol editor with enhanced missing information detection"""
-    # Initialize improver
+    """Render the protocol editor with enhanced organization"""
     improver = ProtocolImprover()
     
     # Add custom styling
@@ -36,6 +133,17 @@ def render_editor():
             color: white !important;
             padding: 0.5rem !important;
             margin-top: 0.5rem !important;
+        }
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 8px;
+        }
+        .stTabs [data-baseweb="tab"] {
+            height: 50px;
+            white-space: pre-wrap;
+            background-color: #f0f2f6;
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-weight: 600;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -54,92 +162,17 @@ def render_editor():
     
     # Display generated sections if available
     if generated_sections := st.session_state.get('generated_sections'):
-        # Add prominent missing information summary at the top
-        st.markdown("## 🚨 Missing Information")
-        st.markdown("Please provide the following required information:")
+        # Create main tabs
+        tab1, tab2 = st.tabs(["🚨 Missing Information", "📄 Protocol Sections"])
         
-        # Analyze protocol sections
-        analysis_results = improver.analyze_protocol_sections(generated_sections)
-        missing_count = sum(len(section['missing_fields']) 
-                          for section in analysis_results['section_analyses'].values())
+        with tab1:
+            st.markdown("## Required Information")
+            analysis_results = improver.analyze_protocol_sections(generated_sections)
+            render_missing_information(analysis_results)
         
-        if missing_count > 0:
-            st.warning(f"Found {missing_count} items that need your attention")
-            
-            # Group missing fields by section
-            for section_name, analysis in analysis_results['section_analyses'].items():
-                if analysis['missing_fields']:
-                    st.markdown(f"### 📝 {section_name.replace('_', ' ').title()}")
-                    
-                    for idx, field in enumerate(analysis['missing_fields']):
-                        # Generate truly unique key using section, field, index and timestamp
-                        field_key = f"{section_name}_{field}_{idx}_{int(time.time())}"
-                        col1, col2 = st.columns([2, 3])
-                        
-                        with col1:
-                            st.markdown(f"**{field.replace('_', ' ').title()}**")
-                        
-                        with col2:
-                            # Add input field with previous value
-                            previous_value = st.session_state.user_inputs.get(field_key, "")
-                            st.text_area(
-                                label=f"Enter information for {field.replace('_', ' ')}:",
-                                value=previous_value,
-                                key=field_key,
-                                height=100
-                            )
-                            
-                            # Add AI suggestion button
-                            suggest_key = f"suggest_{field_key}"
-                            if st.button(f"🤖 Get AI Suggestion", key=suggest_key, help="Generate AI suggestion for this field"):
-                                with st.spinner("Generating suggestion..."):
-                                    # Get suggestion from GPT
-                                    prompt = f'''Based on this synopsis:
-{st.session_state.synopsis_content}
-
-Generate specific content for the {field.replace('_', ' ')} field in the {section_name} section.
-Focus on providing detailed, relevant information that matches the study context.
-Format any key points with *italic* markers.'''
-
-                                    try:
-                                        gpt_handler = GPTHandler()
-                                        suggestion = gpt_handler.generate_content(prompt)
-                                        
-                                        # Store suggestion in session state
-                                        st.session_state.user_inputs[field_key] = suggestion
-                                        st.success("✅ Suggestion generated!")
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(f"Error generating suggestion: {str(e)}")
-                    
-                    # Add update button for each section
-                    update_key = f"update_{section_name}_{int(time.time())}"
-                    if st.button(f"Update {section_name.title()}", key=update_key):
-                        update_section_content(section_name)
-                    
-                    st.markdown("---")
-        else:
-            st.success("✅ All required information has been provided")
-        
-        # Show protocol sections after missing information
-        st.markdown("## 📄 Protocol Sections")
-        for section_name, content in generated_sections.items():
-            with st.expander(f"📝 {section_name.replace('_', ' ').title()}", expanded=False):
-                content_key = f"content_view_{section_name}_{int(time.time())}"
-                st.text_area(
-                    "Section Content",
-                    value=content,
-                    height=200,
-                    key=content_key,
-                    disabled=True
-                )
-                
-                # Display recommendations if any
-                recommendations = analysis_results['section_analyses'][section_name].get('recommendations', [])
-                if recommendations:
-                    st.markdown("#### 💡 Recommendations")
-                    for rec in recommendations:
-                        st.info(rec)
+        with tab2:
+            st.markdown("## Protocol Content")
+            render_protocol_sections(analysis_results)
         
         # Global Update Button
         if st.session_state.user_inputs:
@@ -152,7 +185,7 @@ Format any key points with *italic* markers.'''
                     for field_key, value in st.session_state.user_inputs.items():
                         section_name = field_key.split('_')[0]
                         if section_name in updated_sections:
-                            field = '_'.join(field_key.split('_')[1:-2])  # Extract field without index and timestamp
+                            field = '_'.join(field_key.split('_')[1:-2])
                             placeholder = f"[PLACEHOLDER: *{field}*]"
                             updated_sections[section_name] = updated_sections[section_name].replace(
                                 placeholder, value
