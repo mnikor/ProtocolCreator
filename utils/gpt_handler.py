@@ -10,7 +10,7 @@ class GPTHandler:
         self.client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
 
     def generate_content(self, prompt: str, system_message: str = None) -> str:
-        '''Generate content using GPT-4 based on the provided prompt'''
+        """Generate content using GPT-4 based on the provided prompt"""
         try:
             messages = []
             if system_message:
@@ -18,12 +18,18 @@ class GPTHandler:
             messages.append({"role": "user", "content": prompt})
             
             response = self.client.chat.completions.create(
-                model="gpt-4o-2024-08-06",
+                model="gpt-4",  # Fixed model name
                 messages=messages,
                 temperature=0.3,
-                max_tokens=16000
+                max_tokens=2000
             )
+            
+            if not response.choices:
+                logger.error("No response generated from GPT")
+                return None
+                
             return response.choices[0].message.content
+            
         except Exception as e:
             logger.error(f"Error generating content: {str(e)}")
             raise

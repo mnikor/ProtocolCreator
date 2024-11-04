@@ -6,6 +6,7 @@ import time
 
 logger = logging.getLogger(__name__)
 
+# Helper Functions
 def update_section_content(section_name: str):
     """Update section content with user inputs"""
     try:
@@ -20,8 +21,43 @@ def update_section_content(section_name: str):
         st.success(f"✅ {section_name.title()} updated successfully!")
         st.rerun()
     except Exception as e:
+        logger.error(f"Error updating section: {str(e)}")
         st.error(f"Error updating section: {str(e)}")
 
+def generate_ai_suggestion(field: str, section_name: str) -> str:
+    """Generate AI suggestion for a specific field"""
+    try:
+        gpt_handler = GPTHandler()
+        
+        # Create focused prompt for the specific field
+        context = f'''Based on this synopsis:
+{st.session_state.synopsis_content}
+
+Generate specific content for the {field.replace('_', ' ')} field in the {section_name} section.
+This is for a {st.session_state.study_type} study.
+
+Requirements:
+- Be specific and detailed
+- Match the study context and type
+- Format key points with *italic* markers
+- Be concise but comprehensive
+- Focus only on {field.replace('_', ' ')}'''
+
+        suggestion = gpt_handler.generate_content(
+            prompt=context,
+            system_message="You are a protocol development expert. Generate focused, scientific content."
+        )
+        
+        if not suggestion:
+            raise ValueError("No suggestion generated")
+            
+        return suggestion
+        
+    except Exception as e:
+        logger.error(f"AI suggestion error: {str(e)}")
+        raise
+
+# UI Components
 def render_missing_information(analysis_results):
     """Render missing information collection interface"""
     missing_count = sum(len(section['missing_fields']) 
@@ -52,29 +88,20 @@ def render_missing_information(analysis_results):
                         
                         suggest_key = f"suggest_{field_key}"
                         if st.button(f"🤖 Get AI Suggestion", key=suggest_key, help="Generate AI suggestion for this field"):
-                            with st.spinner("Generating suggestion..."):
-                                try:
-                                    gpt_handler = GPTHandler()
-                                    context = f"""Study Type: {st.session_state.study_type}
+                            try:
+                                with st.spinner("Generating AI suggestion..."):
+                                    suggestion = generate_ai_suggestion(field, section_name)
                                     
-Synopsis:
-{st.session_state.synopsis_content}
-
-Generate specific, detailed content for the {field.replace('_', ' ')} field in the {section_name} section.
-Focus on providing relevant information that matches the study context and type.
-Format key points with *italic* markers.
-Be concise but comprehensive."""
-
-                                    suggestion = gpt_handler.generate_content(
-                                        prompt=context,
-                                        system_message="You are a protocol development expert. Generate focused content that follows scientific writing principles."
-                                    )
+                                    if suggestion:
+                                        st.session_state.user_inputs[field_key] = suggestion
+                                        st.success("✅ AI suggestion generated!")
+                                        st.experimental_rerun()
+                                    else:
+                                        st.error("Failed to generate suggestion. Please try again.")
                                     
-                                    st.session_state.user_inputs[field_key] = suggestion
-                                    st.success("✅ Suggestion generated!")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Error generating suggestion: {str(e)}")
+                            except Exception as e:
+                                st.error(f"Error generating suggestion: {str(e)}")
+                                logger.error(f"AI suggestion error: {str(e)}")
                 
                 update_key = f"update_{section_name}_{int(time.time())}"
                 if st.button(f"Update {section_name.title()}", key=update_key):
@@ -121,6 +148,7 @@ def render_protocol_sections(analysis_results):
                             for rec in recommendations:
                                 st.info(rec)
 
+# Main Editor Component
 def render_editor():
     """Render the protocol editor with enhanced organization"""
     improver = ProtocolImprover()
@@ -195,6 +223,7 @@ def render_editor():
                     st.success("✅ Protocol updated successfully!")
                     st.rerun()
                 except Exception as e:
+                    logger.error(f"Error updating protocol: {str(e)}")
                     st.error(f"Error updating protocol: {str(e)}")
     else:
         st.info("Use the 'Generate Complete Protocol' button in the sidebar to generate protocol sections.")
