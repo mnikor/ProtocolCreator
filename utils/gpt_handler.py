@@ -18,17 +18,12 @@ class GPTHandler:
             messages.append({"role": "user", "content": prompt})
             
             response = self.client.chat.completions.create(
-                model="gpt-4",  # Fixed model name
+                model="gpt-4o-2024-08-06",  # Update to correct model name
                 messages=messages,
                 temperature=0.3,
                 max_tokens=2000
             )
-            
-            if not response.choices:
-                logger.error("No response generated from GPT")
-                return None
-                
-            return response.choices[0].message.content
+            return response.choices[0].message.content if response.choices else ""
             
         except Exception as e:
             logger.error(f"Error generating content: {str(e)}")

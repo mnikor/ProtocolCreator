@@ -6,7 +6,38 @@ import time
 
 logger = logging.getLogger(__name__)
 
-# Helper Functions
+def generate_ai_suggestion(field: str, section_name: str) -> str:
+    """Generate AI suggestion for a specific field"""
+    try:
+        gpt_handler = GPTHandler()
+        
+        context = f'''Based on this synopsis:
+{st.session_state.synopsis_content}
+
+Generate specific content for the {field.replace('_', ' ')} field in the {section_name} section.
+This is for a {st.session_state.study_type} study.
+
+Requirements:
+- Be specific and detailed
+- Match the study context and type
+- Format key points with *italic* markers
+- Be concise but comprehensive'''
+
+        suggestion = gpt_handler.generate_content(
+            prompt=context,
+            system_message="You are a protocol development expert. Generate focused, scientific content."
+        )
+        
+        if suggestion:
+            return suggestion
+        else:
+            logger.error("No content generated from GPT")
+            return None
+            
+    except Exception as e:
+        logger.error(f"AI suggestion error: {str(e)}")
+        raise
+
 def update_section_content(section_name: str):
     """Update section content with user inputs"""
     try:
@@ -24,40 +55,38 @@ def update_section_content(section_name: str):
         logger.error(f"Error updating section: {str(e)}")
         st.error(f"Error updating section: {str(e)}")
 
-def generate_ai_suggestion(field: str, section_name: str) -> str:
-    """Generate AI suggestion for a specific field"""
-    try:
-        gpt_handler = GPTHandler()
-        
-        # Create focused prompt for the specific field
-        context = f'''Based on this synopsis:
-{st.session_state.synopsis_content}
-
-Generate specific content for the {field.replace('_', ' ')} field in the {section_name} section.
-This is for a {st.session_state.study_type} study.
-
-Requirements:
-- Be specific and detailed
-- Match the study context and type
-- Format key points with *italic* markers
-- Be concise but comprehensive
-- Focus only on {field.replace('_', ' ')}'''
-
-        suggestion = gpt_handler.generate_content(
-            prompt=context,
-            system_message="You are a protocol development expert. Generate focused, scientific content."
+def render_missing_field_input(field: str, section_name: str, field_key: str):
+    """Render input field for missing information with improved feedback"""
+    col1, col2 = st.columns([2, 3])
+    
+    with col1:
+        st.markdown(f"**{field.replace('_', ' ').title()}**")
+    
+    with col2:
+        previous_value = st.session_state.user_inputs.get(field_key, "")
+        st.text_area(
+            label=f"Enter information for {field.replace('_', ' ')}:",
+            value=previous_value,
+            key=field_key,
+            height=100
         )
         
-        if not suggestion:
-            raise ValueError("No suggestion generated")
-            
-        return suggestion
-        
-    except Exception as e:
-        logger.error(f"AI suggestion error: {str(e)}")
-        raise
+        suggest_key = f"suggest_{field_key}"
+        if st.button("🤖 Get AI Suggestion", key=suggest_key, help="Generate AI suggestion for this field"):
+            try:
+                with st.spinner("Generating AI suggestion..."):
+                    suggestion = generate_ai_suggestion(field, section_name)
+                    if suggestion:
+                        st.session_state.user_inputs[field_key] = suggestion
+                        st.success("✅ AI suggestion generated!")
+                        st.experimental_rerun()
+                    else:
+                        st.error("Failed to generate suggestion. Please try again.")
+                        
+            except Exception as e:
+                st.error(f"Error generating suggestion: {str(e)}")
+                logger.error(f"AI suggestion error: {str(e)}")
 
-# UI Components
 def render_missing_information(analysis_results):
     """Render missing information collection interface"""
     missing_count = sum(len(section['missing_fields']) 
@@ -72,36 +101,7 @@ def render_missing_information(analysis_results):
                 
                 for idx, field in enumerate(analysis['missing_fields']):
                     field_key = f"{section_name}_{field}_{idx}_{int(time.time())}"
-                    col1, col2 = st.columns([2, 3])
-                    
-                    with col1:
-                        st.markdown(f"**{field.replace('_', ' ').title()}**")
-                    
-                    with col2:
-                        previous_value = st.session_state.user_inputs.get(field_key, "")
-                        st.text_area(
-                            label=f"Enter information for {field.replace('_', ' ')}:",
-                            value=previous_value,
-                            key=field_key,
-                            height=100
-                        )
-                        
-                        suggest_key = f"suggest_{field_key}"
-                        if st.button(f"🤖 Get AI Suggestion", key=suggest_key, help="Generate AI suggestion for this field"):
-                            try:
-                                with st.spinner("Generating AI suggestion..."):
-                                    suggestion = generate_ai_suggestion(field, section_name)
-                                    
-                                    if suggestion:
-                                        st.session_state.user_inputs[field_key] = suggestion
-                                        st.success("✅ AI suggestion generated!")
-                                        st.experimental_rerun()
-                                    else:
-                                        st.error("Failed to generate suggestion. Please try again.")
-                                    
-                            except Exception as e:
-                                st.error(f"Error generating suggestion: {str(e)}")
-                                logger.error(f"AI suggestion error: {str(e)}")
+                    render_missing_field_input(field, section_name, field_key)
                 
                 update_key = f"update_{section_name}_{int(time.time())}"
                 if st.button(f"Update {section_name.title()}", key=update_key):
@@ -112,20 +112,21 @@ def render_missing_information(analysis_results):
         st.success("✅ All required information has been provided")
 
 def render_protocol_sections(analysis_results):
-    """Render protocol sections with tabs"""
+    """Render protocol sections with logical grouping"""
     sections = st.session_state.generated_sections
     
     # Group sections logically
     section_groups = {
-        "Study Overview": ["title", "background", "objectives"],
+        "Overview": ["title", "background", "objectives"],
         "Methods": ["study_design", "population", "procedures"],
         "Analysis": ["statistical_analysis", "endpoints"],
-        "Safety & Ethics": ["safety", "ethical_considerations"],
+        "Safety": ["safety", "ethical_considerations"],
         "Additional": ["data_monitoring", "completion_criteria"]
     }
     
     # Create tabs for section groups
-    tabs = st.tabs([group for group in section_groups.keys() if any(section in sections for section in section_groups[group])])
+    tabs = st.tabs([group for group in section_groups.keys() 
+                   if any(section in sections for section in section_groups[group])])
     
     for tab, (group_name, group_sections) in zip(tabs, section_groups.items()):
         with tab:
@@ -148,7 +149,6 @@ def render_protocol_sections(analysis_results):
                             for rec in recommendations:
                                 st.info(rec)
 
-# Main Editor Component
 def render_editor():
     """Render the protocol editor with enhanced organization"""
     improver = ProtocolImprover()
@@ -156,12 +156,6 @@ def render_editor():
     # Add custom styling
     st.markdown("""
         <style>
-        .suggestion-button {
-            background-color: #7c4dff !important;
-            color: white !important;
-            padding: 0.5rem !important;
-            margin-top: 0.5rem !important;
-        }
         .stTabs [data-baseweb="tab-list"] {
             gap: 8px;
         }
@@ -193,9 +187,10 @@ def render_editor():
         # Create main tabs
         tab1, tab2 = st.tabs(["🚨 Missing Information", "📄 Protocol Sections"])
         
+        analysis_results = improver.analyze_protocol_sections(generated_sections)
+        
         with tab1:
             st.markdown("## Required Information")
-            analysis_results = improver.analyze_protocol_sections(generated_sections)
             render_missing_information(analysis_results)
         
         with tab2:
@@ -209,7 +204,7 @@ def render_editor():
             update_all_key = f"update_all_{int(time.time())}"
             if st.button("Update Protocol with All Input", type="primary", key=update_all_key):
                 try:
-                    updated_sections = dict(generated_sections)
+                    updated_sections = dict(st.session_state.generated_sections)
                     for field_key, value in st.session_state.user_inputs.items():
                         section_name = field_key.split('_')[0]
                         if section_name in updated_sections:
