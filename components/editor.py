@@ -3,41 +3,65 @@ import logging
 from utils.protocol_improver import ProtocolImprover
 from utils.gpt_handler import GPTHandler
 import time
+import os
 
 logger = logging.getLogger(__name__)
 
 def generate_ai_suggestion(field: str, section_name: str) -> str:
     try:
-        if not st.session_state.get('synopsis_content'):
-            st.error("No synopsis content found")
+        # 1. Check API Key first
+        api_key = os.environ.get('OPENAI_API_KEY')
+        if not api_key:
+            logger.error("OpenAI API key not found in environment")
+            st.error("⚠️ OpenAI API key not found. Please check your environment configuration.")
             return None
             
-        if not st.session_state.get('study_type'):
-            st.error("Study type not detected")
+        # 2. Check synopsis content
+        synopsis_content = st.session_state.get('synopsis_content')
+        if not synopsis_content:
+            logger.error("No synopsis content found in session state")
+            st.error("⚠️ No synopsis content found. Please generate a protocol first.")
             return None
             
+        # 3. Check study type
+        study_type = st.session_state.get('study_type')
+        if not study_type:
+            logger.error("No study type found in session state")
+            st.error("⚠️ Study type not detected. Please ensure synopsis is properly processed.")
+            return None
+            
+        # If all checks pass, proceed with suggestion generation
+        logger.info(f"All prerequisite checks passed for field: {field} in section: {section_name}")
+        logger.info(f"Study type: {study_type}")
+        logger.info("Synopsis content length: " + str(len(synopsis_content)))
+        
         # Get section analysis results
         improver = ProtocolImprover()
         analysis_results = improver.analyze_protocol_sections(st.session_state.generated_sections)
         section_analysis = analysis_results['section_analyses'].get(section_name, {})
         recommendations = section_analysis.get('recommendations', [])
         
-        # Create GPT handler
-        gpt_handler = GPTHandler()
-        logger.info(f"Generating suggestion for field: {field} in section: {section_name}")
+        # Create GPT handler with clear error handling
+        try:
+            gpt_handler = GPTHandler()
+        except Exception as e:
+            logger.error(f"Failed to initialize GPT handler: {str(e)}")
+            st.error(f"⚠️ Error initializing AI: {str(e)}")
+            return None
+        
+        logger.info(f"Starting suggestion generation for {field} in {section_name}")
         
         # Build comprehensive prompt
         context = f'''Based on this synopsis:
-{st.session_state.synopsis_content}
+{synopsis_content}
 
 Generate specific content for the {field.replace('_', ' ')} field in the {section_name} section.
-This is for a {st.session_state.study_type} study.
+This is for a {study_type} study.
 
 Section Context:
 - Current Section: {section_name.replace('_', ' ').title()}
 - Field to Complete: {field.replace('_', ' ')}'''
 
-        # Add recommendations if available
         if recommendations:
             context += "\n\nConsider these recommendations:"
             for rec in recommendations:
@@ -53,40 +77,30 @@ Requirements:
 - Address any recommendations provided'''
 
         logger.info("Sending prompt to GPT")
-        suggestion = gpt_handler.generate_content(
-            prompt=context,
-            system_message="You are a protocol development expert. Generate focused, scientific content that specifically addresses the requested field and any provided recommendations."
-        )
-        
-        if suggestion:
-            logger.info("Suggestion generated successfully")
-            return suggestion
-        else:
-            logger.error("No content returned from GPT")
+        try:
+            suggestion = gpt_handler.generate_content(
+                prompt=context,
+                system_message="You are a protocol development expert. Generate focused, scientific content."
+            )
+            
+            if suggestion:
+                logger.info("Successfully generated suggestion")
+                return suggestion
+            else:
+                logger.error("Empty suggestion returned from GPT")
+                st.error("⚠️ Failed to generate suggestion - no content returned")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error during GPT content generation: {str(e)}")
+            st.error(f"⚠️ Error generating suggestion: {str(e)}")
             return None
             
     except Exception as e:
         error_msg = str(e)
         logger.error(f"AI suggestion error: {error_msg}")
-        st.error(f"Error generating suggestion: {error_msg}")
+        st.error(f"⚠️ Error in suggestion process: {error_msg}")
         return None
-
-def update_section_content(section_name: str):
-    """Update section content with user inputs"""
-    try:
-        content = st.session_state.generated_sections[section_name]
-        for field_key, value in st.session_state.user_inputs.items():
-            if field_key.startswith(f"{section_name}_"):
-                field = '_'.join(field_key.split('_')[1:-2])
-                placeholder = f"[PLACEHOLDER: *{field}*]"
-                content = content.replace(placeholder, value)
-        
-        st.session_state.generated_sections[section_name] = content
-        st.success(f"✅ {section_name.title()} updated successfully!")
-        st.rerun()
-    except Exception as e:
-        logger.error(f"Error updating section: {str(e)}")
-        st.error(f"Error updating section: {str(e)}")
 
 def render_missing_field_input(field: str, section_name: str, field_key: str):
     col1, col2 = st.columns([2, 3])
@@ -105,32 +119,42 @@ def render_missing_field_input(field: str, section_name: str, field_key: str):
         
         suggest_key = f"suggest_{field_key}"
         if st.button("🤖 Get AI Suggestion", key=suggest_key, help="Generate AI suggestion for this field"):
+            st.write("Debug Information:")
+            st.write(f"- API Key present: {bool(os.environ.get('OPENAI_API_KEY'))}")
+            st.write(f"- Synopsis content present: {bool(st.session_state.get('synopsis_content'))}")
+            st.write(f"- Study type present: {bool(st.session_state.get('study_type'))}")
+            
             try:
-                logger.info(f"AI suggestion button clicked for {field} in {section_name}")
-                
-                # Initialize GPT handler first to catch any initialization errors
-                with st.spinner("Initializing AI..."):
-                    gpt_handler = GPTHandler()
-                    logger.info("GPT handler initialized")
-                    
-                # Then generate suggestion
-                with st.spinner("Generating suggestion..."):
-                    logger.info("Starting suggestion generation")
+                with st.spinner("Generating AI suggestion..."):
                     suggestion = generate_ai_suggestion(field, section_name)
-                    
                     if suggestion:
-                        logger.info("Suggestion generated successfully")
                         st.session_state.user_inputs[field_key] = suggestion
                         st.success("✅ AI suggestion generated!")
                         st.rerun()
                     else:
-                        logger.error("No suggestion generated")
-                        st.error("Failed to generate suggestion. Please try again.")
+                        st.error("Failed to generate suggestion - see errors above")
                         
             except Exception as e:
                 error_msg = str(e)
                 logger.error(f"Error in AI suggestion flow: {error_msg}")
                 st.error(f"Error generating suggestion: {error_msg}")
+
+def update_section_content(section_name: str):
+    """Update section content with user inputs"""
+    try:
+        content = st.session_state.generated_sections[section_name]
+        for field_key, value in st.session_state.user_inputs.items():
+            if field_key.startswith(f"{section_name}_"):
+                field = '_'.join(field_key.split('_')[1:-2])
+                placeholder = f"[PLACEHOLDER: *{field}*]"
+                content = content.replace(placeholder, value)
+        
+        st.session_state.generated_sections[section_name] = content
+        st.success(f"✅ {section_name.title()} updated successfully!")
+        st.rerun()
+    except Exception as e:
+        logger.error(f"Error updating section: {str(e)}")
+        st.error(f"Error updating section: {str(e)}")
 
 def render_missing_information(analysis_results):
     """Render missing information collection interface"""
@@ -140,19 +164,29 @@ def render_missing_information(analysis_results):
     if missing_count > 0:
         st.warning(f"Found {missing_count} items that need your attention")
         
-        for section_name, analysis in analysis_results['section_analyses'].items():
-            if analysis['missing_fields']:
-                st.markdown(f"### 📝 {section_name.replace('_', ' ').title()}")
-                
-                for idx, field in enumerate(analysis['missing_fields']):
-                    field_key = f"{section_name}_{field}_{idx}_{int(time.time())}"
-                    render_missing_field_input(field, section_name, field_key)
-                
-                update_key = f"update_{section_name}_{int(time.time())}"
-                if st.button(f"Update {section_name.title()}", key=update_key):
-                    update_section_content(section_name)
-                
-                st.markdown("---")
+        # Organize sections in logical order
+        section_order = [
+            "title", "background", "objectives",
+            "study_design", "population", "procedures",
+            "endpoints", "statistical_analysis", "safety",
+            "ethical_considerations", "data_monitoring"
+        ]
+        
+        for section_name in section_order:
+            if section_name in analysis_results['section_analyses']:
+                analysis = analysis_results['section_analyses'][section_name]
+                if analysis['missing_fields']:
+                    st.markdown(f"### 📝 {section_name.replace('_', ' ').title()}")
+                    
+                    for idx, field in enumerate(analysis['missing_fields']):
+                        field_key = f"{section_name}_{field}_{idx}_{int(time.time())}"
+                        render_missing_field_input(field, section_name, field_key)
+                    
+                    update_key = f"update_{section_name}_{int(time.time())}"
+                    if st.button(f"Update {section_name.title()}", key=update_key):
+                        update_section_content(section_name)
+                    
+                    st.markdown("---")
     else:
         st.success("✅ All required information has been provided")
 
@@ -163,9 +197,8 @@ def render_protocol_sections(analysis_results):
     # Reorder sections logically
     section_groups = {
         "Study Overview": ["title", "background", "objectives"],
-        "Study Design": ["study_design", "population"],
-        "Procedures": ["procedures", "endpoints"],
-        "Analysis": ["statistical_analysis"],
+        "Study Design": ["study_design", "population", "procedures"],
+        "Endpoints & Analysis": ["endpoints", "statistical_analysis"],
         "Safety & Ethics": ["safety", "ethical_considerations"],
         "Monitoring": ["data_monitoring", "completion_criteria"]
     }
