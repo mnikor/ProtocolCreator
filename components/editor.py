@@ -1,3 +1,10 @@
+import streamlit as st
+import logging
+from utils.protocol_improver import ProtocolImprover
+from utils.gpt_handler import GPTHandler
+
+logger = logging.getLogger(__name__)
+
 def generate_ai_suggestion(field: str, section_name: str) -> str:
     try:
         synopsis_content = st.session_state.get('synopsis_content')
@@ -35,3 +42,69 @@ Requirements:
         logger.error(f"AI suggestion error: {str(e)}")
         st.error(f"Error generating suggestion: {str(e)}")
         return None
+
+def render_editor():
+    '''Render the protocol editor interface'''
+    try:
+        if not st.session_state.get('generated_sections'):
+            return
+            
+        # Show generated sections first
+        st.markdown("## 📄 Generated Protocol Sections")
+        for section_name, content in st.session_state.generated_sections.items():
+            with st.expander(f"📝 {section_name.replace('_', ' ').title()}", expanded=False):
+                content_key = f"content_view_{section_name}"
+                st.text_area(
+                    "Section Content",
+                    value=content,
+                    height=200,
+                    key=content_key,
+                    disabled=True
+                )
+        
+        # Initialize improver
+        improver = ProtocolImprover()
+        
+        # Analyze protocol sections
+        analysis_results = improver.analyze_protocol_sections(st.session_state.generated_sections)
+        missing_count = sum(len(section['missing_fields']) 
+                          for section in analysis_results['section_analyses'].values())
+        
+        # Show missing information section after generated sections
+        st.markdown("## 🚨 Missing Information")
+        if missing_count > 0:
+            st.warning(f"Found {missing_count} items that need your attention")
+            
+            # Group missing fields by section
+            for section_name, analysis in analysis_results['section_analyses'].items():
+                if analysis['missing_fields']:
+                    st.markdown(f"### 📝 {section_name.replace('_', ' ').title()}")
+                    
+                    for idx, field in enumerate(analysis['missing_fields']):
+                        field_key = f"{section_name}_{field}_{idx}"
+                        
+                        # Add input field
+                        if field_key not in st.session_state:
+                            st.session_state[field_key] = ""
+                            
+                        st.text_area(
+                            label=f"Enter information for {field.replace('_', ' ')}:",
+                            value=st.session_state[field_key],
+                            key=field_key,
+                            height=100
+                        )
+                        
+                        # Add AI suggestion button
+                        suggest_key = f"suggest_{field_key}"
+                        if st.button("🤖 Get AI Suggestion", key=suggest_key):
+                            suggestion = generate_ai_suggestion(field, section_name)
+                            if suggestion:
+                                st.session_state[field_key] = suggestion
+                                st.success("✅ AI suggestion generated!")
+                                st.experimental_rerun()
+        else:
+            st.success("✅ All required information has been provided")
+            
+    except Exception as e:
+        logger.error(f"Error in editor: {str(e)}")
+        st.error(f"An error occurred: {str(e)}")
