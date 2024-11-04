@@ -111,7 +111,7 @@ def render_editor():
                                     # Update state through the editor_states dictionary
                                     st.session_state.editor_states[field_key] = suggestion
                                     st.success("✅ AI suggestion generated!")
-                                    st.experimental_rerun()
+                                    st.rerun()  # Changed from experimental_rerun to rerun
                                 else:
                                     st.error("Failed to generate suggestion")
         else:
