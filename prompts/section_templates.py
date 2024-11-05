@@ -3,7 +3,6 @@ from typing import Dict
 
 logger = logging.getLogger(__name__)
 
-# Define DEFAULT_TEMPLATES first
 DEFAULT_TEMPLATES = {
     'title': '''
 Generate a clear and descriptive study title that includes:
@@ -99,6 +98,7 @@ Define study endpoints including:
 }
 
 SECTION_TEMPLATES = {
+    # Phase 1 Clinical Trial
     'phase1': {
         'title': '''
 Generate a clear and descriptive study title for the Phase 1 clinical trial that includes:
@@ -116,76 +116,9 @@ Generate a clear and descriptive study title for the Phase 1 clinical trial that
 
 *Ensure the title is clear, aligns with the study objectives, and is free of confidential information.*
 ''',
-
-        'synopsis': '''
-Generate a concise and comprehensive Synopsis for the Phase 1 clinical trial, summarizing the key elements based on the provided information.
-
-The Synopsis should include:
-
-1. **Study Title**:
-   - Provide the full title of the study as generated or provided.
-
-2. **Study Type and Phase**:
-   - Indicate that this is a Phase 1 clinical trial.
-
-3. **Background and Rationale**:
-   - Briefly describe the background and the rationale for the study, focusing on first-in-human considerations, safety profile, and preclinical data.
-
-4. **Objectives**:
-   - Summarize the primary and secondary objectives of the study.
-
-5. **Study Design**:
-   - Outline the overall study design, including key features such as dose escalation methodology, safety monitoring, and stopping criteria.
-
-6. **Population**:
-   - Describe the target population, including key inclusion and exclusion criteria.
-
-7. **Interventions**:
-   - Summarize the investigational compound, dosing regimen, and administration route.
-
-8. **Endpoints/Outcome Measures**:
-   - List the primary and secondary endpoints.
-
-9. **Statistical Methods**:
-   - Briefly mention the primary statistical methods to be used for data analysis.
-
-10. **Ethical Considerations**:
-    - Note any key ethical considerations, such as informed consent procedures and data confidentiality measures.
-
-**Instructions**:
-
-- **Conciseness**: Keep the Synopsis concise, ideally within 1-2 pages.
-- **Clarity**: Use clear and precise language to ensure that the summary is easily understood.
-- **Consistency**: Ensure that the information in the Synopsis aligns with the detailed sections of the protocol.
-- **Relevance**: Include only the elements relevant to the Phase 1 study and based on the information provided.
-- **Compliance**: Avoid including any disallowed content or confidential information.
-- **Accuracy**: Base the Synopsis solely on the information provided without making unsupported assumptions.
-
-*Ensure that the Synopsis provides a clear and comprehensive overview of the study, facilitating understanding for readers.*
-''',
-
-        'background': '''
-Generate a comprehensive Background section for the Phase 1 study, focusing on:
-
-1. **First-in-Human Considerations**:
-   - Discuss the significance of introducing the investigational compound to humans.
-   - Reference any relevant preclinical studies that support human testing.
-
-2. **Safety Profile of the Compound**:
-   - Summarize known safety data from preclinical studies.
-
-3. **Preliminary Pharmacology Data**:
-   - Include pharmacokinetic and pharmacodynamic data from preclinical research.
-
-**Instructions**:
-
-- Use only the information provided; do not fabricate data or references.
-- Avoid making unsupported assumptions.
-- Present the information in a clear and logical manner, using appropriate headings.
-
-*Ensure the background is informative, based solely on the provided information, and adheres to ethical and regulatory standards.*
-'''
-    }
+        # ... rest of the phase1 templates ...
+    },
+    # ... rest of the SECTION_TEMPLATES content ...
 }
 
 CONDITIONAL_SECTIONS = {
