@@ -18,14 +18,14 @@ def generate_ai_suggestion(field: str, section_name: str) -> str:
         if 'synopsis_content' not in st.session_state:
             st.error("No synopsis content found")
             return None
-            
+
         if 'study_type' not in st.session_state:
             st.error("Study type not detected")
             return None
-        
+
         # Create GPT handler
         gpt_handler = GPTHandler()
-        
+
         # Build prompt
         context = f'''Based on this synopsis:
 {st.session_state.synopsis_content}
@@ -43,13 +43,13 @@ Requirements:
             prompt=context,
             system_message="You are a protocol development expert. Generate focused, scientific content."
         )
-        
+
         if suggestion:
             return suggestion
         else:
             st.error("Failed to generate suggestion - no content returned")
             return None
-            
+
     except Exception as e:
         logger.error(f"AI suggestion error: {str(e)}")
         st.error(f"Error generating suggestion: {str(e)}")
@@ -60,54 +60,35 @@ def render_editor():
     try:
         if not st.session_state.get('generated_sections'):
             return
-            
+
         # Initialize session state
         if 'editor_states' not in st.session_state:
             st.session_state.editor_states = {}
-            
+
         # Show generated sections first
         st.markdown("## 📄 Generated Protocol Sections")
-        
+
         # Get all generated sections and sort them
         all_sections = list(st.session_state.generated_sections.keys())
-        
+
         # Define preferred section order (add any new sections at the appropriate position)
         ordered_sections = [
-            'title',
-            'background',
-            'objectives',
-            'study_design',
-            'population',
-            'search_strategy',       # For systematic reviews
-            'eligibility_criteria',  # For systematic reviews
-            'data_extraction',       # For systematic reviews
-            'quality_assessment',    # For systematic reviews
-            'synthesis_methods',     # For systematic reviews
-            'survey_design',         # For patient surveys
-            'survey_instrument',     # For patient surveys
-            'data_collection',       # For patient surveys
-            'data_source',          # For secondary RWE
-            'variables',            # For secondary RWE
-            'procedures',
-            'statistical_analysis',
-            'safety',
-            'endpoints',
-            'ethical_considerations',
-            'data_monitoring',
-            'completion_criteria',
-            'results_reporting',     # For systematic reviews
-            'limitations'            # For secondary RWE
+            'title', 'background', 'objectives', 'study_design', 'population', 'search_strategy', 
+            'eligibility_criteria', 'data_extraction', 'quality_assessment', 'synthesis_methods', 
+            'survey_design', 'survey_instrument', 'data_collection', 'data_source', 'variables', 
+            'procedures', 'statistical_analysis', 'safety', 'endpoints', 'ethical_considerations', 
+            'data_monitoring', 'completion_criteria', 'results_reporting', 'limitations'
         ]
-        
+
         # Filter ordered sections to only show those that exist in generated_sections
         sections_to_display = [section for section in ordered_sections 
                              if section in st.session_state.generated_sections]
-        
+
         # Add any sections that might be in generated_sections but not in ordered_sections
         remaining_sections = [section for section in all_sections 
                             if section not in ordered_sections]
         sections_to_display.extend(remaining_sections)
-        
+
         # Display sections in the determined order
         for section_name in sections_to_display:
             content = st.session_state.generated_sections[section_name]
@@ -120,34 +101,34 @@ def render_editor():
                     key=content_key,
                     disabled=True
                 )
-        
+
         # Initialize improver
         improver = ProtocolImprover()
-        
+
         # Analyze protocol sections
         analysis_results = improver.analyze_protocol_sections(st.session_state.generated_sections)
         missing_count = sum(len(section['missing_fields']) 
                           for section in analysis_results['section_analyses'].values())
-        
+
         # Show missing information section after generated sections
         st.markdown("## 🚨 Missing Information")
         if missing_count > 0:
             st.warning(f"Found {missing_count} items that need your attention")
-            
+
             # Group missing fields by section
             for section_name in sections_to_display:  # Use same order as display
                 if section_name in analysis_results['section_analyses']:
                     analysis = analysis_results['section_analyses'][section_name]
                     if analysis['missing_fields']:
                         st.markdown(f"### 📝 {section_name.replace('_', ' ').title()}")
-                        
+
                         for idx, field in enumerate(analysis['missing_fields']):
                             field_key = f"{section_name}_{field}_{idx}"
-                            
+
                             # Initialize state for this field if not exists
                             if field_key not in st.session_state.editor_states:
                                 st.session_state.editor_states[field_key] = ""
-                                
+
                             # Add input field with proper state management
                             current_value = st.text_area(
                                 label=f"Enter information for {field.replace('_', ' ')}:",
@@ -178,8 +159,9 @@ def render_editor():
 
                             # Show Update Section button whenever there's content (manual or AI)
                             with col2:
-                                if current_value.strip():  # Show button for any non-empty content
-                                    if st.button("📝 Update Section", key=f"update_{field_key}"):
+                                # Button always visible but updates only if text is present
+                                if st.button("📝 Update Section", key=f"update_{field_key}"):
+                                    if current_value.strip():  # Update only if non-empty
                                         try:
                                             update_section_content(
                                                 section_name=section_name,
@@ -190,9 +172,11 @@ def render_editor():
                                             st.rerun()
                                         except Exception as e:
                                             st.error(f"Error: {str(e)}")
+                                    else:
+                                        st.warning("Text field is empty; nothing to update.")
         else:
             st.success("✅ All required information has been provided")
-            
+
     except Exception as e:
         logger.error(f"Error in editor: {str(e)}")
         st.error(f"An error occurred: {str(e)}")

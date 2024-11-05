@@ -4,283 +4,287 @@ from typing import Dict
 logger = logging.getLogger(__name__)
 
 SECTION_TEMPLATES = {
+    # General Instructions
+    "general_instructions": """
+When generating each section, consider the specific type and phase of the study as provided in the synopsis (e.g., Phase 1 clinical trial, Phase 2b, systematic review, secondary Real World Evidence (RWE) study, patient survey, disease registry, etc.).
+
+Ensure that the content is tailored to the objectives, design, methodologies, and regulatory requirements appropriate for that specific study type.
+
+Include sections only when relevant based on the provided information and the study type. Do not create sections or subsections solely to state that they are not applicable.
+
+Avoid including any disallowed content, and ensure all information is based solely on the provided synopsis without making unsupported assumptions or fabricating data.
+
+Use formal, objective language appropriate for a scientific document, and ensure compliance with ethical and regulatory standards throughout.
+""",
+
+    # Phase 1 Clinical Trial
     'phase1': {
-        'title': '''Generate a clear and descriptive study title for Phase 1 clinical trial including:
-        - Study compound
-        - Study phase
-        - Study population or condition''',
-        'background': '''Generate comprehensive background for Phase 1 study focusing on:
-        - First-in-human considerations
-        - Safety profile of compound
-        - Preliminary pharmacology data
-        - Relevant preclinical studies''',
-        'objectives': '''Generate objectives for Phase 1 study including:
-        - Primary: Safety and tolerability
-        - Secondary: PK parameters
-        - Exploratory: Initial PD markers''',
-        'study_design': '''Create detailed Phase 1 design including:
-        - Study population (healthy volunteers/patients)
-        - Dose escalation methodology
-        - Safety monitoring procedures
-        - Stopping criteria''',
-        'population': '''Generate population section including:
-        - Inclusion criteria
-        - Exclusion criteria
-        - Sample size justification''',
-        'procedures': '''Detail study procedures including:
-        - Screening procedures
-        - Treatment procedures
-        - Follow-up procedures
-        - Safety monitoring''',
-        'statistical_analysis': '''Describe statistical methods including:
-        - Primary analysis methods
-        - Secondary analyses
-        - Sample size calculation
-        - Interim analyses''',
-        'safety': '''Detail safety considerations including:
-        - Adverse event monitoring
-        - Safety parameters
-        - Risk mitigation
-        - Stopping rules''',
-        'endpoints': '''Define study endpoints including:
-        - Primary endpoints
-        - Secondary endpoints
-        - Safety endpoints
-        - Exploratory endpoints''',
-        'ethical_considerations': '''Address ethical aspects including:
-        - Adherence to Good Clinical Practice (GCP)
-        - Informed consent process
-        - Data privacy protection
-        - Participant rights and safety''',
-        'data_monitoring': '''Detail data quality and monitoring plan including:
-        - Data collection and entry procedures
-        - Quality assurance measures
-        - Frequency and scope of monitoring visits''',
-        'completion_criteria': '''Define completion and withdrawal criteria, covering:
-        - Participant discontinuation criteria
-        - Withdrawal procedures
-        - Criteria for study termination'''
-    },
-    'phase2': {
-        'title': '''Generate a clear and descriptive study title for Phase 2 clinical trial including:
-        - Study compound
-        - Study phase
-        - Study population or condition''',
-        'background': '''Generate background for Phase 2 study emphasizing:
-        - Disease burden and unmet needs
-        - Mechanism of action
-        - Phase 1 safety data
-        - Preliminary efficacy signals''',
-        'objectives': '''Generate Phase 2 objectives including:
-        - Primary: Efficacy endpoints
-        - Secondary: Safety continuation
-        - Exploratory: Biomarkers''',
-        'study_design': '''Detail Phase 2 design including:
-        - Patient population
-        - Randomization strategy
-        - Control group rationale
-        - Dose selection justification''',
-        'population': '''Generate population section including:
-        - Target patient population
-        - Inclusion/exclusion criteria
-        - Sample size calculation
-        - Recruitment strategy''',
-        'procedures': '''Detail study procedures including:
-        - Screening assessments
-        - Treatment administration
-        - Safety monitoring
-        - Efficacy assessments''',
-        'statistical_analysis': '''Describe statistical methods including:
-        - Primary efficacy analysis
-        - Secondary analyses
-        - Interim analyses
-        - Power calculations''',
-        'safety': '''Detail safety monitoring including:
-        - Adverse event reporting
-        - Safety parameters
-        - Risk management
-        - Data monitoring''',
-        'endpoints': '''Define study endpoints including:
-        - Primary efficacy endpoints
-        - Secondary endpoints
-        - Safety endpoints
-        - Exploratory endpoints''',
-        'ethical_considerations': '''Address ethical aspects including:
-        - Adherence to Good Clinical Practice (GCP)
-        - Informed consent process
-        - Data privacy protection
-        - Participant rights and safety''',
-        'data_monitoring': '''Detail data quality and monitoring plan including:
-        - Data collection and entry procedures
-        - Quality assurance measures
-        - Frequency and scope of monitoring visits''',
-        'completion_criteria': '''Define completion and withdrawal criteria, covering:
-        - Participant discontinuation criteria
-        - Withdrawal procedures
-        - Criteria for study termination'''
-    },
-    'systematic_review': {
-        'title': '''Generate a descriptive title for the systematic review including:
-        - Focus on disease or treatment type
-        - Scope of review (e.g., real-world evidence, clinical trials)
-        - Population or key parameters''',
-        'search_strategy': '''Detail comprehensive search strategy including:
-        - Databases to be searched
-        - Search terms and combinations
-        - Search date ranges
-        - Grey literature sources''',
-        'eligibility_criteria': '''Define clear inclusion/exclusion criteria:
-        - PICOS framework application
-        - Study design criteria
-        - Publication types
-        - Language restrictions''',
-        'data_extraction': '''Describe data extraction process:
-        - Data extraction form design
-        - Independent reviewer process
-        - Quality control measures
-        - Data management procedures''',
-        'quality_assessment': '''Detail quality assessment methodology:
-        - Risk of bias assessment tools
-        - Quality scoring criteria
-        - Inter-rater reliability
-        - Handling discrepancies''',
-        'synthesis_methods': '''Outline synthesis methodology:
-        - Meta-analysis approach if applicable
-        - Heterogeneity assessment
-        - Subgroup analyses
-        - Sensitivity analyses''',
-        'results_reporting': '''Define reporting structure:
-        - PRISMA flow diagram
-        - Summary tables format
-        - Forest plots if applicable
-        - Publication bias assessment'''
-    },
-    'secondary_rwe': {
-        'title': '''Generate a descriptive title for the secondary real-world evidence (RWE) study including:
-        - Study focus (e.g., effectiveness, safety)
-        - Population or disease condition
-        - Data source characteristics''',
-        'data_source': '''Describe data sources including:
-        - Database characteristics
-        - Time period covered
-        - Data quality assessment
-        - Relevant variables available''',
-        'variables': '''Detail study variables including:
-        - Exposure definitions
-        - Outcome measures
-        - Covariates and confounders
-        - Coding systems used''',
-        'statistical_analysis': '''Outline analysis approach:
-        - Primary analysis methods
-        - Propensity score matching
-        - Sensitivity analyses
-        - Missing data handling''',
-        'limitations': '''Address study limitations:
-        - Data quality issues
-        - Selection bias considerations
-        - Confounding factors
-        - Generalizability''',
-        'ethical_considerations': '''Address ethical considerations including:
-        - Compliance with data privacy regulations
-        - Informed consent (if applicable)
-        - Anonymization and data security''',
-        'data_monitoring': '''Outline data quality and monitoring strategy including:
-        - Quality assurance measures
-        - Consistency checks across sites or databases
-        - Monitoring intervals and audit procedures''',
-    },
-    'patient_survey': {
-        'title': '''Generate a descriptive title for the patient survey study including:
-        - Survey focus (e.g., quality of life, treatment experience)
-        - Target population
-        - Context (e.g., specific condition or treatment phase)''',
-        'survey_design': '''Detail survey methodology including:
-        - Survey type and format
-        - Administration method
-        - Timing of assessments
-        - Response validation methods''',
-        'survey_instrument': '''Describe survey instruments:
-        - Questionnaire development/validation
-        - Question types and scales
-        - Reliability and validity
-        - Pilot testing results''',
-        'data_collection': '''Outline data collection process:
-        - Data collection methods
-        - Quality control measures
-        - Missing data handling
-        - Data security measures''',
-        'ethical_considerations': '''Address ethical aspects:
-        - Informed consent process
-        - Data privacy protection
-        - Participant burden
-        - Compensation details'''
+        'title': '''
+Generate a clear and descriptive study title for the Phase 1 clinical trial that includes:
+
+- The investigational compound or intervention
+- The study phase (Phase 1)
+- The study population or condition
+
+**Instructions**:
+
+- Ensure the title is concise and adheres to regulatory guidelines.
+- Avoid including any confidential or proprietary information.
+- Use formal, objective language appropriate for a scientific document.
+- If sufficient details are not provided, omit this section.
+
+*Ensure the title is clear, aligns with the study objectives, and is free of confidential information.*
+''',
+
+        'synopsis': '''
+Generate a concise and comprehensive Synopsis for the Phase 1 clinical trial, summarizing the key elements based on the provided information.
+
+The Synopsis should include:
+
+1. **Study Title**:
+   - Provide the full title of the study as generated or provided.
+
+2. **Study Type and Phase**:
+   - Indicate that this is a Phase 1 clinical trial.
+
+3. **Background and Rationale**:
+   - Briefly describe the background and the rationale for the study, focusing on first-in-human considerations, safety profile, and preclinical data.
+
+4. **Objectives**:
+   - Summarize the primary and secondary objectives of the study.
+
+5. **Study Design**:
+   - Outline the overall study design, including key features such as dose escalation methodology, safety monitoring, and stopping criteria.
+
+6. **Population**:
+   - Describe the target population, including key inclusion and exclusion criteria.
+
+7. **Interventions**:
+   - Summarize the investigational compound, dosing regimen, and administration route.
+
+8. **Endpoints/Outcome Measures**:
+   - List the primary and secondary endpoints.
+
+9. **Statistical Methods**:
+   - Briefly mention the primary statistical methods to be used for data analysis.
+
+10. **Ethical Considerations**:
+    - Note any key ethical considerations, such as informed consent procedures and data confidentiality measures.
+
+**Instructions**:
+
+- **Conciseness**: Keep the Synopsis concise, ideally within 1-2 pages.
+- **Clarity**: Use clear and precise language to ensure that the summary is easily understood.
+- **Consistency**: Ensure that the information in the Synopsis aligns with the detailed sections of the protocol.
+- **Relevance**: Include only the elements relevant to the Phase 1 study and based on the information provided.
+- **Compliance**: Avoid including any disallowed content or confidential information.
+- **Accuracy**: Base the Synopsis solely on the information provided without making unsupported assumptions.
+
+*Ensure that the Synopsis provides a clear and comprehensive overview of the study, facilitating understanding for readers.*
+''',
+
+        'background': '''
+Generate a comprehensive Background section for the Phase 1 study, focusing on:
+
+1. **First-in-Human Considerations**:
+   - Discuss the significance of introducing the investigational compound to humans.
+   - Reference any relevant preclinical studies that support human testing.
+
+2. **Safety Profile of the Compound**:
+   - Summarize known safety data from preclinical studies.
+
+3. **Preliminary Pharmacology Data**:
+   - Include pharmacokinetic and pharmacodynamic data from preclinical research.
+
+**Instructions**:
+
+- Use only the information provided; do not fabricate data or references.
+- Avoid making unsupported assumptions.
+- Present the information in a clear and logical manner, using appropriate headings.
+
+*Ensure the background is informative, based solely on the provided information, and adheres to ethical and regulatory standards.*
+'''
     }
+}
+
+# Add DEFAULT_TEMPLATES dictionary after SECTION_TEMPLATES
+DEFAULT_TEMPLATES = {
+    'title': '''
+Generate a clear and descriptive study title that includes:
+
+- The study type and phase (if applicable)
+- The target population or condition
+- The main intervention or focus
+
+**Instructions**:
+- Ensure the title is concise and adheres to scientific guidelines
+- Avoid including any confidential information
+- Use formal, objective language
+- If sufficient details are not provided, omit this section
+
+*Ensure the title is clear, aligns with study objectives, and is free of confidential information.*
+''',
+
+    'background': '''
+Generate a comprehensive Background section focusing on:
+
+1. **Current Understanding**:
+   - Describe the current state of knowledge
+   - Reference relevant context from the synopsis
+
+2. **Study Rationale**:
+   - Explain why this study is needed
+   - Highlight any gaps in current knowledge
+
+**Instructions**:
+- Use only the information provided
+- Present information in a clear, logical manner
+- Avoid making unsupported assumptions
+
+*Ensure the background is informative and based solely on provided information.*
+''',
+
+    'objectives': '''
+Generate clear study objectives including:
+
+1. **Primary Objective**:
+   - State the main goal of the study
+   - Ensure it is specific and measurable
+
+2. **Secondary Objectives**:
+   - List additional study aims
+   - Align with overall study purpose
+
+**Instructions**:
+- Make objectives specific and measurable
+- Base all content on provided information
+- Avoid unsupported assumptions
+
+*Ensure all objectives are clear, focused, and supported by the synopsis.*
+''',
+
+    'study_design': '''
+Describe the overall study design including:
+
+1. **Study Type**:
+   - Specify the type of study
+   - Include key design elements
+
+2. **Methodology**:
+   - Detail the study approach
+   - Describe key procedures
+
+**Instructions**:
+- Use only provided information
+- Present clear, organized content
+- Include relevant study parameters
+
+*Ensure the design is appropriate and clearly described.*
+''',
+
+    'endpoints': '''
+Define study endpoints including:
+
+1. **Primary Endpoint**:
+   - Specify main outcome measure
+   - Include measurement timing
+
+2. **Secondary Endpoints**:
+   - List additional outcomes
+   - Define measurement methods
+
+**Instructions**:
+- Make endpoints specific and measurable
+- Align with study objectives
+- Include timing of assessments
+
+*Ensure endpoints are appropriate and well-defined.*
+'''
 }
 
 CONDITIONAL_SECTIONS = {
     'phase1': {
-        'required': ['title', 'background', 'objectives', 'study_design', 'population', 'procedures', 'statistical_analysis', 'safety', 'endpoints', 'ethical_considerations', 'data_monitoring', 'completion_criteria'],
+        'required': [
+            'title',
+            'synopsis',
+            'background',
+            'objectives',
+            'study_design',
+            'population',
+            'procedures',
+            'statistical_analysis',
+            'safety',
+            'endpoints',
+            'ethical_considerations',
+            'data_monitoring',
+            'completion_criteria'
+        ],
         'optional': ['pk_analysis', 'interim_analysis'],
         'excluded': ['efficacy_endpoints']
     },
     'phase2': {
-        'required': ['title', 'background', 'objectives', 'study_design', 'population', 'procedures', 'statistical_analysis', 'safety', 'endpoints', 'ethical_considerations', 'data_monitoring', 'completion_criteria'],
+        'required': [
+            'title',
+            'synopsis',
+            'background',
+            'objectives',
+            'study_design',
+            'population',
+            'procedures',
+            'statistical_analysis',
+            'safety',
+            'endpoints',
+            'ethical_considerations',
+            'data_monitoring',
+            'completion_criteria'
+        ],
         'optional': ['pk_analysis', 'interim_analysis'],
         'excluded': []
     },
     'systematic_review': {
-        'required': ['title', 'search_strategy', 'eligibility_criteria', 'data_extraction', 'quality_assessment', 'synthesis_methods', 'results_reporting', 'ethical_considerations'],
+        'required': [
+            'title',
+            'synopsis',
+            'background',
+            'search_strategy',
+            'eligibility_criteria',
+            'data_extraction',
+            'quality_assessment',
+            'synthesis_methods',
+            'results_reporting',
+            'ethical_considerations'
+        ],
         'optional': ['meta_analysis', 'risk_of_bias'],
         'excluded': ['safety', 'procedures']
     },
     'secondary_rwe': {
-        'required': ['title', 'data_source', 'variables', 'statistical_analysis', 'limitations', 'ethical_considerations', 'data_monitoring'],
+        'required': [
+            'title',
+            'synopsis',
+            'background',
+            'data_source',
+            'variables',
+            'statistical_analysis',
+            'limitations',
+            'ethical_considerations',
+            'data_monitoring'
+        ],
         'optional': ['sensitivity_analysis', 'subgroup_analysis'],
         'excluded': ['safety', 'procedures']
     },
     'patient_survey': {
-        'required': ['title', 'survey_design', 'population', 'survey_instrument', 'data_collection', 'statistical_analysis', 'ethical_considerations'],
+        'required': [
+            'title',
+            'synopsis',
+            'background',
+            'survey_design',
+            'population',
+            'survey_instrument',
+            'data_collection',
+            'statistical_analysis',
+            'ethical_considerations'
+        ],
         'optional': ['pilot_testing', 'cognitive_debriefing'],
         'excluded': ['safety', 'procedures']
     }
-}
-
-# Default templates for sections not covered by specific study types
-DEFAULT_TEMPLATES = {
-    'title': '''Generate a descriptive study title based on:
-    - Study focus
-    - Phase or type of study
-    - Key condition or population''',
-    'background': '''Generate comprehensive study background including:
-    - Disease/condition overview
-    - Current treatment landscape
-    - Rationale for study''',
-    'objectives': '''Generate study objectives including:
-    - Primary objective
-    - Secondary objectives
-    - Exploratory objectives''',
-    'study_design': '''Create detailed study design including:
-    - Study type and methodology
-    - Population characteristics
-    - Key procedures and assessments''',
-    'population': '''Generate population section including:
-    - Target population
-    - Inclusion/exclusion criteria
-    - Sample size justification''',
-    'procedures': '''Detail study procedures including:
-    - Study assessments
-    - Treatment procedures
-    - Follow-up procedures''',
-    'statistical_analysis': '''Describe statistical methods including:
-    - Analysis populations
-    - Primary analyses
-    - Secondary analyses''',
-    'safety': '''Detail safety considerations including:
-    - Safety monitoring
-    - Adverse event reporting
-    - Risk management''',
-    'endpoints': '''Define study endpoints including:
-    - Primary endpoints
-    - Secondary endpoints
-    - Safety endpoints'''
 }
