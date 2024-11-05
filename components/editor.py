@@ -68,26 +68,58 @@ def render_editor():
         # Show generated sections first
         st.markdown("## 📄 Generated Protocol Sections")
         
-        # Reordered sections display
+        # Get all generated sections and sort them
+        all_sections = list(st.session_state.generated_sections.keys())
+        
+        # Define preferred section order (add any new sections at the appropriate position)
         ordered_sections = [
-            'title', 'background', 'objectives', 'study_design', 
-            'population', 'procedures', 'statistical_analysis', 
-            'safety', 'endpoints', 'ethical_considerations'
+            'title',
+            'background',
+            'objectives',
+            'study_design',
+            'population',
+            'search_strategy',       # For systematic reviews
+            'eligibility_criteria',  # For systematic reviews
+            'data_extraction',       # For systematic reviews
+            'quality_assessment',    # For systematic reviews
+            'synthesis_methods',     # For systematic reviews
+            'survey_design',         # For patient surveys
+            'survey_instrument',     # For patient surveys
+            'data_collection',       # For patient surveys
+            'data_source',          # For secondary RWE
+            'variables',            # For secondary RWE
+            'procedures',
+            'statistical_analysis',
+            'safety',
+            'endpoints',
+            'ethical_considerations',
+            'data_monitoring',
+            'completion_criteria',
+            'results_reporting',     # For systematic reviews
+            'limitations'            # For secondary RWE
         ]
         
-        # Display sections in the specified order
-        for section_name in ordered_sections:
-            if section_name in st.session_state.generated_sections:
-                content = st.session_state.generated_sections[section_name]
-                with st.expander(f"📝 {section_name.replace('_', ' ').title()}", expanded=False):
-                    content_key = f"content_view_{section_name}"
-                    st.text_area(
-                        "Section Content",
-                        value=content,
-                        height=200,
-                        key=content_key,
-                        disabled=True
-                    )
+        # Filter ordered sections to only show those that exist in generated_sections
+        sections_to_display = [section for section in ordered_sections 
+                             if section in st.session_state.generated_sections]
+        
+        # Add any sections that might be in generated_sections but not in ordered_sections
+        remaining_sections = [section for section in all_sections 
+                            if section not in ordered_sections]
+        sections_to_display.extend(remaining_sections)
+        
+        # Display sections in the determined order
+        for section_name in sections_to_display:
+            content = st.session_state.generated_sections[section_name]
+            with st.expander(f"📝 {section_name.replace('_', ' ').title()}", expanded=False):
+                content_key = f"content_view_{section_name}"
+                st.text_area(
+                    "Section Content",
+                    value=content,
+                    height=200,
+                    key=content_key,
+                    disabled=True
+                )
         
         # Initialize improver
         improver = ProtocolImprover()
@@ -103,7 +135,7 @@ def render_editor():
             st.warning(f"Found {missing_count} items that need your attention")
             
             # Group missing fields by section
-            for section_name in ordered_sections:
+            for section_name in sections_to_display:  # Use same order as display
                 if section_name in analysis_results['section_analyses']:
                     analysis = analysis_results['section_analyses'][section_name]
                     if analysis['missing_fields']:
