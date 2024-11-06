@@ -184,7 +184,9 @@ def render_editor():
                             
                             # Field input with improved layout
                             col1, col2 = st.columns([3, 1])
+                            
                             with col1:
+                                # Add input field with proper state management
                                 current_value = st.text_area(
                                     label=f"Enter {field.replace('_', ' ')}:",
                                     value=st.session_state.editor_states[field_key],
@@ -192,22 +194,25 @@ def render_editor():
                                     height=100,
                                     help=f"Provide details for {field.replace('_', ' ')}"
                                 )
+                                
+                                # Update session state immediately
+                                st.session_state.editor_states[field_key] = current_value
                             
                             with col2:
-                                st.markdown("### ")  # Spacing
-                                suggestion_key = f"suggest_{field_key}"
-                                if st.button("🤖 Get AI Suggestion", key=suggestion_key):
+                                # AI Suggestion button
+                                if st.button("🤖 Get AI Suggestion", key=f"suggest_{field_key}"):
                                     with st.spinner("Generating suggestion..."):
                                         suggestion = generate_ai_suggestion(field, section_name)
                                         if suggestion:
                                             st.session_state.editor_states[field_key] = suggestion
                                             st.success("✅ Suggestion generated!")
-                                            st.experimental_rerun()
+                                            st.rerun()
                                         else:
                                             st.error("Failed to generate suggestion")
                                 
-                                if current_value.strip():
-                                    if st.button("📝 Update", key=f"update_{field_key}"):
+                                # Always show Update Section button when there's content
+                                if st.button("📝 Update Section", key=f"update_{field_key}"):
+                                    if current_value.strip():
                                         update_section_content(
                                             section_name=section_name,
                                             field=field,
@@ -215,7 +220,7 @@ def render_editor():
                                         )
                                         st.success("✅ Updated!")
                                         st.session_state.editor_states[field_key] = ""
-                                        st.experimental_rerun()
+                                        st.rerun()
         else:
             st.success("✅ All required information has been provided")
 
