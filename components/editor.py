@@ -76,7 +76,7 @@ def update_section_content(section_name: str, field: str, new_content: str):
                 st.session_state.updated_sections = set()
             st.session_state.updated_sections.add(f"{section_name}_{field}")
             
-            # Force progress recalculation
+            # Force state update and progress recalculation
             st.rerun()
     except Exception as e:
         logger.error(f"Error updating section content: {str(e)}")
@@ -111,10 +111,18 @@ Requirements:
 - Be concise but comprehensive'''
 
         gpt_handler = GPTHandler()
-        return gpt_handler.generate_content(
+        suggestion = gpt_handler.generate_content(
             prompt=context,
             system_message="You are a protocol development expert. Generate focused content that complements existing information without duplication."
         )
+        
+        # Store suggestion in session state
+        if suggestion:
+            if 'ai_suggestions' not in st.session_state:
+                st.session_state.ai_suggestions = {}
+            st.session_state.ai_suggestions[f"{section_name}_{field}"] = suggestion
+            
+        return suggestion
         
     except Exception as e:
         logger.error(f"AI suggestion error: {str(e)}")
@@ -137,10 +145,10 @@ def render_editor():
         # Initialize session state for editor
         if 'editor_states' not in st.session_state:
             st.session_state.editor_states = {}
-        if 'suggestion_states' not in st.session_state:
-            st.session_state.suggestion_states = {}
         if 'updated_sections' not in st.session_state:
             st.session_state.updated_sections = set()
+        if 'ai_suggestions' not in st.session_state:
+            st.session_state.ai_suggestions = {}
 
         # Define preferred section order based on standard protocol structure
         ordered_sections = [
@@ -283,6 +291,12 @@ def render_editor():
                         col1, col2 = st.columns([3, 1])
                         
                         with col1:
+                            # Show previous AI suggestion if available
+                            suggestion_key = f"{section_name}_{field}"
+                            if suggestion_key in st.session_state.get('ai_suggestions', {}):
+                                with st.expander("💡 Previous AI Suggestion", expanded=False):
+                                    st.markdown(st.session_state.ai_suggestions[suggestion_key])
+                            
                             current_value = st.text_area(
                                 label=f"Enter {field.replace('_', ' ')}:",
                                 value=st.session_state.editor_states.get(field_key, ""),
