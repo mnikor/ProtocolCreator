@@ -2,6 +2,7 @@ import streamlit as st
 import logging
 from utils.protocol_improver import ProtocolImprover
 from utils.gpt_handler import GPTHandler
+from utils.missing_information_handler import MissingInformationHandler
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,10 @@ def render_editor():
         if not st.session_state.get('generated_sections'):
             return
 
+        # Initialize handlers
+        improver = ProtocolImprover()
+        missing_info_handler = MissingInformationHandler()
+            
         # Initialize session state for editor
         if 'editor_states' not in st.session_state:
             st.session_state.editor_states = {}
@@ -125,13 +130,13 @@ def render_editor():
         # Display Protocol Sections with improved organization
         st.markdown("## 📄 Protocol Sections")
         
-        # Add completion progress
+        # Add completion progress using missing_info_handler
         total_sections = len(sections_to_display)
         completed_sections = sum(1 for section in sections_to_display 
                                if not any(missing['missing_fields'] 
-                                        for missing in [ProtocolImprover().analyze_section_completeness(section, generated_sections[section])]))
+                                        for missing in [missing_info_handler.analyze_section_completeness(section, generated_sections[section])]))
         
-        progress = completed_sections / total_sections
+        progress = completed_sections / total_sections if total_sections > 0 else 0
         st.progress(progress, text=f"Protocol Completion: {progress*100:.1f}%")
 
         # Group sections by category
@@ -152,11 +157,12 @@ def render_editor():
                     disabled=True
                 )
 
-        # Analyze Protocol Content
-        improver = ProtocolImprover()
-        analysis_results = improver.analyze_protocol_sections(generated_sections)
-        missing_count = sum(len(section['missing_fields']) 
-                          for section in analysis_results['section_analyses'].values())
+        # Analyze Protocol Content using missing_info_handler
+        analysis_results = {}
+        for section_name, content in generated_sections.items():
+            analysis_results[section_name] = missing_info_handler.analyze_section_completeness(section_name, content)
+        
+        missing_count = sum(len(analysis['missing_fields']) for analysis in analysis_results.values())
 
         # Display Missing Information Section with improved organization
         st.markdown("## 🚨 Required Information")
@@ -164,8 +170,8 @@ def render_editor():
             st.warning(f"Found {missing_count} items that need attention")
 
             for section_name in sections_to_display:
-                if section_name in analysis_results['section_analyses']:
-                    analysis = analysis_results['section_analyses'][section_name]
+                if section_name in analysis_results:
+                    analysis = analysis_results[section_name]
                     if analysis['missing_fields']:
                         st.markdown(f"### {section_name.replace('_', ' ').title()}")
 
