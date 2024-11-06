@@ -14,6 +14,16 @@ SHORTCUTS = {
     "toggle_details": {"key": "ctrl+d", "description": "Toggle field details"}
 }
 
+def calculate_progress(sections_to_display, analysis_results):
+    """Calculate overall completion progress"""
+    total_sections = len(sections_to_display)
+    completed_sections = sum(
+        1 for section in sections_to_display
+        if not any(f"{section}_{field}" not in st.session_state.get('updated_sections', set())
+                  for field in analysis_results[section]['missing_fields'])
+    )
+    return completed_sections / total_sections if total_sections > 0 else 0
+
 def render_keyboard_shortcuts():
     """Display available keyboard shortcuts"""
     with st.expander("⌨️ Keyboard Shortcuts", expanded=False):
@@ -76,7 +86,7 @@ def update_section_content(section_name: str, field: str, new_content: str):
                 st.session_state.updated_sections = set()
             st.session_state.updated_sections.add(f"{section_name}_{field}")
             
-            # Force state update and progress recalculation
+            # Force progress recalculation
             st.rerun()
     except Exception as e:
         logger.error(f"Error updating section content: {str(e)}")
@@ -95,25 +105,18 @@ Current section content:
 {previous_content}
 
 Generate specific content for the {field.replace('_', ' ')} field in the {section_name} section.
-Ensure the suggestion:
-1. Does not duplicate existing information
-2. Maintains consistency with current content
-3. Complements existing details
-4. Adds relevant new information
-5. Integrates smoothly with current text
-
 Requirements:
-- Content must be specific to {st.session_state.study_type.replace('_', ' ')} studies
-- Follow standard protocol writing guidelines
-- Include specific details and measurements
-- Use appropriate scientific terminology
-- Format key points with *italic* markers
-- Be concise but comprehensive'''
+1. Use clear, direct language
+2. Focus on essential information
+3. Avoid duplicating existing content
+4. Include specific details and measurements
+5. Use appropriate technical terms
+6. Mark key points with *italic* markers'''
 
         gpt_handler = GPTHandler()
         suggestion = gpt_handler.generate_content(
             prompt=context,
-            system_message="You are a protocol development expert. Generate focused content that complements existing information without duplication."
+            system_message="Use clear, direct language appropriate for technical documents. Avoid overly formal or flowery language."
         )
         
         # Store suggestion in session state
@@ -199,22 +202,8 @@ def render_editor():
         # Get analysis results for all sections
         analysis_results = improver.analyze_protocol_sections(generated_sections)['section_analyses']
         
-        # Calculate overall completion progress
-        total_sections = len(sections_to_display)
-        completed_sections = 0
-
-        # Count completed sections
-        for section in sections_to_display:
-            section_analysis = analysis_results[section]
-            # Section is complete if it has no missing fields or all fields have been updated
-            missing_fields = [
-                field for field in section_analysis['missing_fields']
-                if f"{section}_{field}" not in st.session_state.get('updated_sections', set())
-            ]
-            if not missing_fields:
-                completed_sections += 1
-
-        progress = completed_sections / total_sections if total_sections > 0 else 0
+        # Calculate and display progress
+        progress = calculate_progress(sections_to_display, analysis_results)
         st.progress(progress, text=f"Protocol Completion: {progress*100:.1f}%")
 
         # Display sections with category-based icons
@@ -277,15 +266,6 @@ def render_editor():
                         # Show field details in collapsible section
                         with st.expander("🔍 Field Details", expanded=False):
                             st.markdown(field_info['message'])
-                            
-                            if section_name in ['statistical_analysis', 'study_design', 'safety', 'population']:
-                                st.info('''
-                                This field requires specific attention based on section requirements:
-                                1. Content must be detailed and comprehensive
-                                2. Must follow regulatory guidelines
-                                3. Should cross-reference related sections
-                                4. Include all required sub-components
-                                ''')
                         
                         # Field input with improved layout
                         col1, col2 = st.columns([3, 1])
