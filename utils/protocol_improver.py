@@ -166,22 +166,30 @@ class ProtocolImprover:
         return round((total_score / total_weight) * 10, 1)  # Score out of 10
         
     def get_improvement_suggestions(self, section_name: str, analysis: Dict) -> str:
-        """Generate improvement suggestions for a section"""
+        """Generate improvement suggestions with enhanced formatting"""
         if not analysis['missing_fields'] and not analysis['recommendations']:
-            return "No immediate improvements needed."
-            
+            return "✅ Section is complete and well-structured."
+        
         suggestions = []
         
         if analysis['missing_fields']:
-            suggestions.append("Missing information:")
+            suggestions.append("🔍 Required information missing:")
             for field in analysis['missing_fields']:
-                suggestions.append(f"- Add details about: {field.replace('_', ' ')}")
+                suggestions.append(f"• {field.replace('_', ' ').title()}")
+                
+        if analysis['improvement_suggestions']:
+            suggestions.append("\n📝 Specific improvements needed:")
+            for suggestion in analysis['improvement_suggestions']:
+                suggestions.append(f"• {suggestion}")
                 
         if analysis['recommendations']:
-            suggestions.append("\nRecommendations:")
+            suggestions.append("\n💡 Recommendations for enhancement:")
             for rec in analysis['recommendations']:
-                suggestions.append(f"- {rec}")
+                suggestions.append(f"• {rec}")
                 
+        completeness = analysis['completeness_score'] * 100
+        suggestions.append(f"\n📊 Section Completeness: {completeness:.1f}%")
+        
         return "\n".join(suggestions)
         
     def generate_field_prompt(self, field_name: str, section_name: str) -> str:

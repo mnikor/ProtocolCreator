@@ -51,14 +51,44 @@ class MissingInformationHandler:
         return re.findall(self.recommendation_pattern, content)
         
     def analyze_section_completeness(self, section_name: str, content: str) -> Dict:
-        """Analyze section completeness and missing information"""
+        """Analyze section completeness and provide detailed feedback"""
         missing_fields = self.detect_missing_fields(section_name, content)
         recommendations = self.detect_recommendations(content)
         
+        # Add specific improvement suggestions
+        suggestions = []
+        if missing_fields:
+            for field in missing_fields:
+                if field == 'design_type':
+                    suggestions.append("Specify the type of study design (e.g., randomized, double-blind, parallel group)")
+                elif field == 'sample_size':
+                    suggestions.append("Include the planned number of participants and justification")
+                elif field == 'duration':
+                    suggestions.append("Define the expected study duration including treatment and follow-up periods")
+                elif field == 'inclusion_criteria':
+                    suggestions.append("List specific inclusion criteria with clear eligibility parameters")
+                elif field == 'exclusion_criteria':
+                    suggestions.append("Define clear exclusion criteria to protect subject safety")
+                elif field == 'primary_endpoints':
+                    suggestions.append("Specify primary outcome measures with timing of assessments")
+                elif field == 'statistical_methods':
+                    suggestions.append("Detail the statistical approaches for primary and secondary analyses")
+                elif field == 'safety_parameters':
+                    suggestions.append("Define safety monitoring parameters and frequency of assessments")
+                elif field == 'study_visits':
+                    suggestions.append("Provide a detailed schedule of study visits and procedures")
+                elif field == 'questionnaire_type':
+                    suggestions.append("Specify the type and format of questionnaires to be used")
+                elif field == 'databases':
+                    suggestions.append("List all databases to be searched with justification")
+                else:
+                    suggestions.append(f"Add details about {field.replace('_', ' ')}")
+
         analysis = {
             'section_name': section_name,
             'missing_fields': missing_fields,
             'recommendations': recommendations,
+            'improvement_suggestions': suggestions,
             'completeness_score': self._calculate_completeness(section_name, missing_fields)
         }
         
