@@ -183,6 +183,342 @@ Define study completion criteria including:
 - Define clear endpoints
 
 *Ensure clear definition of completion criteria.*
+''',
+
+    'population': '''
+Define the study population including:
+
+1. **Target Population**:
+   - Key characteristics
+   - Demographics
+   - Disease/condition criteria
+
+2. **Selection Criteria**:
+   - Inclusion criteria
+   - Exclusion criteria
+   - Sample size justification
+
+**Instructions**:
+- Be specific about eligibility
+- Define clear criteria
+- Include population size
+
+*Ensure population definition is clear and appropriate.*
+''',
+
+    'procedures': '''
+Detail study procedures including:
+
+1. **Study Activities**:
+   - Screening procedures
+   - Treatment/intervention details
+   - Follow-up activities
+
+2. **Schedule of Events**:
+   - Visit schedule
+   - Assessment timing
+   - Data collection points
+
+**Instructions**:
+- Provide chronological order
+- Include all key activities
+- Specify timing clearly
+
+*Ensure procedures are comprehensive and well-organized.*
+''',
+
+    'statistical_analysis': '''
+Describe statistical methodology including:
+
+1. **Analysis Population**:
+   - Analysis sets
+   - Handling of missing data
+   - Population definitions
+
+2. **Statistical Methods**:
+   - Primary analysis approach
+   - Secondary analyses
+   - Interim analyses (if applicable)
+
+**Instructions**:
+- Define analysis populations
+- Specify statistical tests
+- Include power calculations
+
+*Ensure statistical approach is appropriate and comprehensive.*
+''',
+
+    'safety': '''
+Detail safety monitoring including:
+
+1. **Safety Parameters**:
+   - Adverse event monitoring
+   - Safety assessments
+   - Laboratory evaluations
+
+2. **Safety Oversight**:
+   - Safety monitoring board
+   - Stopping rules
+   - Risk management
+
+**Instructions**:
+- Define safety parameters
+- Specify monitoring frequency
+- Include reporting requirements
+
+*Ensure safety monitoring is thorough and appropriate.*
+''',
+
+    'search_strategy': '''
+Detail the systematic search strategy including:
+
+1. **Search Parameters**:
+   - Databases to be searched
+   - Search terms and keywords
+   - Time period covered
+
+2. **Search Implementation**:
+   - Search string construction
+   - Database-specific adaptations
+   - Documentation methods
+
+**Instructions**:
+- Be comprehensive and systematic
+- Include all relevant databases
+- Document search process
+
+*Ensure search strategy is reproducible and thorough.*
+''',
+
+    'eligibility_criteria': '''
+Define study eligibility criteria including:
+
+1. **Inclusion Criteria**:
+   - Study types to include
+   - Population characteristics
+   - Outcome requirements
+
+2. **Exclusion Criteria**:
+   - Study types to exclude
+   - Quality thresholds
+   - Language restrictions
+
+**Instructions**:
+- Be specific and clear
+- Justify each criterion
+- Ensure reproducibility
+
+*Ensure criteria are comprehensive and well-justified.*
+''',
+
+    'data_extraction': '''
+Detail the data extraction process including:
+
+1. **Extraction Protocol**:
+   - Data fields to extract
+   - Extraction methods
+   - Quality control measures
+
+2. **Documentation**:
+   - Data forms/templates
+   - Handling of missing data
+   - Resolution of discrepancies
+
+**Instructions**:
+- Define clear procedures
+- Include quality checks
+- Specify documentation
+
+*Ensure extraction process is systematic and reliable.*
+''',
+
+    'quality_assessment': '''
+Describe quality assessment methodology including:
+
+1. **Assessment Tools**:
+   - Quality assessment instruments
+   - Risk of bias evaluation
+   - Grading criteria
+
+2. **Assessment Process**:
+   - Reviewer training
+   - Independent assessment
+   - Consensus procedures
+
+**Instructions**:
+- Define assessment criteria
+- Detail evaluation process
+- Include validation steps
+
+*Ensure quality assessment is rigorous and standardized.*
+''',
+
+    'synthesis_methods': '''
+Detail data synthesis methodology including:
+
+1. **Analysis Approach**:
+   - Synthesis methods
+   - Statistical techniques
+   - Heterogeneity assessment
+
+2. **Presentation**:
+   - Results organization
+   - Data presentation
+   - Narrative synthesis
+
+**Instructions**:
+- Specify analysis methods
+- Define synthesis approach
+- Include presentation plans
+
+*Ensure synthesis methods are appropriate and well-documented.*
+''',
+
+    'results_reporting': '''
+Define results reporting approach including:
+
+1. **Reporting Structure**:
+   - PRISMA guidelines
+   - Results organization
+   - Data presentation
+
+2. **Documentation**:
+   - Search results
+   - Study characteristics
+   - Quality assessments
+
+**Instructions**:
+- Follow reporting guidelines
+- Be comprehensive
+- Include all key elements
+
+*Ensure reporting is complete and transparent.*
+''',
+
+    'data_source': '''
+Detail data source specifications including:
+
+1. **Data Sources**:
+   - Database descriptions
+   - Time periods covered
+   - Data quality metrics
+
+2. **Access Methods**:
+   - Data extraction procedures
+   - Quality control measures
+   - Documentation methods
+
+**Instructions**:
+- Specify data sources
+- Detail access methods
+- Include quality metrics
+
+*Ensure data sources are appropriate and well-documented.*
+''',
+
+    'variables': '''
+Define study variables including:
+
+1. **Variable Definitions**:
+   - Outcome variables
+   - Predictor variables
+   - Covariates
+
+2. **Measurement**:
+   - Data collection methods
+   - Variable coding
+   - Missing data handling
+
+**Instructions**:
+- Define variables clearly
+- Specify measurements
+- Include coding schemes
+
+*Ensure variables are well-defined and measurable.*
+''',
+
+    'limitations': '''
+Address study limitations including:
+
+1. **Data Limitations**:
+   - Data quality issues
+   - Missing information
+   - Potential biases
+
+2. **Methodology Limitations**:
+   - Design constraints
+   - Analysis limitations
+   - Generalizability issues
+
+**Instructions**:
+- Be transparent
+- Address key limitations
+- Discuss implications
+
+*Ensure limitations are thoroughly addressed.*
+''',
+
+    'survey_design': '''
+Detail survey design including:
+
+1. **Survey Structure**:
+   - Question types
+   - Response formats
+   - Survey flow
+
+2. **Implementation**:
+   - Administration method
+   - Sampling strategy
+   - Response handling
+
+**Instructions**:
+- Define clear structure
+- Specify methodology
+- Include validation steps
+
+*Ensure survey design is appropriate and well-planned.*
+''',
+
+    'survey_instrument': '''
+Describe survey instrument including:
+
+1. **Instrument Development**:
+   - Question development
+   - Scale selection
+   - Validation process
+
+2. **Content Areas**:
+   - Key domains
+   - Question sequence
+   - Response options
+
+**Instructions**:
+- Detail instrument development
+- Include validation steps
+- Specify response formats
+
+*Ensure instrument is valid and reliable.*
+''',
+
+    'data_collection': '''
+Detail data collection procedures including:
+
+1. **Collection Methods**:
+   - Data capture process
+   - Quality control measures
+   - Timeline management
+
+2. **Documentation**:
+   - Data forms
+   - Processing procedures
+   - Storage methods
+
+**Instructions**:
+- Specify procedures
+- Include quality checks
+- Detail documentation
+
+*Ensure data collection is systematic and well-documented.*
 '''
 }
 
