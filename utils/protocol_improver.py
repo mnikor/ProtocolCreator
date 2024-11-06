@@ -1,5 +1,6 @@
 import logging
-from typing import Dict, Optional
+import re
+from typing import Dict, Optional, List
 from .missing_information_handler import MissingInformationHandler
 from .gpt_handler import GPTHandler
 
@@ -106,7 +107,7 @@ class ProtocolImprover:
             base_prompts.update(study_specific_prompts[study_type])
         
         return base_prompts.get(field, f'Please provide information about {field.replace("_", " ")}')
-        
+
     def analyze_protocol_sections(self, sections: Dict[str, str]) -> Dict:
         """Analyze all protocol sections for missing information"""
         analysis_results = {}
@@ -128,7 +129,203 @@ class ProtocolImprover:
             'overall_completeness': overall_completeness,
             'overall_quality_score': self._calculate_quality_score(analysis_results)
         }
+
+    def validate_section(self, section_name: str, content: str, study_type: str) -> Dict:
+        """Validate individual protocol section"""
+        section_results = {
+            "issues": [],
+            "warnings": [],
+            "suggestions": [],
+            "score": 0
+        }
         
+        # Add section-specific validation
+        self._validate_section_requirements(section_name, content, study_type, section_results)
+        
+        # Check completeness
+        self._validate_section_completeness(section_name, content, study_type, section_results)
+        
+        # Check placeholders
+        self._check_placeholders(content, section_results)
+        
+        # Check timeline if relevant
+        if section_name in ['study_design', 'procedures']:
+            timeline_issues = self._validate_timeline(content)
+            section_results["issues"].extend(timeline_issues)
+        
+        # Calculate score
+        section_results["score"] = self._calculate_section_score(section_results)
+        
+        return section_results
+
+    def _validate_section_requirements(self, section_name: str, content: str, study_type: str, results: Dict):
+        """Check section-specific requirements"""
+        section_requirements = {
+            "objectives": {
+                "required_elements": ["primary_objective", "secondary_objectives"],
+                "forbidden_terms": ["tbd", "to be determined", "placeholder"],
+                "min_length": 200
+            },
+            "study_design": {
+                "required_elements": ["design_type", "duration", "population"],
+                "study_type_specific": {
+                    "phase1": ["dose_escalation", "safety_monitoring"],
+                    "phase2": ["endpoints", "sample_size"],
+                    "phase3": ["randomization", "blinding", "interim_analysis"],
+                    "phase4": ["real_world_setting", "comparator"]
+                }
+            },
+            "safety": {
+                "required_elements": ["safety_parameters", "monitoring", "reporting"],
+                "study_type_specific": {
+                    "phase1": ["dose_limiting_toxicity", "safety_review"],
+                    "phase2": ["adverse_events", "safety_endpoints"],
+                    "phase3": ["data_monitoring_committee", "stopping_rules"]
+                }
+            }
+        }
+        
+        if section_name in section_requirements:
+            reqs = section_requirements[section_name]
+            
+            # Check required elements
+            for element in reqs.get("required_elements", []):
+                if element.lower() not in content.lower():
+                    results["issues"].append({
+                        "type": "missing_element",
+                        "severity": "major",
+                        "message": f"Missing required element '{element}' in {section_name}",
+                        "suggestion": f"Add {element} to section"
+                    })
+            
+            # Check study type specific requirements
+            if study_type and "study_type_specific" in reqs and study_type in reqs["study_type_specific"]:
+                for element in reqs["study_type_specific"][study_type]:
+                    if element.lower() not in content.lower():
+                        results["issues"].append({
+                            "type": "missing_element",
+                            "severity": "major",
+                            "message": f"Missing {study_type}-specific element '{element}' in {section_name}",
+                            "suggestion": f"Add {element} as required for {study_type} studies"
+                        })
+
+    def _check_duplications(self, sections: Dict[str, str]) -> List[Dict]:
+        """Check for excessive duplication between sections"""
+        SYNOPSIS_THRESHOLD = 0.8  # Higher threshold for Synopsis
+        GENERAL_THRESHOLD = 0.6   # Stricter for other sections
+        
+        duplication_issues = []
+        
+        for section1, content1 in sections.items():
+            for section2, content2 in sections.items():
+                if section1 >= section2:
+                    continue
+                    
+                similarity = self._calculate_similarity(content1, content2)
+                threshold = SYNOPSIS_THRESHOLD if "synopsis" in (section1.lower(), section2.lower()) else GENERAL_THRESHOLD
+                
+                if similarity > threshold:
+                    severity = "minor" if "synopsis" in (section1.lower(), section2.lower()) else "major"
+                    duplication_issues.append({
+                        "type": "duplication",
+                        "severity": severity,
+                        "message": f"Content similarity {similarity:.1%} between {section1} and {section2}",
+                        "suggestion": "Review if duplication is justified" if severity == "minor" else "Consider consolidating information"
+                    })
+        
+        return duplication_issues
+
+    def _calculate_similarity(self, text1: str, text2: str) -> float:
+        """Calculate text similarity using word overlap"""
+        words1 = set(text1.lower().split())
+        words2 = set(text2.lower().split())
+        intersection = words1.intersection(words2)
+        shorter_len = min(len(words1), len(words2))
+        return len(intersection) / shorter_len if shorter_len > 0 else 0
+
+    def _validate_timeline(self, content: str) -> List[Dict]:
+        """Validate timeline consistency"""
+        timeline_issues = []
+        timeline_pattern = r'(\d+)\s*(day|week|month|year)s?\s*(prior to|after|from|to)\s*(\w+)'
+        
+        def convert_to_days(value: int, unit: str) -> int:
+            conversions = {'day': 1, 'week': 7, 'month': 30, 'year': 365}
+            return value * conversions[unit.lower()]
+        
+        # Extract and validate timeline entries
+        timeline_items = re.findall(timeline_pattern, content, re.IGNORECASE)
+        
+        for i in range(len(timeline_items)-1):
+            current = convert_to_days(int(timeline_items[i][0]), timeline_items[i][1])
+            next_item = convert_to_days(int(timeline_items[i+1][0]), timeline_items[i+1][1])
+            
+            if current >= next_item:
+                timeline_issues.append({
+                    "type": "timeline",
+                    "severity": "major",
+                    "message": f"Timeline inconsistency between {timeline_items[i]} and {timeline_items[i+1]}",
+                    "suggestion": "Review timeline sequence and adjust durations"
+                })
+        
+        return timeline_issues
+
+    def _calculate_section_score(self, results: Dict) -> float:
+        """Calculate section quality score"""
+        base_score = 100
+        deductions = {
+            "critical": 20,
+            "major": 10,
+            "minor": 5
+        }
+        
+        # Apply deductions for issues
+        for issue in results["issues"]:
+            base_score -= deductions[issue["severity"]]
+        
+        # Add bonuses for good practices
+        if not any(i["severity"] == "critical" for i in results["issues"]):
+            base_score += 5
+        
+        if len(results["issues"]) == 0:
+            base_score += 10
+        
+        return max(0, min(100, base_score))
+
+    def _check_placeholders(self, content: str, results: Dict):
+        """Check for remaining placeholders in content"""
+        placeholder_pattern = r'\[PLACEHOLDER:\s*\*(.*?)\*\]'
+        placeholders = re.findall(placeholder_pattern, content)
+        
+        if placeholders:
+            for placeholder in placeholders:
+                results["issues"].append({
+                    "type": "placeholder",
+                    "severity": "major",
+                    "message": f"Unresolved placeholder: {placeholder}",
+                    "suggestion": f"Replace placeholder with actual content for {placeholder}"
+                })
+
+    def _validate_section_completeness(self, section_name: str, content: str, study_type: str, results: Dict):
+        """Check section completeness"""
+        analysis = self.missing_info_handler.analyze_section_completeness(section_name, content)
+        
+        if analysis['missing_fields']:
+            for field in analysis['missing_fields']:
+                results["issues"].append({
+                    "type": "missing_field",
+                    "severity": "major",
+                    "message": f"Missing required field: {field}",
+                    "suggestion": self._get_field_prompt(field, study_type)
+                })
+        
+        if analysis['recommendations']:
+            for rec in analysis['recommendations']:
+                results["suggestions"].append({
+                    "type": "improvement",
+                    "message": rec,
+                    "severity": "minor"
+                })
+
     def _calculate_quality_score(self, analyses: Dict) -> float:
         """Calculate overall quality score based on completeness and recommendations"""
         total_score = 0.0
@@ -164,7 +361,7 @@ class ProtocolImprover:
             return 0.0
             
         return round((total_score / total_weight) * 10, 1)  # Score out of 10
-        
+
     def get_improvement_suggestions(self, section_name: str, analysis: Dict) -> str:
         """Generate improvement suggestions with enhanced formatting"""
         if not analysis['missing_fields'] and not analysis['recommendations']:
@@ -191,7 +388,7 @@ class ProtocolImprover:
         suggestions.append(f"\n📊 Section Completeness: {completeness:.1f}%")
         
         return "\n".join(suggestions)
-        
+
     def generate_field_prompt(self, field_name: str, section_name: str) -> str:
         """Generate a user-friendly prompt for missing field input"""
         field_prompts = {

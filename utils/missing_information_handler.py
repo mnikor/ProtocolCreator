@@ -1,6 +1,6 @@
 import logging
-from typing import Dict, List, Optional
 import re
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +25,8 @@ class MissingInformationHandler:
         self.placeholder_pattern = r'\[PLACEHOLDER:\s*\*(.*?)\*\]'
         self.recommendation_pattern = r'\[RECOMMENDED:\s*\*(.*?)\*\]'
         
-    def _get_field_prompt(self, field: str, study_type: str) -> str:
-        '''Get detailed, context-aware prompt for missing field'''
+    def _get_field_prompt(self, field: str, section_name: str = None) -> str:
+        '''Get detailed prompt for missing field with section context'''
         detailed_prompts = {
             'sample_size': (
                 "Please specify the target sample size with these details:\n"
@@ -76,40 +76,20 @@ class MissingInformationHandler:
                 "• Primary analysis approach\n"
                 "• Handling of missing data\n"
                 "• Interim analyses if planned"
-            ),
-            'safety_parameters': (
-                "Define safety monitoring parameters including:\n"
-                "• Adverse event definitions and grading\n"
-                "• Laboratory safety assessments\n"
-                "• Vital signs monitoring\n"
-                "• Safety review procedures"
-            ),
-            'study_visits': (
-                "Detail the study visit schedule including:\n"
-                "• Screening visit procedures\n"
-                "• Treatment visit frequency\n"
-                "• Assessment timepoints\n"
-                "• Follow-up visit requirements"
-            ),
-            'questionnaire_type': (
-                "Specify questionnaire details including:\n"
-                "• Type of questionnaire/survey\n"
-                "• Validated instruments used\n"
-                "• Administration format\n"
-                "• Completion time estimates"
-            ),
-            'databases': (
-                "List all databases to be searched including:\n"
-                "• Primary literature databases\n"
-                "• Clinical trial registries\n"
-                "• Grey literature sources\n"
-                "• Search date ranges"
             )
         }
         
+        # Add section context to prompt
+        if section_name:
+            base_prompt = detailed_prompts.get(
+                field,
+                f"Please provide detailed information about {field.replace('_', ' ')}"
+            )
+            return f"For the {section_name.replace('_', ' ')} section:\n{base_prompt}"
+        
         return detailed_prompts.get(
             field,
-            f"Please provide detailed information about {field.replace('_', ' ')} including all relevant parameters and specifications."
+            f"Please provide detailed information about {field.replace('_', ' ')}"
         )
 
     def detect_missing_fields(self, section_name: str, content: str) -> List[str]:
@@ -147,7 +127,7 @@ class MissingInformationHandler:
         if missing_fields:
             for field in missing_fields:
                 suggestions.append(self._get_field_prompt(field, section_name))
-
+        
         analysis = {
             'section_name': section_name,
             'missing_fields': missing_fields,
@@ -170,3 +150,33 @@ class MissingInformationHandler:
             return 1.0
             
         return (total_fields - missing_count) / total_fields
+
+    def validate_section_structure(self, section_name: str, content: str) -> Dict:
+        """Validate section structure and organization"""
+        structure_issues = []
+        
+        # Check section length
+        min_length = 200  # Minimum characters for meaningful content
+        if len(content) < min_length:
+            structure_issues.append({
+                "type": "structure",
+                "severity": "minor",
+                "message": f"Section content may be too brief ({len(content)} characters)",
+                "suggestion": "Consider expanding the section with more details"
+            })
+            
+        # Check paragraph structure
+        paragraphs = content.split('\n\n')
+        if len(paragraphs) < 2:
+            structure_issues.append({
+                "type": "structure",
+                "severity": "minor",
+                "message": "Limited paragraph structure",
+                "suggestion": "Consider breaking content into multiple paragraphs for better readability"
+            })
+            
+        return {
+            "section_name": section_name,
+            "issues": structure_issues,
+            "score": 100 - (len(structure_issues) * 10)
+        }
