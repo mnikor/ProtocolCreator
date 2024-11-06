@@ -25,6 +25,93 @@ class MissingInformationHandler:
         self.placeholder_pattern = r'\[PLACEHOLDER:\s*\*(.*?)\*\]'
         self.recommendation_pattern = r'\[RECOMMENDED:\s*\*(.*?)\*\]'
         
+    def _get_field_prompt(self, field: str, study_type: str) -> str:
+        '''Get detailed, context-aware prompt for missing field'''
+        detailed_prompts = {
+            'sample_size': (
+                "Please specify the target sample size with these details:\n"
+                "• Total number of participants to be enrolled\n"
+                "• Statistical justification for the sample size\n"
+                "• Power calculations and assumptions\n"
+                "• Accounting for potential dropouts"
+            ),
+            'design_type': (
+                "Please specify the study design including:\n"
+                "• Type (e.g., randomized, open-label, single/double-blind)\n"
+                "• Control group details if applicable\n"
+                "• Treatment allocation ratio\n"
+                "• Duration of treatment and follow-up"
+            ),
+            'duration': (
+                "Define the study duration including:\n"
+                "• Screening period length\n"
+                "• Treatment period duration\n"
+                "• Follow-up period details\n"
+                "• Total study duration estimate"
+            ),
+            'inclusion_criteria': (
+                "Specify inclusion criteria including:\n"
+                "• Age range and gender\n"
+                "• Disease/condition specific requirements\n"
+                "• Required medical history\n"
+                "• Laboratory/diagnostic requirements"
+            ),
+            'exclusion_criteria': (
+                "Define exclusion criteria including:\n"
+                "• Medical conditions that preclude participation\n"
+                "• Prior/concomitant treatments\n"
+                "• Safety-related exclusions\n"
+                "• Practical/logistical exclusions"
+            ),
+            'primary_endpoints': (
+                "Define primary endpoints including:\n"
+                "• Main outcome measure(s)\n"
+                "• Timing of assessments\n"
+                "• Method of measurement\n"
+                "• Clinical relevance"
+            ),
+            'statistical_methods': (
+                "Specify statistical methods including:\n"
+                "• Analysis populations\n"
+                "• Primary analysis approach\n"
+                "• Handling of missing data\n"
+                "• Interim analyses if planned"
+            ),
+            'safety_parameters': (
+                "Define safety monitoring parameters including:\n"
+                "• Adverse event definitions and grading\n"
+                "• Laboratory safety assessments\n"
+                "• Vital signs monitoring\n"
+                "• Safety review procedures"
+            ),
+            'study_visits': (
+                "Detail the study visit schedule including:\n"
+                "• Screening visit procedures\n"
+                "• Treatment visit frequency\n"
+                "• Assessment timepoints\n"
+                "• Follow-up visit requirements"
+            ),
+            'questionnaire_type': (
+                "Specify questionnaire details including:\n"
+                "• Type of questionnaire/survey\n"
+                "• Validated instruments used\n"
+                "• Administration format\n"
+                "• Completion time estimates"
+            ),
+            'databases': (
+                "List all databases to be searched including:\n"
+                "• Primary literature databases\n"
+                "• Clinical trial registries\n"
+                "• Grey literature sources\n"
+                "• Search date ranges"
+            )
+        }
+        
+        return detailed_prompts.get(
+            field,
+            f"Please provide detailed information about {field.replace('_', ' ')} including all relevant parameters and specifications."
+        )
+
     def detect_missing_fields(self, section_name: str, content: str) -> List[str]:
         """Detect missing required fields in a section"""
         missing_fields = []
@@ -59,30 +146,7 @@ class MissingInformationHandler:
         suggestions = []
         if missing_fields:
             for field in missing_fields:
-                if field == 'design_type':
-                    suggestions.append("Specify the type of study design (e.g., randomized, double-blind, parallel group)")
-                elif field == 'sample_size':
-                    suggestions.append("Include the planned number of participants and justification")
-                elif field == 'duration':
-                    suggestions.append("Define the expected study duration including treatment and follow-up periods")
-                elif field == 'inclusion_criteria':
-                    suggestions.append("List specific inclusion criteria with clear eligibility parameters")
-                elif field == 'exclusion_criteria':
-                    suggestions.append("Define clear exclusion criteria to protect subject safety")
-                elif field == 'primary_endpoints':
-                    suggestions.append("Specify primary outcome measures with timing of assessments")
-                elif field == 'statistical_methods':
-                    suggestions.append("Detail the statistical approaches for primary and secondary analyses")
-                elif field == 'safety_parameters':
-                    suggestions.append("Define safety monitoring parameters and frequency of assessments")
-                elif field == 'study_visits':
-                    suggestions.append("Provide a detailed schedule of study visits and procedures")
-                elif field == 'questionnaire_type':
-                    suggestions.append("Specify the type and format of questionnaires to be used")
-                elif field == 'databases':
-                    suggestions.append("List all databases to be searched with justification")
-                else:
-                    suggestions.append(f"Add details about {field.replace('_', ' ')}")
+                suggestions.append(self._get_field_prompt(field, section_name))
 
         analysis = {
             'section_name': section_name,
