@@ -24,21 +24,31 @@ def generate_ai_suggestion(field: str, section_name: str) -> str:
             return None
 
         gpt_handler = GPTHandler()
-        context = f'''Based on this synopsis:
+        
+        # Enhanced context with study type specific considerations
+        context = f'''Based on this synopsis for a {st.session_state.study_type.replace('_', ' ')} study:
 {st.session_state.synopsis_content}
 
 Generate specific content for the {field.replace('_', ' ')} field in the {section_name} section.
-This is for a {st.session_state.study_type} study.
 
 Requirements:
-- Be specific and detailed
-- Match the study context and type
-- Format key points with *italic* markers
-- Be concise but comprehensive'''
+1. Content must be specific to {st.session_state.study_type.replace('_', ' ')} studies
+2. Follow standard protocol writing guidelines
+3. Include specific details and measurements where applicable
+4. Use appropriate scientific terminology
+5. Format key points with *italic* markers for emphasis
+6. Be concise but comprehensive
+
+Focus on:
+- Scientific accuracy
+- Regulatory compliance
+- Clear methodology
+- Measurable outcomes
+'''
 
         suggestion = gpt_handler.generate_content(
             prompt=context,
-            system_message="You are a protocol development expert. Generate focused, scientific content."
+            system_message="You are a protocol development expert specializing in clinical research and regulatory documentation. Generate focused, scientifically accurate content that adheres to ICH guidelines and regulatory requirements."
         )
         
         return suggestion if suggestion else None
@@ -60,50 +70,83 @@ def render_editor():
         if 'suggestion_states' not in st.session_state:
             st.session_state.suggestion_states = {}
 
-        # Define preferred section order
+        # Define preferred section order based on standard protocol structure
         ordered_sections = [
-            'title',                  # Basic Information
-            'synopsis',               # Overview
-            'background',             # Context
-            'objectives',             # Goals
-            'study_design',           # Design
-            'population',             # Participants
-            'procedures',             # Clinical Trial Specific
-            'endpoints',
+            # Administrative Information
+            'title',
+            'synopsis',
+            
+            # Introduction
+            'background',
+            'objectives',
+            
+            # Study Methods
+            'study_design',
+            'population',
+            
+            # Data Collection & Analysis
+            'data_source',
+            'variables',
+            'statistical_analysis',
+            
+            # Clinical Trial Specific
+            'procedures',
             'safety',
-            'search_strategy',        # Research Methodology
+            'endpoints',
+            
+            # Research Methodology
+            'search_strategy',
             'eligibility_criteria',
             'data_extraction',
             'quality_assessment',
             'synthesis_methods',
-            'survey_design',          # Survey/Questionnaire Specific
+            
+            # Survey/Questionnaire Specific
+            'survey_design',
             'survey_instrument',
             'data_collection',
-            'data_source',            # Data Analysis
-            'variables',
-            'statistical_analysis',
-            'ethical_considerations',  # Governance
+            
+            # Study Governance
+            'ethical_considerations',
             'data_monitoring',
             'completion_criteria',
-            'results_reporting',      # Reporting
-            'limitations'
+            
+            # Discussion
+            'limitations',
+            'results_reporting'
         ]
 
-        # Filter and sort sections
+        # Filter and sort sections based on study type
         generated_sections = dict(st.session_state.generated_sections)
         sections_to_display = [s for s in ordered_sections if s in generated_sections]
         remaining_sections = [s for s in generated_sections if s not in ordered_sections]
         sections_to_display.extend(remaining_sections)
 
-        # Display Protocol Sections
-        st.markdown("## 📄 Generated Protocol Sections")
+        # Display Protocol Sections with improved organization
+        st.markdown("## 📄 Protocol Sections")
         
+        # Add completion progress
+        total_sections = len(sections_to_display)
+        completed_sections = sum(1 for section in sections_to_display 
+                               if not any(missing['missing_fields'] 
+                                        for missing in [ProtocolImprover().analyze_section_completeness(section, generated_sections[section])]))
+        
+        progress = completed_sections / total_sections
+        st.progress(progress, text=f"Protocol Completion: {progress*100:.1f}%")
+
+        # Group sections by category
         for section_name in sections_to_display:
-            content = generated_sections[section_name]
-            with st.expander(f"📝 {section_name.replace('_', ' ').title()}", expanded=False):
+            icon = "📝"
+            if section_name in ['title', 'synopsis']: icon = "📋"
+            elif section_name in ['background', 'objectives']: icon = "🎯"
+            elif section_name in ['data_source', 'variables', 'statistical_analysis']: icon = "📊"
+            elif section_name in ['ethical_considerations', 'data_monitoring']: icon = "⚖️"
+            elif section_name in ['limitations', 'results_reporting']: icon = "💭"
+            
+            with st.expander(f"{icon} {section_name.replace('_', ' ').title()}", expanded=False):
                 st.text_area(
                     "Section Content",
-                    value=content,
+                    value=generated_sections[section_name],
                     height=200,
                     key=f"content_view_{section_name}",
                     disabled=True
@@ -115,16 +158,16 @@ def render_editor():
         missing_count = sum(len(section['missing_fields']) 
                           for section in analysis_results['section_analyses'].values())
 
-        # Display Missing Information Section
-        st.markdown("## 🚨 Missing Information")
+        # Display Missing Information Section with improved organization
+        st.markdown("## 🚨 Required Information")
         if missing_count > 0:
-            st.warning(f"Found {missing_count} items that need your attention")
+            st.warning(f"Found {missing_count} items that need attention")
 
             for section_name in sections_to_display:
                 if section_name in analysis_results['section_analyses']:
                     analysis = analysis_results['section_analyses'][section_name]
                     if analysis['missing_fields']:
-                        st.markdown(f"### 📝 {section_name.replace('_', ' ').title()}")
+                        st.markdown(f"### {section_name.replace('_', ' ').title()}")
 
                         for idx, field in enumerate(analysis['missing_fields']):
                             field_key = f"{section_name}_{field}_{idx}"
@@ -133,47 +176,40 @@ def render_editor():
                             if field_key not in st.session_state.editor_states:
                                 st.session_state.editor_states[field_key] = ""
                             
-                            # Field input with proper state management
-                            current_value = st.text_area(
-                                label=f"Enter information for {field.replace('_', ' ')}:",
-                                value=st.session_state.editor_states[field_key],
-                                key=field_key,
-                                height=100,
-                                help=f"Enter details for {field.replace('_', ' ')}"
-                            )
-                            
-                            # Store value in session state
-                            if current_value != st.session_state.editor_states[field_key]:
-                                st.session_state.editor_states[field_key] = current_value
-
-                            # Action buttons with improved state management
-                            col1, col2 = st.columns(2)
-                            
+                            # Field input with improved layout
+                            col1, col2 = st.columns([3, 1])
                             with col1:
+                                current_value = st.text_area(
+                                    label=f"Enter {field.replace('_', ' ')}:",
+                                    value=st.session_state.editor_states[field_key],
+                                    key=field_key,
+                                    height=100,
+                                    help=f"Provide details for {field.replace('_', ' ')}"
+                                )
+                            
+                            with col2:
+                                st.markdown("### ")  # Spacing
                                 suggestion_key = f"suggest_{field_key}"
                                 if st.button("🤖 Get AI Suggestion", key=suggestion_key):
                                     with st.spinner("Generating suggestion..."):
                                         suggestion = generate_ai_suggestion(field, section_name)
                                         if suggestion:
                                             st.session_state.editor_states[field_key] = suggestion
-                                            st.success("✅ AI suggestion generated!")
-                                            st.session_state.suggestion_states[suggestion_key] = True
+                                            st.success("✅ Suggestion generated!")
+                                            st.experimental_rerun()
                                         else:
                                             st.error("Failed to generate suggestion")
-
-                            with col2:
-                                update_key = f"update_{field_key}"
-                                if st.button("📝 Update Section", key=update_key):
-                                    if current_value.strip():
+                                
+                                if current_value.strip():
+                                    if st.button("📝 Update", key=f"update_{field_key}"):
                                         update_section_content(
                                             section_name=section_name,
                                             field=field,
                                             new_content=current_value
                                         )
-                                        st.success("✅ Section updated!")
-                                        st.session_state.editor_states[field_key] = ""  # Clear input after update
-                                    else:
-                                        st.warning("Please enter content before updating.")
+                                        st.success("✅ Updated!")
+                                        st.session_state.editor_states[field_key] = ""
+                                        st.experimental_rerun()
         else:
             st.success("✅ All required information has been provided")
 

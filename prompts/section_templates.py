@@ -1,42 +1,45 @@
-# Previous content remains the same until CONDITIONAL_SECTIONS definition
-# Adding only the CONDITIONAL_SECTIONS update for brevity
+# Default templates for all study types
+DEFAULT_TEMPLATES = {
+    'title': 'Generate a clear and descriptive title that reflects the study objectives and design.',
+    'synopsis': 'Create a comprehensive synopsis summarizing the key aspects of the study.',
+    'background': 'Provide relevant background information and study rationale.',
+    'objectives': 'Define primary and secondary study objectives.',
+    'data_source': 'Describe the data sources and their characteristics.',
+    'variables': 'Define study variables and their measurements.',
+    'statistical_analysis': 'Detail the statistical analysis approach.',
+    'limitations': 'Discuss potential study limitations and mitigation strategies.',
+    'ethical_considerations': 'Address relevant ethical considerations and compliance requirements.'
+}
 
+# Study type specific section templates
+SECTION_TEMPLATES = {
+    'secondary_rwe': {
+        'data_source': '''
+Describe the database(s) or data source(s) to be used, including:
+- Database characteristics and coverage
+- Time period of data collection
+- Population represented
+- Data quality and validation
+''',
+        'variables': '''
+Define study variables including:
+- Primary outcomes
+- Secondary outcomes
+- Covariates and confounders
+- Data definitions and coding
+''',
+        'statistical_analysis': '''
+Detail the statistical analysis plan:
+- Primary analysis methods
+- Handling of missing data
+- Sensitivity analyses
+- Subgroup analyses
+'''
+    }
+}
+
+# Section configuration based on study type
 CONDITIONAL_SECTIONS = {
-    'phase1': {
-        'required': [
-            'title',
-            'synopsis',
-            'background',
-            'objectives',
-            'study_design',
-            'population',
-            'procedures',
-            'statistical_analysis',
-            'safety',
-            'endpoints',
-            'ethical_considerations',
-            'data_monitoring',
-            'completion_criteria'
-        ],
-        'optional': ['pk_analysis', 'interim_analysis'],
-        'excluded': ['efficacy_endpoints']
-    },
-    'systematic_review': {
-        'required': [
-            'title',
-            'synopsis',
-            'background',
-            'search_strategy',
-            'eligibility_criteria',
-            'data_extraction',
-            'quality_assessment',
-            'synthesis_methods',
-            'results_reporting',
-            'ethical_considerations'
-        ],
-        'optional': ['meta_analysis', 'risk_of_bias'],
-        'excluded': ['safety', 'procedures']
-    },
     'secondary_rwe': {
         'required': [
             'title',
@@ -53,24 +56,9 @@ CONDITIONAL_SECTIONS = {
         'excluded': [
             'safety',
             'procedures',
-            'data_monitoring',
-            'completion_criteria'
+            'data_monitoring',  # Remove as not typically needed for secondary analysis
+            'completion_criteria',  # Remove as timing is usually predefined
+            'endpoints'  # Typically covered under variables/outcomes
         ]
-    },
-    'patient_survey': {
-        'required': [
-            'title',
-            'synopsis',
-            'background',
-            'objectives',
-            'survey_design',
-            'population',
-            'survey_instrument',
-            'data_collection',
-            'statistical_analysis',
-            'ethical_considerations'
-        ],
-        'optional': ['pilot_testing', 'cognitive_debriefing'],
-        'excluded': ['safety', 'procedures']
     }
 }
