@@ -6,19 +6,81 @@ from utils.missing_information_handler import MissingInformationHandler
 
 logger = logging.getLogger(__name__)
 
-def update_section_content(section_name: str, field: str, new_content: str):
-    '''Update protocol section content'''
-    if section_name in st.session_state.generated_sections:
-        current_content = st.session_state.generated_sections[section_name]
-        updated_content = f"{current_content}\n\n{field.replace('_', ' ').title()}: {new_content}"
-        st.session_state.generated_sections[section_name] = updated_content
+# Keyboard shortcut definitions
+SHORTCUTS = {
+    "generate_ai": {"key": "ctrl+g", "description": "Generate AI suggestion"},
+    "update_section": {"key": "ctrl+u", "description": "Update section content"},
+    "clear_field": {"key": "ctrl+x", "description": "Clear field content"},
+    "toggle_details": {"key": "ctrl+d", "description": "Toggle field details"}
+}
+
+def render_keyboard_shortcuts():
+    """Display available keyboard shortcuts"""
+    with st.expander("⌨️ Keyboard Shortcuts", expanded=False):
+        st.markdown("""
+        | Action | Shortcut | Description |
+        |--------|----------|-------------|""")
+        for action, details in SHORTCUTS.items():
+            st.markdown(f"| {action.replace('_', ' ').title()} | `{details['key']}` | {details['description']} |")
+
+def add_shortcut_handlers():
+    """Add JavaScript handlers for keyboard shortcuts"""
+    shortcut_js = """
+    <script>
+    document.addEventListener('keydown', function(e) {
+        // Generate AI suggestion (Ctrl+G)
+        if (e.ctrlKey && e.key === 'g') {
+            e.preventDefault();
+            document.querySelector('button[data-testid*="suggest"]').click();
+        }
         
-        # Mark section as updated
-        if 'updated_sections' not in st.session_state:
-            st.session_state.updated_sections = set()
-        st.session_state.updated_sections.add(f"{section_name}_{field}")
+        // Update section (Ctrl+U)
+        if (e.ctrlKey && e.key === 'u') {
+            e.preventDefault();
+            document.querySelector('button[data-testid*="update"]').click();
+        }
+        
+        // Clear field (Ctrl+X)
+        if (e.ctrlKey && e.key === 'x') {
+            e.preventDefault();
+            let activeField = document.activeElement;
+            if (activeField.tagName === 'TEXTAREA') {
+                activeField.value = '';
+                activeField.dispatchEvent(new Event('input'));
+            }
+        }
+        
+        // Toggle details (Ctrl+D)
+        if (e.ctrlKey && e.key === 'd') {
+            e.preventDefault();
+            let detailsExpander = document.querySelector('button[aria-label*="About"]');
+            if (detailsExpander) {
+                detailsExpander.click();
+            }
+        }
+    });
+    </script>
+    """
+    st.markdown(shortcut_js, unsafe_allow_html=True)
+
+def update_section_content(section_name: str, field: str, new_content: str):
+    """Update protocol section content"""
+    try:
+        if section_name in st.session_state.generated_sections:
+            current_content = st.session_state.generated_sections[section_name]
+            updated_content = f"{current_content}\n\n{field.replace('_', ' ').title()}: {new_content}"
+            st.session_state.generated_sections[section_name] = updated_content
+            
+            # Mark section as updated
+            if 'updated_sections' not in st.session_state:
+                st.session_state.updated_sections = set()
+            st.session_state.updated_sections.add(f"{section_name}_{field}")
+    except Exception as e:
+        logger.error(f"Error updating section content: {str(e)}")
+        raise
 
 def generate_ai_suggestion(field: str, section_name: str) -> str:
+    """Generate AI suggestion for field content"""
     try:
         # Get previously generated content for context
         previous_content = st.session_state.generated_sections.get(section_name, "")
@@ -46,22 +108,24 @@ Requirements:
 - Be concise but comprehensive'''
 
         gpt_handler = GPTHandler()
-        suggestion = gpt_handler.generate_content(
+        return gpt_handler.generate_content(
             prompt=context,
             system_message="You are a protocol development expert. Generate focused content that complements existing information without duplication."
         )
-        
-        return suggestion if suggestion else None
         
     except Exception as e:
         logger.error(f"AI suggestion error: {str(e)}")
         return None
 
 def render_editor():
-    '''Render the protocol editor interface'''
+    """Render the protocol editor interface"""
     try:
         if not st.session_state.get('generated_sections'):
             return
+
+        # Add keyboard shortcuts
+        render_keyboard_shortcuts()
+        add_shortcut_handlers()
 
         # Initialize handlers
         improver = ProtocolImprover()
@@ -88,8 +152,8 @@ def render_editor():
             # Core Study Design
             'study_design',
             'population',
-            'endpoints',
             'procedures',
+            'endpoints',
             
             # Statistical Considerations
             'statistical_analysis',
@@ -121,16 +185,12 @@ def render_editor():
         # Display Protocol Sections with improved organization
         st.markdown("## 📄 Protocol Sections")
         
-        # Get analysis results for all sections
-        analysis_results = {}
-        for section_name, content in generated_sections.items():
-            analysis_results[section_name] = missing_info_handler.analyze_section_completeness(section_name, content)
-        
-        # Calculate completion progress considering updated sections
+        # Calculate overall completion progress
         total_sections = len(sections_to_display)
         completed_sections = sum(1 for section in sections_to_display 
                                if not any(f"{section}_{field}" not in st.session_state.get('updated_sections', set())
-                                        for field in analysis_results[section]['missing_fields']))
+                                        for field in improver.analyze_protocol_sections(
+                                            {section: generated_sections[section]})['section_analyses'][section]['missing_fields']))
         
         progress = completed_sections / total_sections if total_sections > 0 else 0
         st.progress(progress, text=f"Protocol Completion: {progress*100:.1f}%")
@@ -164,6 +224,8 @@ def render_editor():
         st.markdown("## 🚨 Required Information")
         
         missing_count = 0
+        analysis_results = improver.analyze_protocol_sections(generated_sections)['section_analyses']
+        
         for section_name in sections_to_display:
             if section_name in analysis_results:
                 analysis = analysis_results[section_name]
@@ -181,20 +243,28 @@ def render_editor():
                         field_key = f"{section_name}_{field}_{idx}"
                         field_info = missing_info_handler._get_field_prompt(field, section_name)
                         
-                        # Display severity badge
-                        severity_colors = {
+                        # Show field header with severity badge
+                        severity = field_info['severity']
+                        severity_badge = {
                             'critical': '🔴 CRITICAL',
                             'major': '🟡 MAJOR',
                             'minor': '🟢 MINOR'
-                        }
-                        severity_badge = severity_colors.get(field_info['severity'], '⚪️ UNKNOWN')
+                        }.get(severity, '⚪️ UNKNOWN')
                         
                         st.markdown(f"#### {field.replace('_', ' ').title()} {severity_badge}")
-                        st.markdown(field_info['message'])
                         
-                        # Initialize field state if needed
-                        if field_key not in st.session_state.editor_states:
-                            st.session_state.editor_states[field_key] = ""
+                        # Show field details in collapsible section
+                        with st.expander("🔍 Field Details", expanded=False):
+                            st.markdown(field_info['message'])
+                            
+                            if section_name in ['statistical_analysis', 'study_design', 'safety', 'population']:
+                                st.info('''
+                                This field requires specific attention based on section requirements:
+                                1. Content must be detailed and comprehensive
+                                2. Must follow regulatory guidelines
+                                3. Should cross-reference related sections
+                                4. Include all required sub-components
+                                ''')
                         
                         # Field input with improved layout
                         col1, col2 = st.columns([3, 1])
@@ -202,12 +272,11 @@ def render_editor():
                         with col1:
                             current_value = st.text_area(
                                 label=f"Enter {field.replace('_', ' ')}:",
-                                value=st.session_state.editor_states[field_key],
+                                value=st.session_state.editor_states.get(field_key, ""),
                                 key=field_key,
                                 height=100,
                                 help=f"Provide details for {field.replace('_', ' ')}"
                             )
-                            st.session_state.editor_states[field_key] = current_value
                         
                         with col2:
                             # AI Suggestion button

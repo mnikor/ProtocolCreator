@@ -6,20 +6,42 @@ logger = logging.getLogger(__name__)
 
 class MissingInformationHandler:
     def __init__(self):
-        """Initialize handler with detection patterns"""
+        """Initialize handler with enhanced detection patterns"""
         self.required_fields = {
-            'background': ['rationale', 'current_treatment', 'unmet_need'],
-            'objectives': ['primary_objective', 'secondary_objectives'],
-            'study_design': ['design_type', 'sample_size', 'duration'],
-            'population': ['inclusion_criteria', 'exclusion_criteria', 'sample_size'],
-            'procedures': ['study_visits', 'assessments', 'follow_up'],
-            'statistical_analysis': ['analysis_population', 'statistical_methods', 'sample_size_calculation'],
-            'safety': ['safety_parameters', 'adverse_events', 'monitoring'],
-            'endpoints': ['primary_endpoints', 'secondary_endpoints', 'safety_endpoints'],
-            'survey_design': ['survey_type', 'administration_method', 'target_population'],
-            'survey_instrument': ['questionnaire_type', 'validation_status', 'scoring_method'],
-            'search_strategy': ['databases', 'search_terms', 'time_period'],
-            'data_source': ['database_name', 'time_period', 'data_elements']
+            'statistical_analysis': [
+                'analysis_populations',
+                'statistical_methods',
+                'missing_data_handling',
+                'interim_analyses',
+                'statistical_software',
+                'multiplicity_adjustment'
+            ],
+            'study_design': [
+                'study_phase',
+                'treatment_arms',
+                'allocation_ratio',
+                'stratification_factors',
+                'visit_schedule',
+                'operational_flow',
+                'timeline'
+            ],
+            'safety': [
+                'ae_definitions',
+                'ae_grading',
+                'safety_review',
+                'dsmb_requirements',
+                'laboratory_monitoring',
+                'stopping_rules',
+                'risk_management'
+            ],
+            'population': [
+                'demographics',
+                'clinical_characteristics',
+                'laboratory_requirements',
+                'screening_procedures',
+                'rescreening_policy',
+                'informed_consent'
+            ]
         }
         
         self.placeholder_pattern = r'\[PLACEHOLDER:\s*\*(.*?)\*\]'
@@ -28,55 +50,89 @@ class MissingInformationHandler:
     def _get_field_prompt(self, field: str, section_name: str = None) -> Dict:
         '''Get detailed prompt for missing field with section context and severity'''
         detailed_prompts = {
-            'sample_size': (
-                "Please specify the target sample size with these details:\n"
-                "• Total number of participants to be enrolled\n"
-                "• Statistical justification for the sample size\n"
-                "• Power calculations and assumptions\n"
-                "• Accounting for potential dropouts"
-            ),
-            'design_type': (
-                "Please specify the study design including:\n"
-                "• Type (e.g., randomized, open-label, single/double-blind)\n"
-                "• Control group details if applicable\n"
-                "• Treatment allocation ratio\n"
-                "• Duration of treatment and follow-up"
-            ),
-            'duration': (
-                "Define the study duration including:\n"
-                "• Screening period length\n"
-                "• Treatment period duration\n"
-                "• Follow-up period details\n"
-                "• Total study duration estimate"
-            ),
-            'inclusion_criteria': (
-                "Specify inclusion criteria including:\n"
-                "• Age range and gender\n"
-                "• Disease/condition specific requirements\n"
-                "• Required medical history\n"
-                "• Laboratory/diagnostic requirements"
-            ),
-            'exclusion_criteria': (
-                "Define exclusion criteria including:\n"
-                "• Medical conditions that preclude participation\n"
-                "• Prior/concomitant treatments\n"
-                "• Safety-related exclusions\n"
-                "• Practical/logistical exclusions"
-            ),
-            'primary_endpoints': (
-                "Define primary endpoints including:\n"
-                "• Main outcome measure(s)\n"
-                "• Timing of assessments\n"
-                "• Method of measurement\n"
-                "• Clinical relevance"
-            ),
-            'statistical_methods': (
-                "Specify statistical methods including:\n"
-                "• Analysis populations\n"
-                "• Primary analysis approach\n"
-                "• Handling of missing data\n"
-                "• Interim analyses if planned"
-            )
+            'analysis_populations': '''
+Define analysis populations including:
+• Intent-to-Treat (ITT) population definition
+• Per-Protocol (PP) population criteria
+• Safety population specifications
+• Protocol deviation handling''',
+            
+            'statistical_methods': '''
+Specify statistical methods including:
+• Primary analysis approach and models
+• Significance levels and power
+• Covariates and stratification
+• Secondary analysis methods''',
+            
+            'missing_data_handling': '''
+Detail missing data approach:
+• Primary imputation methods
+• Sensitivity analyses
+• Dropout handling
+• Partially missing data''',
+            
+            'interim_analyses': '''
+Define interim analyses:
+• Analysis timing
+• Stopping rules
+• Alpha spending
+• DSMB review process''',
+            
+            'study_phase': '''
+Specify study phase details:
+• Phase designation
+• Design rationale
+• Treatment duration
+• Follow-up period''',
+            
+            'treatment_arms': '''
+Define treatment arms:
+• Number of arms
+• Interventions per arm
+• Control group details
+• Treatment assignment''',
+            
+            'visit_schedule': '''
+Detail visit schedule:
+• Screening timeline
+• Treatment visits
+• Follow-up schedule
+• Visit windows''',
+            
+            'ae_definitions': '''
+Specify adverse event definitions:
+• AE categorization
+• Severity grading
+• Causality assessment
+• Reporting requirements''',
+            
+            'laboratory_monitoring': '''
+Define laboratory monitoring:
+• Required tests
+• Testing schedule
+• Alert values
+• Result handling''',
+            
+            'demographics': '''
+Specify demographic requirements:
+• Age ranges
+• Gender considerations
+• Ethnic factors
+• Geographic restrictions''',
+            
+            'laboratory_requirements': '''
+Define laboratory requirements:
+• Required values
+• Testing windows
+• Retesting procedures
+• Eligibility ranges''',
+            
+            'screening_procedures': '''
+Detail screening procedures:
+• Required assessments
+• Documentation needs
+• Timeline requirements
+• Process flow'''
         }
         
         message = detailed_prompts.get(
@@ -96,12 +152,14 @@ class MissingInformationHandler:
     def _get_field_severity(self, field: str, section_name: str = None) -> str:
         """Determine severity level for missing field"""
         critical_fields = {
-            'primary_objective', 'sample_size', 'safety_parameters',
-            'inclusion_criteria', 'exclusion_criteria', 'primary_endpoints'
+            'analysis_populations', 'statistical_methods', 'study_phase',
+            'treatment_arms', 'ae_definitions', 'dsmb_requirements',
+            'demographics', 'laboratory_requirements', 'screening_procedures'
         }
         major_fields = {
-            'statistical_methods', 'study_visits', 'duration',
-            'secondary_objectives', 'safety_monitoring'
+            'missing_data_handling', 'interim_analyses', 'visit_schedule',
+            'operational_flow', 'laboratory_monitoring', 'stopping_rules',
+            'rescreening_policy', 'informed_consent'
         }
         
         if field in critical_fields:
