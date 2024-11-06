@@ -93,9 +93,7 @@ COMPREHENSIVE_STUDY_CONFIGS = {
             'quality_assessment',
             'synthesis_methods',
             'results_reporting',
-            'ethical_considerations',
-            'data_monitoring',
-            'completion_criteria'
+            'ethical_considerations'
         ]
     },
     'secondary_rwe': {
@@ -108,9 +106,7 @@ COMPREHENSIVE_STUDY_CONFIGS = {
             'variables',
             'statistical_analysis',
             'limitations',
-            'ethical_considerations',
-            'data_monitoring',
-            'completion_criteria'
+            'ethical_considerations'
         ]
     },
     'patient_survey': {
@@ -124,9 +120,7 @@ COMPREHENSIVE_STUDY_CONFIGS = {
             'survey_instrument',
             'data_collection',
             'statistical_analysis',
-            'ethical_considerations',
-            'data_monitoring',
-            'completion_criteria'
+            'ethical_considerations'
         ]
     }
 }
