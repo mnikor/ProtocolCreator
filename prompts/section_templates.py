@@ -94,11 +94,99 @@ Define study endpoints including:
 - Include timing of assessments
 
 *Ensure endpoints are appropriate and well-defined.*
+''',
+
+    'synopsis': '''
+Generate a concise and comprehensive Synopsis summarizing:
+
+1. **Study Overview**:
+   - Study title and type
+   - Primary objectives
+   - Key design elements
+
+2. **Background**:
+   - Disease/condition context
+   - Current treatment landscape
+   - Study rationale
+
+3. **Methods**:
+   - Study design and population
+   - Key procedures
+   - Primary endpoints
+
+**Instructions**:
+- Keep content clear and organized
+- Include all critical elements
+- Maintain scientific accuracy
+
+*Ensure the synopsis provides a complete study overview.*
+''',
+
+    'ethical_considerations': '''
+Detail the ethical considerations including:
+
+1. **Regulatory Compliance**:
+   - IRB/Ethics committee review
+   - Informed consent process
+   - Patient rights protection
+
+2. **Data Privacy**:
+   - Confidentiality measures
+   - Data protection procedures
+   - Subject privacy safeguards
+
+**Instructions**:
+- Address all key ethical aspects
+- Include compliance requirements
+- Detail protection measures
+
+*Ensure comprehensive coverage of ethical considerations.*
+''',
+
+    'data_monitoring': '''
+Describe the data monitoring approach including:
+
+1. **Monitoring Plan**:
+   - Data collection oversight
+   - Quality control measures
+   - Safety monitoring procedures
+
+2. **Committee Structure**:
+   - Data monitoring committee
+   - Safety review board
+   - Reporting procedures
+
+**Instructions**:
+- Detail monitoring frequency
+- Specify quality measures
+- Include safety oversight
+
+*Ensure thorough coverage of monitoring procedures.*
+''',
+
+    'completion_criteria': '''
+Define study completion criteria including:
+
+1. **Study Endpoints**:
+   - Primary completion definition
+   - Secondary completion points
+   - Follow-up requirements
+
+2. **Discontinuation Criteria**:
+   - Individual subject completion
+   - Study termination conditions
+   - Early stopping rules
+
+**Instructions**:
+- Be specific and measurable
+- Include all completion scenarios
+- Define clear endpoints
+
+*Ensure clear definition of completion criteria.*
 '''
 }
 
 SECTION_TEMPLATES = {
-    # Phase 1 Clinical Trial
     'phase1': {
         'title': '''
 Generate a clear and descriptive study title for the Phase 1 clinical trial that includes:
@@ -108,23 +196,20 @@ Generate a clear and descriptive study title for the Phase 1 clinical trial that
 - The study population or condition
 
 **Instructions**:
+- Ensure the title is concise and adheres to regulatory guidelines
+- Avoid including any confidential information
+- Use formal, objective language
+- If sufficient details are not provided, omit this section
 
-- Ensure the title is concise and adheres to regulatory guidelines.
-- Avoid including any confidential or proprietary information.
-- Use formal, objective language appropriate for a scientific document.
-- If sufficient details are not provided, omit this section.
-
-*Ensure the title is clear, aligns with the study objectives, and is free of confidential information.*
+*Ensure the title is clear, aligns with study objectives, and is free of confidential information.*
 ''',
-        # ... rest of the phase1 templates ...
     },
-    # ... rest of the SECTION_TEMPLATES content ...
 }
 
 CONDITIONAL_SECTIONS = {
     'phase1': {
         'required': [
-            'title',  # Add title first
+            'title',
             'synopsis',
             'background',
             'objectives',
@@ -143,7 +228,7 @@ CONDITIONAL_SECTIONS = {
     },
     'systematic_review': {
         'required': [
-            'title',  # Add title first
+            'title',
             'synopsis',
             'background',
             'search_strategy',
@@ -159,7 +244,7 @@ CONDITIONAL_SECTIONS = {
     },
     'secondary_rwe': {
         'required': [
-            'title',  # Add title first
+            'title',
             'synopsis',
             'background',
             'data_source',
@@ -174,7 +259,7 @@ CONDITIONAL_SECTIONS = {
     },
     'patient_survey': {
         'required': [
-            'title',  # Add title first
+            'title',
             'synopsis',
             'background',
             'survey_design',
