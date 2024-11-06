@@ -25,8 +25,8 @@ class MissingInformationHandler:
         self.placeholder_pattern = r'\[PLACEHOLDER:\s*\*(.*?)\*\]'
         self.recommendation_pattern = r'\[RECOMMENDED:\s*\*(.*?)\*\]'
         
-    def _get_field_prompt(self, field: str, section_name: str = None) -> str:
-        '''Get detailed prompt for missing field with section context'''
+    def _get_field_prompt(self, field: str, section_name: str = None) -> Dict:
+        '''Get detailed prompt for missing field with section context and severity'''
         detailed_prompts = {
             'sample_size': (
                 "Please specify the target sample size with these details:\n"
@@ -79,24 +79,41 @@ class MissingInformationHandler:
             )
         }
         
-        # Add section context to prompt
-        if section_name:
-            base_prompt = detailed_prompts.get(
-                field,
-                f"Please provide detailed information about {field.replace('_', ' ')}"
-            )
-            return f"For the {section_name.replace('_', ' ')} section:\n{base_prompt}"
-        
-        return detailed_prompts.get(
+        message = detailed_prompts.get(
             field,
             f"Please provide detailed information about {field.replace('_', ' ')}"
         )
+        
+        # Add section context if provided
+        if section_name:
+            message = f"For the {section_name.replace('_', ' ')} section:\n{message}"
+        
+        return {
+            'message': message,
+            'severity': self._get_field_severity(field, section_name)
+        }
+
+    def _get_field_severity(self, field: str, section_name: str = None) -> str:
+        """Determine severity level for missing field"""
+        critical_fields = {
+            'primary_objective', 'sample_size', 'safety_parameters',
+            'inclusion_criteria', 'exclusion_criteria', 'primary_endpoints'
+        }
+        major_fields = {
+            'statistical_methods', 'study_visits', 'duration',
+            'secondary_objectives', 'safety_monitoring'
+        }
+        
+        if field in critical_fields:
+            return 'critical'
+        elif field in major_fields:
+            return 'major'
+        return 'minor'
 
     def detect_missing_fields(self, section_name: str, content: str) -> List[str]:
         """Detect missing required fields in a section"""
         missing_fields = []
         
-        # Check required fields based on section type
         if section_name in self.required_fields:
             required = self.required_fields[section_name]
             content_lower = content.lower()
@@ -122,11 +139,15 @@ class MissingInformationHandler:
         missing_fields = self.detect_missing_fields(section_name, content)
         recommendations = self.detect_recommendations(content)
         
-        # Add specific improvement suggestions
+        # Add specific improvement suggestions with severity
         suggestions = []
         if missing_fields:
             for field in missing_fields:
-                suggestions.append(self._get_field_prompt(field, section_name))
+                field_info = self._get_field_prompt(field, section_name)
+                suggestions.append({
+                    'message': field_info['message'],
+                    'severity': field_info['severity']
+                })
         
         analysis = {
             'section_name': section_name,

@@ -70,57 +70,46 @@ def render_editor():
         # Initialize session state for editor
         if 'editor_states' not in st.session_state:
             st.session_state.editor_states = {}
-            
         if 'suggestion_states' not in st.session_state:
             st.session_state.suggestion_states = {}
-            
         if 'updated_sections' not in st.session_state:
             st.session_state.updated_sections = set()
 
         # Define preferred section order based on standard protocol structure
         ordered_sections = [
-            # Administrative Information
+            # Administrative
             'title',
             'synopsis',
             
-            # Introduction
+            # Background & Objectives
             'background',
             'objectives',
             
-            # Study Methods
+            # Core Study Design
             'study_design',
             'population',
+            'endpoints',
             'procedures',
             
-            # Clinical Trial Specific
-            'safety',
-            'endpoints',
-            
-            # Data Collection & Analysis
-            'data_source',
-            'variables',
+            # Statistical Considerations
             'statistical_analysis',
+            'sample_size',
             
-            # Research Methodology
-            'search_strategy',
-            'eligibility_criteria',
-            'data_extraction',
-            'quality_assessment',
-            'synthesis_methods',
-            
-            # Survey/Questionnaire Specific
-            'survey_design',
-            'survey_instrument',
-            'data_collection',
-            
-            # Study Governance
-            'ethical_considerations',
+            # Safety & Monitoring
+            'safety',
             'data_monitoring',
+            
+            # Data Management
+            'data_collection',
+            'data_quality',
+            
+            # Additional Considerations
+            'ethical_considerations',
             'completion_criteria',
             
-            # Discussion
-            'limitations',
-            'results_reporting'
+            # Supplementary Sections
+            'references',
+            'appendices'
         ]
 
         # Filter and sort sections based on study type
@@ -146,14 +135,17 @@ def render_editor():
         progress = completed_sections / total_sections if total_sections > 0 else 0
         st.progress(progress, text=f"Protocol Completion: {progress*100:.1f}%")
 
-        # Group sections by category
+        # Display sections with category-based icons
         for section_name in sections_to_display:
             icon = "📝"
             if section_name in ['title', 'synopsis']: icon = "📋"
             elif section_name in ['background', 'objectives']: icon = "🎯"
-            elif section_name in ['data_source', 'variables', 'statistical_analysis']: icon = "📊"
-            elif section_name in ['ethical_considerations', 'data_monitoring']: icon = "⚖️"
-            elif section_name in ['limitations', 'results_reporting']: icon = "💭"
+            elif section_name in ['study_design', 'population', 'endpoints']: icon = "🔬"
+            elif section_name in ['statistical_analysis', 'sample_size']: icon = "📊"
+            elif section_name in ['safety', 'data_monitoring']: icon = "⚕️"
+            elif section_name in ['ethical_considerations']: icon = "⚖️"
+            elif section_name in ['data_collection', 'data_quality']: icon = "💾"
+            elif section_name in ['references', 'appendices']: icon = "📚"
             
             with st.expander(f"{icon} {section_name.replace('_', ' ').title()}", expanded=False):
                 # Show update indicator if section has been updated
@@ -168,7 +160,7 @@ def render_editor():
                     disabled=True
                 )
 
-        # Display Missing Information Section with improved organization
+        # Display Missing Information Section with severity indicators
         st.markdown("## 🚨 Required Information")
         
         missing_count = 0
@@ -187,6 +179,18 @@ def render_editor():
                     
                     for idx, field in enumerate(current_fields):
                         field_key = f"{section_name}_{field}_{idx}"
+                        field_info = missing_info_handler._get_field_prompt(field, section_name)
+                        
+                        # Display severity badge
+                        severity_colors = {
+                            'critical': '🔴 CRITICAL',
+                            'major': '🟡 MAJOR',
+                            'minor': '🟢 MINOR'
+                        }
+                        severity_badge = severity_colors.get(field_info['severity'], '⚪️ UNKNOWN')
+                        
+                        st.markdown(f"#### {field.replace('_', ' ').title()} {severity_badge}")
+                        st.markdown(field_info['message'])
                         
                         # Initialize field state if needed
                         if field_key not in st.session_state.editor_states:
