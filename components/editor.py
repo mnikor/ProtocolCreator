@@ -75,6 +75,9 @@ def update_section_content(section_name: str, field: str, new_content: str):
             if 'updated_sections' not in st.session_state:
                 st.session_state.updated_sections = set()
             st.session_state.updated_sections.add(f"{section_name}_{field}")
+            
+            # Force progress recalculation
+            st.rerun()
     except Exception as e:
         logger.error(f"Error updating section content: {str(e)}")
         raise
@@ -185,13 +188,24 @@ def render_editor():
         # Display Protocol Sections with improved organization
         st.markdown("## 📄 Protocol Sections")
         
+        # Get analysis results for all sections
+        analysis_results = improver.analyze_protocol_sections(generated_sections)['section_analyses']
+        
         # Calculate overall completion progress
         total_sections = len(sections_to_display)
-        completed_sections = sum(1 for section in sections_to_display 
-                               if not any(f"{section}_{field}" not in st.session_state.get('updated_sections', set())
-                                        for field in improver.analyze_protocol_sections(
-                                            {section: generated_sections[section]})['section_analyses'][section]['missing_fields']))
-        
+        completed_sections = 0
+
+        # Count completed sections
+        for section in sections_to_display:
+            section_analysis = analysis_results[section]
+            # Section is complete if it has no missing fields or all fields have been updated
+            missing_fields = [
+                field for field in section_analysis['missing_fields']
+                if f"{section}_{field}" not in st.session_state.get('updated_sections', set())
+            ]
+            if not missing_fields:
+                completed_sections += 1
+
         progress = completed_sections / total_sections if total_sections > 0 else 0
         st.progress(progress, text=f"Protocol Completion: {progress*100:.1f}%")
 
@@ -224,7 +238,6 @@ def render_editor():
         st.markdown("## 🚨 Required Information")
         
         missing_count = 0
-        analysis_results = improver.analyze_protocol_sections(generated_sections)['section_analyses']
         
         for section_name in sections_to_display:
             if section_name in analysis_results:
