@@ -160,17 +160,27 @@ Generate the content using formal scientific writing style. Mark uncertainties o
             raise
 
     def generate_complete_protocol(self, study_type: str, synopsis_content: str) -> Dict:
-        """Generate complete protocol with appropriate sections"""
         try:
+            # Get base sections from COMPREHENSIVE_STUDY_CONFIGS
             study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
-            sections = study_config.get('required_sections', [])
+            base_sections = study_config.get('required_sections', [])
             
-            if not sections:
+            # Get additional sections from CONDITIONAL_SECTIONS
+            conditional_config = CONDITIONAL_SECTIONS.get(study_type, {})
+            required_sections = conditional_config.get('required', [])
+            optional_sections = conditional_config.get('optional', [])
+            excluded_sections = conditional_config.get('excluded', [])
+            
+            # Combine all required sections while respecting exclusions
+            all_sections = list(set(base_sections + required_sections))
+            all_sections = [s for s in all_sections if s not in excluded_sections]
+            
+            if not all_sections:
                 logger.error(f"No sections defined for study type: {study_type}")
                 raise ValueError(f"No sections defined for study type: {study_type}")
             
             generated_sections = {}
-            for section_name in sections:
+            for section_name in all_sections:
                 logger.info(f"Generating section: {section_name}")
                 if self.should_include_section(section_name, study_type):
                     section_content = self.generate_section(
@@ -185,7 +195,7 @@ Generate the content using formal scientific writing style. Mark uncertainties o
                 else:
                     logger.info(f"Section {section_name} excluded for study type {study_type}")
             
-            logger.info(f"Generated {len(generated_sections)} sections out of {len(sections)} required")
+            logger.info(f"Generated {len(generated_sections)} sections out of {len(all_sections)} required")
             return {"sections": generated_sections}
             
         except Exception as e:
