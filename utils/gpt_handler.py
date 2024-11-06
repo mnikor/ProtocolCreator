@@ -31,28 +31,32 @@ class GPTHandler:
 
     def _simplify_language(self, text: str) -> str:
         """Remove overly formal language"""
-        formal_phrases = [
-            r'\bmeticulously\b', r'\bthoroughly\b', r'\bcomprehensively\b',
-            r'\bexhaustively\b', r'\bpainstakingly\b', r'\bscrupulously\b',
-            r'\bfacilitate\b', r'\butilize\b', r'\bimplement\b'
-        ]
-        
-        replacements = {
+        formal_phrases = {
             'meticulously': 'carefully',
-            'thoroughly': 'fully',
-            'comprehensively': 'completely',
-            'exhaustively': 'fully',
+            'thoroughly': 'completely',
+            'comprehensively': 'fully',
+            'exhaustively': 'completely',
             'painstakingly': 'carefully',
             'scrupulously': 'carefully',
             'facilitate': 'help',
             'utilize': 'use',
-            'implement': 'use'
+            'implement': 'use',
+            'commence': 'start',
+            'terminate': 'end',
+            'endeavor': 'try',
+            'necessitate': 'need',
+            'pursuant to': 'following',
+            'aforementioned': 'previous',
+            'accordingly': 'therefore'
         }
         
-        text = re.sub(r'\b(' + '|'.join(formal_phrases) + r')\b',
-                     lambda m: replacements.get(m.group(0).lower(), m.group(0)),
-                     text,
-                     flags=re.IGNORECASE)
+        for formal, simple in formal_phrases.items():
+            text = re.sub(
+                rf'\b{formal}\b',
+                simple,
+                text,
+                flags=re.IGNORECASE
+            )
         
         return text
 
@@ -63,9 +67,15 @@ class GPTHandler:
                 raise ValueError("Empty prompt provided")
                 
             messages = []
-            default_system_message = """Use clear, direct language appropriate for technical documents.
-            Avoid overly formal or flowery language. Focus on essential information and specific details.
-            Use simple, precise terms instead of complex phrases."""
+            default_system_message = '''
+            Write in clear, direct language appropriate for technical documents.
+            - Use simple, precise terms
+            - Be direct and clear
+            - Avoid unnecessary formality
+            - Focus on essential information
+            - Use active voice
+            - Keep sentences concise
+            '''
             
             messages.append({
                 "role": "system", 
