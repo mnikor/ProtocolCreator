@@ -89,14 +89,30 @@ Include screening, treatment, and follow-up visits.'''
         return DEFAULT_TEMPLATES.get(section_name, f"Generate content for {section_name} section")
 
     def should_include_section(self, section_name: str, study_type: str) -> bool:
-        """Determine if a section should be included based on study type rules"""
+        '''Determine if a section should be included based on study type rules'''
+        # Critical sections that should always be included
+        critical_sections = {
+            'synopsis',
+            'ethical_considerations',
+            'data_monitoring',
+            'completion_criteria'
+        }
+        
+        # Always include critical sections
+        if section_name in critical_sections:
+            return True
+            
+        # Check study type specific rules
         if study_type in CONDITIONAL_SECTIONS:
             study_rules = CONDITIONAL_SECTIONS[study_type]
+            # Include if explicitly required or optional
+            if section_name in study_rules['required'] or section_name in study_rules['optional']:
+                return True
+            # Exclude if explicitly excluded
             if section_name in study_rules['excluded']:
                 return False
-            if section_name in study_rules['required']:
-                return True
-            return section_name in study_rules['optional']
+            
+        # Default to including the section if no specific rules exist
         return True
 
     def generate_section(self, section_name: str, synopsis_content: str, study_type: str) -> str:

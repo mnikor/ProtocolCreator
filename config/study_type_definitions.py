@@ -1,7 +1,8 @@
 COMPREHENSIVE_STUDY_CONFIGS = {
     'phase1': {
         'required_sections': [
-            'title',  # Add title first
+            'title',
+            'synopsis',
             'background',
             'objectives',
             'study_design',
@@ -9,12 +10,16 @@ COMPREHENSIVE_STUDY_CONFIGS = {
             'procedures',
             'statistical_analysis',
             'safety',
-            'endpoints'
+            'endpoints',
+            'ethical_considerations',
+            'data_monitoring',
+            'completion_criteria'
         ]
     },
     'phase2': {
         'required_sections': [
-            'title',  # Add title first
+            'title',
+            'synopsis',
             'background',
             'objectives',
             'study_design',
@@ -22,12 +27,16 @@ COMPREHENSIVE_STUDY_CONFIGS = {
             'procedures',
             'statistical_analysis',
             'safety',
-            'endpoints'
+            'endpoints',
+            'ethical_considerations',
+            'data_monitoring',
+            'completion_criteria'
         ]
     },
     'phase3': {
         'required_sections': [
-            'title',  # Add title first
+            'title',
+            'synopsis',
             'background',
             'objectives',
             'study_design',
@@ -35,12 +44,16 @@ COMPREHENSIVE_STUDY_CONFIGS = {
             'procedures',
             'statistical_analysis',
             'safety',
-            'endpoints'
+            'endpoints',
+            'ethical_considerations',
+            'data_monitoring',
+            'completion_criteria'
         ]
     },
     'phase4': {
         'required_sections': [
-            'title',  # Add title first
+            'title',
+            'synopsis',
             'background',
             'objectives',
             'study_design',
@@ -48,77 +61,62 @@ COMPREHENSIVE_STUDY_CONFIGS = {
             'procedures',
             'statistical_analysis',
             'safety',
-            'endpoints'
+            'endpoints',
+            'ethical_considerations',
+            'data_monitoring',
+            'completion_criteria'
         ]
     },
     'observational': {
         'required_sections': [
-            'title',  # Add title first
+            'title',
+            'synopsis',
             'background',
             'objectives',
             'study_design',
             'population',
             'data_collection',
             'statistical_analysis',
-            'bias_assessment',
-            'endpoints'
-        ]
-    },
-    'medical_device': {
-        'required_sections': [
-            'title',  # Add title first
-            'background',
-            'objectives',
-            'device_description',
-            'study_design',
-            'population',
-            'procedures',
-            'safety_monitoring',
-            'performance_endpoints'
-        ]
-    },
-    'diagnostic': {
-        'required_sections': [
-            'title',  # Add title first
-            'background',
-            'objectives',
-            'test_description',
-            'study_design',
-            'population',
-            'reference_standard',
-            'statistical_analysis',
-            'performance_metrics'
+            'ethical_considerations',
+            'data_monitoring',
+            'completion_criteria'
         ]
     },
     'systematic_review': {
         'required_sections': [
-            'title',  # Add title first
+            'title',
+            'synopsis',
             'background',
-            'objectives',
             'search_strategy',
             'eligibility_criteria',
             'data_extraction',
             'quality_assessment',
             'synthesis_methods',
-            'results_reporting'
+            'results_reporting',
+            'ethical_considerations',
+            'data_monitoring',
+            'completion_criteria'
         ]
     },
     'secondary_rwe': {
         'required_sections': [
-            'title',  # Add title first
+            'title',
+            'synopsis',
             'background',
             'objectives',
             'data_source',
-            'study_design',
-            'population',
             'variables',
             'statistical_analysis',
-            'limitations'
+            'limitations',
+            'ethical_considerations',
+            'data_monitoring',
+            'completion_criteria'
         ]
     },
     'patient_survey': {
         'required_sections': [
-            'title',  # Add title first
+            'title',
+            'synopsis',
             'background',
             'objectives',
             'survey_design',
@@ -126,7 +124,9 @@ COMPREHENSIVE_STUDY_CONFIGS = {
             'survey_instrument',
             'data_collection',
             'statistical_analysis',
-            'ethical_considerations'
+            'ethical_considerations',
+            'data_monitoring',
+            'completion_criteria'
         ]
     }
 }
