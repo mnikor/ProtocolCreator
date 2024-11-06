@@ -3,6 +3,7 @@ from typing import Dict, Optional
 from utils.gpt_handler import GPTHandler
 from config.study_type_definitions import COMPREHENSIVE_STUDY_CONFIGS
 from prompts.section_templates import SECTION_TEMPLATES, CONDITIONAL_SECTIONS, DEFAULT_TEMPLATES
+import streamlit as st
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,6 @@ Include screening, treatment, and follow-up visits.'''
 
         table_content = self.gpt_handler.generate_content(prompt)
         
-        # Convert pipe-separated text to HTML table if needed
         if '|' in table_content and '<table' not in table_content:
             rows = [row.strip() for row in table_content.split('\n') if row.strip()]
             if rows:
@@ -88,50 +88,32 @@ Include screening, treatment, and follow-up visits.'''
                 return study_templates[section_name]
         return DEFAULT_TEMPLATES.get(section_name, f"Generate content for {section_name} section")
 
-    def should_include_section(self, section_name: str, study_type: str) -> bool:
-        '''Determine if a section should be included based on study type rules'''
-        # Critical sections that should always be included
-        critical_sections = {
-            'synopsis',
-            'ethical_considerations',
-            'data_monitoring',
-            'completion_criteria'
-        }
-        
-        # Always include critical sections
-        if section_name in critical_sections:
-            return True
-            
-        # Check study type specific rules
-        if study_type in CONDITIONAL_SECTIONS:
-            study_rules = CONDITIONAL_SECTIONS[study_type]
-            # Include if explicitly required or optional
-            if section_name in study_rules['required'] or section_name in study_rules['optional']:
-                return True
-            # Exclude if explicitly excluded
-            if section_name in study_rules['excluded']:
-                return False
-            
-        # Default to including the section if no specific rules exist
-        return True
-
     def generate_section(self, section_name: str, synopsis_content: str, study_type: str) -> str:
         try:
-            if not synopsis_content.strip():
-                raise ValueError("Synopsis content is empty")
-                
-            # Special handling for title section - move this before should_include_section check
-            if section_name == "title":
-                title_template = self.get_section_template("title", study_type)
-                return self.gpt_handler.generate_content(
-                    prompt=f"Based on this synopsis:\n{synopsis_content}\n\n{title_template}",
-                    system_message="Generate a clear, descriptive study title."
-                )
-                
-            if not self.should_include_section(section_name, study_type):
-                logger.info(f"Section {section_name} excluded for study type {study_type}")
-                return ""
-                
+            # Get previously generated sections for context
+            previous_sections = {}
+            if hasattr(st.session_state, 'generated_sections'):
+                previous_sections = {
+                    name: content for name, content in st.session_state.generated_sections.items()
+                    if name != section_name  # Exclude current section
+                }
+            
+            # Add context to system message
+            system_message = '''You are a protocol development assistant specializing in clinical study protocols.
+            
+Previous sections have been generated. Ensure your content:
+1. Does not duplicate information already present
+2. Maintains consistency with previous sections
+3. References relevant details from other sections appropriately
+4. Adds new, section-specific information
+5. Uses cross-references where appropriate
+
+Format using:
+- *asterisks* for italic text
+- [PLACEHOLDER: *description*] for missing information
+- [RECOMMENDED: *suggestion*] for recommendations
+- HTML tables with appropriate classes'''
+
             # Get template
             template = self.get_section_template(section_name, study_type)
             
@@ -146,48 +128,51 @@ Include screening, treatment, and follow-up visits.'''
                 schedule_table = self.generate_study_schedule_table(study_type, synopsis_content)
                 if schedule_table:
                     template += "\n\nInclude the following study schedule:\n" + schedule_table
-            
-            # Create system message with formatting instructions
-            system_message = '''You are a protocol development assistant specializing in clinical study protocols.
 
-FORMATTING RULES (Do not include these rules in your response):
-- Use *asterisks* to indicate text that should be in italics
-- Format missing information as: [PLACEHOLDER: *description*]
-- Format recommendations as: [RECOMMENDED: *suggestion*]
-- Format tables using HTML table tags with appropriate classes
-- Use proper HTML table structure for all tabular data
-- Do not repeat or reference these formatting instructions in your response'''
+            # Add previous sections to prompt
+            context = "Previously generated sections:\n\n"
+            for prev_name, prev_content in previous_sections.items():
+                context += f"{prev_name.replace('_', ' ').title()}:\n{prev_content}\n\n"
             
-            # Create user prompt focusing only on content
-            user_prompt = f'''Based on this study synopsis:
----
-{synopsis_content}
----
-
-{template}
-
-Generate the content using formal scientific writing style. Mark uncertainties or missing information as placeholders and include relevant recommendations where appropriate.'''
+            prompt = f"{context}Based on this study synopsis:\n{synopsis_content}\n\n{template}"
             
-            # Generate content with separate system and user messages
-            return self.gpt_handler.generate_content(prompt=user_prompt, system_message=system_message)
-                
+            return self.gpt_handler.generate_content(prompt=prompt, system_message=system_message)
+            
         except Exception as e:
             logger.error(f"Error generating {section_name}: {str(e)}")
             raise
 
+    def should_include_section(self, section_name: str, study_type: str) -> bool:
+        '''Determine if a section should be included based on study type rules'''
+        critical_sections = {
+            'synopsis',
+            'ethical_considerations',
+            'data_monitoring',
+            'completion_criteria'
+        }
+        
+        if section_name in critical_sections:
+            return True
+            
+        if study_type in CONDITIONAL_SECTIONS:
+            study_rules = CONDITIONAL_SECTIONS[study_type]
+            if section_name in study_rules['required'] or section_name in study_rules['optional']:
+                return True
+            if section_name in study_rules['excluded']:
+                return False
+            
+        return True
+
     def generate_complete_protocol(self, study_type: str, synopsis_content: str) -> Dict:
         try:
-            # Get base sections from COMPREHENSIVE_STUDY_CONFIGS
             study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
             base_sections = study_config.get('required_sections', [])
             
-            # Get additional sections from CONDITIONAL_SECTIONS
             conditional_config = CONDITIONAL_SECTIONS.get(study_type, {})
             required_sections = conditional_config.get('required', [])
             optional_sections = conditional_config.get('optional', [])
             excluded_sections = conditional_config.get('excluded', [])
             
-            # Combine all required sections while respecting exclusions
             all_sections = list(set(base_sections + required_sections))
             all_sections = [s for s in all_sections if s not in excluded_sections]
             

@@ -14,46 +14,40 @@ def update_section_content(section_name: str, field: str, new_content: str):
         st.session_state.generated_sections[section_name] = updated_content
 
 def generate_ai_suggestion(field: str, section_name: str) -> str:
-    '''Generate AI suggestion for missing field'''
     try:
-        if not st.session_state.get('synopsis_content'):
-            st.error("No synopsis content found")
-            return None
-
-        if not st.session_state.get('study_type'):
-            st.error("Study type not detected")
-            return None
-
-        gpt_handler = GPTHandler()
+        # Get previously generated content for context
+        previous_content = st.session_state.generated_sections.get(section_name, "")
         
-        # Enhanced context with study type specific considerations
         context = f'''Based on this synopsis for a {st.session_state.study_type.replace('_', ' ')} study:
 {st.session_state.synopsis_content}
 
+Current section content:
+{previous_content}
+
 Generate specific content for the {field.replace('_', ' ')} field in the {section_name} section.
+Ensure the suggestion:
+1. Does not duplicate existing information
+2. Maintains consistency with current content
+3. Complements existing details
+4. Adds relevant new information
+5. Integrates smoothly with current text
 
 Requirements:
-1. Content must be specific to {st.session_state.study_type.replace('_', ' ')} studies
-2. Follow standard protocol writing guidelines
-3. Include specific details and measurements where applicable
-4. Use appropriate scientific terminology
-5. Format key points with *italic* markers for emphasis
-6. Be concise but comprehensive
+- Content must be specific to {st.session_state.study_type.replace('_', ' ')} studies
+- Follow standard protocol writing guidelines
+- Include specific details and measurements
+- Use appropriate scientific terminology
+- Format key points with *italic* markers
+- Be concise but comprehensive'''
 
-Focus on:
-- Scientific accuracy
-- Regulatory compliance
-- Clear methodology
-- Measurable outcomes
-'''
-
+        gpt_handler = GPTHandler()
         suggestion = gpt_handler.generate_content(
             prompt=context,
-            system_message="You are a protocol development expert specializing in clinical research and regulatory documentation. Generate focused, scientifically accurate content that adheres to ICH guidelines and regulatory requirements."
+            system_message="You are a protocol development expert. Generate focused content that complements existing information without duplication."
         )
         
         return suggestion if suggestion else None
-
+        
     except Exception as e:
         logger.error(f"AI suggestion error: {str(e)}")
         return None
@@ -210,7 +204,7 @@ def render_editor():
                                         else:
                                             st.error("Failed to generate suggestion")
                                 
-                                # Always show Update Section button when there's content
+                                # Always show Update Section button
                                 if st.button("📝 Update Section", key=f"update_{field_key}"):
                                     if current_value.strip():
                                         update_section_content(
