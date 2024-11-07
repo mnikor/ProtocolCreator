@@ -56,60 +56,103 @@ class TemplateSectionGenerator:
 
     def get_section_template(self, section_name: str, study_type: str) -> str:
         """Get the appropriate template for the section based on study type"""
-        # Add study type-specific template overrides
+        # Add study-specific statistical templates
         study_specific_templates = {
+            'clinical_trial': {
+                'statistical_analysis': '''
+Think through:
+1. Power calculations and sample size
+   - What is the primary endpoint?
+   - What effect size is clinically meaningful?
+   - What variability is expected?
+   - What dropout rate is anticipated?
+
+2. Interim analyses requirements
+   - When should interim analyses occur?
+   - What are the stopping rules?
+   - How to control overall alpha?
+   - What safety monitoring is needed?
+
+3. Missing data handling approach
+   - What patterns of missing data are expected?
+   - Which imputation methods are appropriate?
+   - What sensitivity analyses are needed?
+   - How to document missing data?
+
+4. Subgroup analyses plan
+   - Which subgroups are clinically relevant?
+   - How to control for multiplicity?
+   - What sample sizes are needed?
+   - How to interpret results?
+
+Then generate Statistical Analysis Plan including:
+1. Analysis Populations
+2. Primary Analysis Methods
+3. Secondary Analyses
+4. Safety Analyses
+5. Interim Analyses
+6. Missing Data Approach
+7. Sensitivity Analyses
+8. Subgroup Analyses
+''',
+                'study_design': '''
+Think through design elements:
+1. Study Framework
+   - What phase-specific requirements apply?
+   - How to ensure proper randomization?
+   - What blinding approach is needed?
+   - How to maintain study integrity?
+
+2. Quality Control Measures
+   - What monitoring is required?
+   - How to ensure data quality?
+   - What documentation is needed?
+   - How to track protocol compliance?
+
+3. Safety Considerations
+   - What safety monitoring is needed?
+   - How often to review safety data?
+   - What are stopping criteria?
+   - How to handle adverse events?
+
+Then generate detailed design specifications.
+'''
+            },
             'secondary_rwe': {
                 'statistical_analysis': '''
-Generate Statistical Analysis Plan for Secondary RWE study including:
+Think through:
+1. Confounding control methods
+   - What confounders are expected?
+   - Which methods best control bias?
+   - How to assess residual confounding?
+   - What sensitivity analyses needed?
 
-1. Analysis Populations:
-   • Define target population
-   • Specify inclusion/exclusion criteria
-   • Detail subgroup definitions
+2. Propensity scoring approach
+   - Which variables to include?
+   - What matching method to use?
+   - How to assess balance?
+   - What diagnostics needed?
 
-2. Statistical Methods:
-   • Specify primary analysis methods
-   • Define significance levels
-   • List covariates and adjustments
-   • Detail sensitivity analyses
+3. Sensitivity analyses plan
+   - Which assumptions to test?
+   - What alternative methods to use?
+   - How to present results?
+   - What thresholds for robustness?
 
-3. Missing Data Handling:
-   • Define handling of missing values
-   • Specify imputation methods
-   • Detail documentation requirements
+4. Time-varying effects
+   - How to handle time-dependent confounding?
+   - What methods for time-varying exposure?
+   - How to assess temporal relationships?
+   - What follow-up required?
 
-4. Quality Control:
-   • Define data quality checks
-   • Specify validation procedures
-   • Detail documentation requirements
-
-Cross-reference with:
-- Data Source section for data elements
-- Variables section for definitions
-- Limitations section for potential biases
-''',
-                'safety': '''
-Define Safety Analysis for Secondary RWE including:
-
-1. Safety Outcome Identification:
-   • Define safety endpoints
-   • Specify coding dictionaries
-   • Detail outcome validation
-
-2. Analysis Methods:
-   • Specify statistical approaches
-   • Define reporting periods
-   • Detail stratification factors
-
-3. Risk Assessment:
-   • Define risk evaluation methods
-   • Specify signal detection
-   • Detail documentation requirements
-
-Cross-reference with:
-- Data Source for safety data elements
-- Variables for outcome definitions
-- Limitations for potential biases
+Then generate Statistical Analysis Plan including:
+1. Data Quality Assessment
+2. Variable Definitions
+3. Primary Analysis Methods
+4. Bias Control Approach
+5. Sensitivity Analyses
+6. Missing Data Handling
+7. Subgroup Analyses
 '''
             }
         }
@@ -138,15 +181,39 @@ Cross-reference with:
                     if name != section_name
                 }
             
-            # Add context to system message
+            # Enhanced system message with study type-specific thinking
             system_message = '''You are a protocol development assistant specializing in clinical study protocols.
-            
-Previous sections have been generated. Ensure your content:
-1. Does not duplicate information already present
-2. Maintains consistency with previous sections
-3. References relevant details from other sections appropriately
-4. Adds new, section-specific information
-5. Uses cross-references where appropriate
+
+Think through study type requirements:
+1. For Clinical Trials:
+   - Phase-specific requirements
+   - Regulatory guidance
+   - Quality standards
+   - Safety monitoring needs
+
+2. For RWE Studies:
+   - Data source quality
+   - Variable definitions
+   - Bias control
+   - Generalizability
+
+3. For Systematic Reviews:
+   - Search methodology
+   - Quality assessment
+   - Evidence synthesis
+   - Bias evaluation
+
+4. For Patient Registries:
+   - Data collection standards
+   - Quality control measures
+   - Long-term follow-up
+   - Real-world evidence generation
+
+Then for each section:
+1. Consider study-type specific requirements
+2. Apply appropriate validity measures
+3. Include quality control elements
+4. Ensure regulatory compliance
 
 Format using:
 - *asterisks* for italic text
@@ -163,7 +230,7 @@ Format using:
                 if schema:
                     template += "\n\nInclude the following study schema diagram:\n" + schema
 
-            # Add previous sections to prompt
+            # Add previous sections to prompt with improved context
             context = "Previously generated sections:\n\n"
             for prev_name, prev_content in previous_sections.items():
                 context += f"{prev_name.replace('_', ' ').title()}:\n{prev_content}\n\n"
