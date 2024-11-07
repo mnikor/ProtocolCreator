@@ -64,12 +64,38 @@ class ProtocolImprover:
     
     def _validate_section_requirements(self, section_name: str, content: str, study_type: str, results: Dict):
         """Check section-specific requirements"""
+        content_lower = content.lower()
+        
+        # More flexible objective detection patterns
+        objective_patterns = {
+            "primary_objective": [
+                "primary objective",
+                "primary goal",
+                "main objective",
+                "primary endpoint",
+                "primary aim"
+            ],
+            "secondary_objectives": [
+                "secondary objective",
+                "secondary goal",
+                "secondary endpoint",
+                "additional objective",
+                "exploratory objective"
+            ]
+        }
+        
+        if section_name == "objectives":
+            for obj_type, patterns in objective_patterns.items():
+                if not any(pattern in content_lower for pattern in patterns):
+                    results["issues"].append({
+                        "type": obj_type,
+                        "severity": "critical",
+                        "message": f"Missing {obj_type.replace('_', ' ')} in {section_name}",
+                        "suggestion": f"Add {obj_type.replace('_', ' ')} to section"
+                    })
+
+        # Study type-specific requirements
         section_requirements = {
-            "objectives": {
-                "required_elements": ["primary_objective", "secondary_objectives"],
-                "forbidden_terms": ["tbd", "to be determined", "placeholder"],
-                "min_length": 200
-            },
             "study_design": {
                 "required_elements": ["design_type", "duration", "population"],
                 "study_type_specific": {
@@ -101,7 +127,7 @@ class ProtocolImprover:
         if study_type in invalid_elements:
             rules = invalid_elements[study_type]
             for term in rules['forbidden_terms']:
-                if term.lower() in content.lower():
+                if term.lower() in content_lower:
                     results["issues"].append({
                         "type": "inappropriate_content",
                         "severity": "critical",
@@ -114,7 +140,7 @@ class ProtocolImprover:
             
             # Check required elements
             for element in reqs["required_elements"]:
-                if element.lower() not in content.lower():
+                if element.lower() not in content_lower:
                     results["issues"].append({
                         "type": element,
                         "severity": "critical",
@@ -125,7 +151,7 @@ class ProtocolImprover:
             # Check study type specific requirements
             if "study_type_specific" in reqs and study_type in reqs["study_type_specific"]:
                 for element in reqs["study_type_specific"][study_type]:
-                    if element.lower() not in content.lower():
+                    if element.lower() not in content_lower:
                         results["issues"].append({
                             "type": element,
                             "severity": "major",
@@ -135,6 +161,10 @@ class ProtocolImprover:
 
     def validate_section(self, section_name: str, content: str, study_type: str) -> Dict:
         """Validate individual protocol section"""
+        # Add debug logging
+        logger.debug(f"Validating section: {section_name}")
+        logger.debug(f"Content preview: {content[:200]}...")
+
         results = {
             "issues": [],
             "severity_counts": {
