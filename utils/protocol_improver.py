@@ -1,12 +1,15 @@
-# Previous imports remain the same...
+from typing import Dict, Optional, List
+from utils.missing_information_handler import MissingInformationHandler
+from utils.gpt_handler import GPTHandler
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ProtocolImprover:
     def __init__(self):
         """Initialize improver with handlers"""
         self.missing_info_handler = MissingInformationHandler()
         self.gpt_handler = GPTHandler()
-
-    # Previous methods remain the same...
     
     def _validate_section_requirements(self, section_name: str, content: str, study_type: str, results: Dict):
         """Check section-specific requirements"""
@@ -79,4 +82,23 @@ class ProtocolImprover:
                             "suggestion": f"Add {element} as required for {study_type} studies"
                         })
 
-    # Rest of the class implementation remains the same...
+    def validate_section(self, section_name: str, content: str, study_type: str) -> Dict:
+        """Validate individual protocol section"""
+        results = {
+            "issues": [],
+            "severity_counts": {
+                "critical": 0,
+                "major": 0,
+                "minor": 0
+            }
+        }
+
+        # Validate section requirements
+        self._validate_section_requirements(section_name, content, study_type, results)
+
+        # Count issues by severity
+        for issue in results["issues"]:
+            severity = issue.get("severity", "minor")
+            results["severity_counts"][severity] += 1
+
+        return results
