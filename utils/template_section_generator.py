@@ -54,38 +54,78 @@ class TemplateSectionGenerator:
     ```'''
         return None
 
-    def generate_study_schedule_table(self, study_type: str, synopsis_content: str) -> str:
-        """Generate HTML table for study schedule"""
-        prompt = f'''Based on this synopsis for a {study_type} study:
-{synopsis_content}
-
-Generate a detailed study schedule table with visits, timepoints, and procedures.
-Format as an HTML table with columns: Visit, Timepoint, Procedures.
-Include screening, treatment, and follow-up visits.'''
-
-        table_content = self.gpt_handler.generate_content(prompt)
-        
-        if '|' in table_content and '<table' not in table_content:
-            rows = [row.strip() for row in table_content.split('\n') if row.strip()]
-            if rows:
-                table_html = '<table class="study-schedule">'
-                for i, row in enumerate(rows):
-                    cells = [cell.strip() for cell in row.split('|')]
-                    table_html += '<tr>'
-                    cell_tag = 'th' if i == 0 else 'td'
-                    table_html += ''.join(f'<{cell_tag}>{cell}</{cell_tag}>' for cell in cells)
-                    table_html += '</tr>'
-                table_html += '</table>'
-                return table_html
-        
-        return table_content
-
     def get_section_template(self, section_name: str, study_type: str) -> str:
         """Get the appropriate template for the section based on study type"""
+        # Add study type-specific template overrides
+        study_specific_templates = {
+            'secondary_rwe': {
+                'statistical_analysis': '''
+Generate Statistical Analysis Plan for Secondary RWE study including:
+
+1. Analysis Populations:
+   • Define target population
+   • Specify inclusion/exclusion criteria
+   • Detail subgroup definitions
+
+2. Statistical Methods:
+   • Specify primary analysis methods
+   • Define significance levels
+   • List covariates and adjustments
+   • Detail sensitivity analyses
+
+3. Missing Data Handling:
+   • Define handling of missing values
+   • Specify imputation methods
+   • Detail documentation requirements
+
+4. Quality Control:
+   • Define data quality checks
+   • Specify validation procedures
+   • Detail documentation requirements
+
+Cross-reference with:
+- Data Source section for data elements
+- Variables section for definitions
+- Limitations section for potential biases
+''',
+                'safety': '''
+Define Safety Analysis for Secondary RWE including:
+
+1. Safety Outcome Identification:
+   • Define safety endpoints
+   • Specify coding dictionaries
+   • Detail outcome validation
+
+2. Analysis Methods:
+   • Specify statistical approaches
+   • Define reporting periods
+   • Detail stratification factors
+
+3. Risk Assessment:
+   • Define risk evaluation methods
+   • Specify signal detection
+   • Detail documentation requirements
+
+Cross-reference with:
+- Data Source for safety data elements
+- Variables for outcome definitions
+- Limitations for potential biases
+'''
+            }
+        }
+        
+        # Check for study-specific template first
+        if study_type in study_specific_templates:
+            if section_name in study_specific_templates[study_type]:
+                return study_specific_templates[study_type][section_name]
+                
+        # Check study type templates
         if study_type in SECTION_TEMPLATES:
             study_templates = SECTION_TEMPLATES[study_type]
             if section_name in study_templates:
                 return study_templates[section_name]
+        
+        # Fall back to default template
         return DEFAULT_TEMPLATES.get(section_name, f"Generate content for {section_name} section")
 
     def generate_section(self, section_name: str, synopsis_content: str, study_type: str) -> str:
@@ -95,7 +135,7 @@ Include screening, treatment, and follow-up visits.'''
             if hasattr(st.session_state, 'generated_sections'):
                 previous_sections = {
                     name: content for name, content in st.session_state.generated_sections.items()
-                    if name != section_name  # Exclude current section
+                    if name != section_name
                 }
             
             # Add context to system message
@@ -122,12 +162,6 @@ Format using:
                 schema = self.generate_study_schema(study_type)
                 if schema:
                     template += "\n\nInclude the following study schema diagram:\n" + schema
-
-            # Add study schedule table for procedures section
-            if section_name == 'procedures':
-                schedule_table = self.generate_study_schedule_table(study_type, synopsis_content)
-                if schedule_table:
-                    template += "\n\nInclude the following study schedule:\n" + schedule_table
 
             # Add previous sections to prompt
             context = "Previously generated sections:\n\n"
@@ -162,43 +196,3 @@ Format using:
                 return False
             
         return True
-
-    def generate_complete_protocol(self, study_type: str, synopsis_content: str) -> Dict:
-        try:
-            study_config = COMPREHENSIVE_STUDY_CONFIGS.get(study_type, {})
-            base_sections = study_config.get('required_sections', [])
-            
-            conditional_config = CONDITIONAL_SECTIONS.get(study_type, {})
-            required_sections = conditional_config.get('required', [])
-            optional_sections = conditional_config.get('optional', [])
-            excluded_sections = conditional_config.get('excluded', [])
-            
-            all_sections = list(set(base_sections + required_sections))
-            all_sections = [s for s in all_sections if s not in excluded_sections]
-            
-            if not all_sections:
-                logger.error(f"No sections defined for study type: {study_type}")
-                raise ValueError(f"No sections defined for study type: {study_type}")
-            
-            generated_sections = {}
-            for section_name in all_sections:
-                logger.info(f"Generating section: {section_name}")
-                if self.should_include_section(section_name, study_type):
-                    section_content = self.generate_section(
-                        section_name=section_name,
-                        synopsis_content=synopsis_content,
-                        study_type=study_type
-                    )
-                    if section_content:
-                        generated_sections[section_name] = section_content
-                    else:
-                        logger.warning(f"No content generated for section: {section_name}")
-                else:
-                    logger.info(f"Section {section_name} excluded for study type {study_type}")
-            
-            logger.info(f"Generated {len(generated_sections)} sections out of {len(all_sections)} required")
-            return {"sections": generated_sections}
-            
-        except Exception as e:
-            logger.error(f"Error generating protocol: {str(e)}")
-            raise
