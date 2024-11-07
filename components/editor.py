@@ -34,11 +34,27 @@ def calculate_progress(sections_to_display, analysis_results, updated_sections):
     return completed_sections / total_sections if total_sections > 0 else 0
 
 def generate_ai_suggestion(field: str, section_name: str) -> str:
-    """Generate AI suggestion for missing field"""
     try:
         # Get synopsis and current content
         synopsis = st.session_state.get('synopsis_content', '')
         current_content = st.session_state.generated_sections.get(section_name, '')
+        
+        # Get specific field requirements
+        field_requirements = {
+            'primary_objective': 'Define the main goal of the study',
+            'secondary_objectives': 'List key secondary goals',
+            'statistical_methods': 'Specify analysis methods',
+            'safety_parameters': 'Define safety monitoring criteria',
+            'endpoints': 'Define primary and secondary endpoints',
+            'population': 'Specify inclusion/exclusion criteria',
+            'study_design': 'Detail study design and methodology',
+            'procedures': 'Outline study procedures and assessments',
+            'timeline': 'Define study timeline and milestones',
+            'data_monitoring': 'Specify data monitoring procedures',
+            'ethical_considerations': 'Address ethical aspects and compliance'
+        }
+        
+        field_requirement = field_requirements.get(field, f"Provide content for {field}")
         
         prompt = f'''Based on this synopsis:
 {synopsis}
@@ -46,18 +62,22 @@ def generate_ai_suggestion(field: str, section_name: str) -> str:
 And current {section_name} section content:
 {current_content}
 
-Generate specific content for the {field.replace('_', ' ')} field that:
-1. Uses information from the synopsis (drug names, specific details)
-2. Maintains consistency with existing content
-3. Avoids placeholders when information is available
-4. Integrates with current section content
+Generate specific content for the {field.replace('_', ' ')} field.
+Requirement: {field_requirement}
+
+Guidelines:
+1. Use specific information from the synopsis and current content
+2. Do not duplicate existing content
+3. Address the specific missing requirement
+4. Use concrete details (drug names, doses, etc.) from synopsis
+5. Focus only on {field.replace('_', ' ')}
 
 Study Type: {st.session_state.get('study_type', 'clinical study')}'''
         
         gpt_handler = GPTHandler()
         suggestion = gpt_handler.generate_content(
             prompt=prompt,
-            system_message="Generate precise protocol content using available study information. Avoid placeholders when information exists."
+            system_message="Generate specific, focused protocol content using available study information. Avoid generic text."
         )
         return suggestion
     except Exception as e:
@@ -120,9 +140,8 @@ def render_editor():
         # Create ordered list based on categories
         ordered_sections = []
         for category, sections in section_categories.items():
-            for section in sections:
-                if section in sections_to_display:
-                    ordered_sections.append(section)
+            category_sections = [s for s in sections if s in sections_to_display]
+            ordered_sections.extend(category_sections)
         
         # Add any remaining sections at the end
         remaining_sections = [s for s in sections_to_display if s not in ordered_sections]
@@ -150,7 +169,7 @@ def render_editor():
         # Show progress bar
         st.progress(progress, text=f"Protocol Completion: {progress*100:.1f}%")
         
-        # Display missing information sections
+        # Display protocol assessment
         if analysis_results:
             st.markdown("### Protocol Assessment")
             
@@ -182,28 +201,41 @@ def render_editor():
                         with st.expander(f"{severity_icon} {issue['message']}", expanded=False):
                             st.markdown(f"**Suggestion:** {issue['suggestion']}")
                             
-                            # Add unique key using index
-                            unique_key = f"suggest_{section_name}_{issue['type']}_{idx}"
-                            if st.button("🤖 Get AI Suggestion", key=unique_key):
-                                with st.spinner("Generating suggestion..."):
-                                    suggestion = generate_ai_suggestion(
-                                        field=issue['type'],
-                                        section_name=section_name
-                                    )
-                                    if suggestion:
-                                        st.markdown("### Suggested Content:")
-                                        st.markdown(suggestion)
-                                        
-                                        # Also make this key unique
-                                        apply_key = f"apply_{section_name}_{issue['type']}_{idx}"
-                                        if st.button("📝 Apply Suggestion", key=apply_key):
-                                            current_content = st.session_state.generated_sections[section_name]
-                                            updated_content = current_content + "\n\n" + suggestion
-                                            st.session_state.generated_sections[section_name] = updated_content
-                                            st.success("✅ Content updated!")
-                                            st.rerun()
+                            # Add text input field
+                            field_key = f"input_{section_name}_{issue['type']}_{idx}"
+                            user_input = st.text_area(
+                                "Enter content:",
+                                key=field_key,
+                                help="Enter your content or use AI suggestion below"
+                            )
+                            
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                # Add update button for manual input
+                                if st.button("📝 Update Section", key=f"update_{field_key}"):
+                                    if user_input.strip():
+                                        update_section_content(section_name, issue['type'], user_input)
+                                        st.success("✅ Content updated!")
+                                        st.rerun()
+                            
+                            with col2:
+                                # AI suggestion button
+                                if st.button("🤖 Get AI Suggestion", key=f"suggest_{section_name}_{issue['type']}_{idx}"):
+                                    with st.spinner("Generating suggestion..."):
+                                        suggestion = generate_ai_suggestion(
+                                            field=issue['type'],
+                                            section_name=section_name
+                                        )
+                                        if suggestion:
+                                            st.markdown("### Suggested Content:")
+                                            st.markdown(suggestion)
+                                            
+                                            if st.button("📝 Apply Suggestion", key=f"apply_{section_name}_{issue['type']}_{idx}"):
+                                                update_section_content(section_name, issue['type'], suggestion)
+                                                st.success("✅ Content updated!")
+                                                st.rerun()
         
-        # Display generated sections
+        # Display protocol sections
         st.markdown("### Protocol Sections")
         
         # Group sections by category
@@ -223,7 +255,7 @@ def render_editor():
                 with st.expander(f"📄 {section_name.replace('_', ' ').title()}", expanded=False):
                     st.markdown(st.session_state.generated_sections[section_name])
                     
-        render_keyboard_shortcuts()  # Render keyboard shortcuts here
+        render_keyboard_shortcuts()
                     
     except Exception as e:
         logger.error(f"Error in editor: {str(e)}")
