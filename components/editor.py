@@ -86,39 +86,6 @@ def render_keyboard_shortcuts():
         for action, details in SHORTCUTS.items():
             st.markdown(f"| {action.replace('_', ' ').title()} | `{details['key']}` | {details['description']} |")
 
-def add_shortcut_handlers():
-    """Add JavaScript handlers for keyboard shortcuts"""
-    shortcut_js = """
-    <script>
-    document.addEventListener('keydown', function(e) {
-        if (e.ctrlKey && e.key === 'g') {
-            e.preventDefault();
-            document.querySelector('button[data-testid*="suggest"]').click();
-        }
-        if (e.ctrlKey && e.key === 'u') {
-            e.preventDefault();
-            document.querySelector('button[data-testid*="update"]').click();
-        }
-        if (e.ctrlKey && e.key === 'x') {
-            e.preventDefault();
-            let activeField = document.activeElement;
-            if (activeField.tagName === 'TEXTAREA') {
-                activeField.value = '';
-                activeField.dispatchEvent(new Event('input'));
-            }
-        }
-        if (e.ctrlKey && e.key === 'd') {
-            e.preventDefault();
-            let detailsExpander = document.querySelector('button[aria-label*="About"]');
-            if (detailsExpander) {
-                detailsExpander.click();
-            }
-        }
-    });
-    </script>
-    """
-    st.markdown(shortcut_js, unsafe_allow_html=True)
-
 def render_editor():
     '''Render the protocol editor interface with improved section ordering'''
     try:
@@ -258,6 +225,41 @@ def render_editor():
                 with st.expander(f"📄 {section_name.replace('_', ' ').title()}", expanded=False):
                     st.markdown(st.session_state.generated_sections[section_name])
                     
+        render_keyboard_shortcuts()  # Render keyboard shortcuts here
+                    
     except Exception as e:
         logger.error(f"Error in editor: {str(e)}")
         st.error(f"An error occurred: {str(e)}")
+
+def add_shortcut_handlers():
+    """Add JavaScript handlers for keyboard shortcuts"""
+    shortcut_js = """
+    <script>
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'g') {
+            e.preventDefault();
+            document.querySelector('button[data-testid*="suggest"]').click();
+        }
+        if (e.ctrlKey && e.key === 'u') {
+            e.preventDefault();
+            document.querySelector('button[data-testid*="update"]').click();
+        }
+        if (e.ctrlKey && e.key === 'x') {
+            e.preventDefault();
+            let activeField = document.activeElement;
+            if (activeField.tagName === 'TEXTAREA') {
+                activeField.value = '';
+                activeField.dispatchEvent(new Event('input'));
+            }
+        }
+        if (e.ctrlKey && e.key === 'd') {
+            e.preventDefault();
+            let detailsExpander = document.querySelector('button[aria-label*="About"]');
+            if (detailsExpander) {
+                detailsExpander.click();
+            }
+        }
+    });
+    </script>
+    """
+    st.markdown(shortcut_js, unsafe_allow_html=True)
