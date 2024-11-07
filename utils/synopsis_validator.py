@@ -1,128 +1,139 @@
-import logging
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
-logger = logging.getLogger(__name__)
+# Add these patterns to the existing SynopsisValidator class
 
-class SynopsisValidator:
-    def __init__(self):
-        """Initialize validator with study type detection patterns"""
-        self.study_type_patterns = {
-            'phase1': [
-                'phase 1', 'phase i', 'first in human', 'dose escalation',
-                'safety study', 'tolerability study', 'healthy volunteers',
-                'initial human', 'single ascending dose', 'multiple ascending dose'
-            ],
-            'phase2': [
-                'phase 2', 'phase ii', 'proof of concept', 'efficacy study',
-                'dose finding', 'dose ranging', 'preliminary efficacy',
-                'therapeutic exploratory', 'treatment efficacy'
-            ],
-            'phase3': [
-                'phase 3', 'phase iii', 'confirmatory', 'pivotal study',
-                'registration trial', 'comparative efficacy', 'confirmatory study',
-                'therapeutic confirmatory', 'randomized controlled'
-            ],
-            'phase4': [
-                'phase 4', 'phase iv', 'post-marketing', 'real-world evidence',
-                'post-authorization', 'surveillance study', 'pragmatic trial',
-                'registry based', 'effectiveness study'
-            ],
-            'observational': [
-                'observational study', 'registry study', 'cohort study',
-                'case-control', 'prospective observational', 'retrospective analysis',
-                'longitudinal study', 'epidemiological study', 'natural history'
-            ],
-            'systematic_review': [
-                'systematic review', 'systematic literature review', 'slr',
-                'meta analysis', 'meta-analysis', 'evidence synthesis',
-                'systematic search', 'prisma', 'literature synthesis'
-            ],
-            'secondary_rwe': [
-                'secondary analysis', 'real world evidence', 'rwe study',
-                'database study', 'claims analysis', 'electronic health records'
-            ],
-            'patient_survey': [
-                'patient survey', 'questionnaire study', 'patient reported outcome',
-                'survey research', 'patient experience', 'quality of life survey'
-            ]
+DESIGN_PATTERNS = {
+    'randomized': [
+        'randomized', 'randomisation', 'random allocation', 
+        'randomly assigned', 'random assignment'
+    ],
+    'controlled': [
+        'controlled study', 'control group', 'comparator arm',
+        'active control', 'placebo control'
+    ],
+    'blinding': [
+        'double-blind', 'single-blind', 'triple-blind',
+        'blinded assessment', 'masked'
+    ],
+    'adaptive': [
+        'adaptive design', 'sample size re-estimation',
+        'interim analysis', 'adaptive randomization'
+    ],
+    'crossover': [
+        'crossover', 'cross-over', 'treatment switch',
+        'sequence assignment'
+    ]
+}
+
+VALIDITY_MARKERS = {
+    'internal_validity': [
+        'bias control', 'standardization', 'quality control',
+        'monitoring procedures', 'data validation'
+    ],
+    'external_validity': [
+        'generalizability', 'real-world', 'practice setting',
+        'population representation', 'implementation'
+    ]
+}
+
+QUALITY_INDICATORS = {
+    'methods': [
+        'standardized procedures', 'validated instruments',
+        'quality assurance', 'monitoring plan'
+    ],
+    'endpoints': [
+        'primary endpoint', 'secondary endpoints',
+        'outcome measures', 'assessment criteria'
+    ],
+    'analysis': [
+        'statistical analysis', 'sample size calculation',
+        'power analysis', 'interim analysis'
+    ]
+}
+
+# Add this method to SynopsisValidator class
+def analyze_study_characteristics(self, content: str) -> Dict:
+    """
+    Enhanced analysis of study characteristics including design features,
+    validity considerations, and quality indicators
+    """
+    content_lower = content.lower()
+    characteristics = {
+        'design_features': [],
+        'validity_considerations': {
+            'internal': [],
+            'external': []
+        },
+        'quality_indicators': [],
+        'strength_score': 0
+    }
+
+    # Analyze design features
+    for design_type, patterns in DESIGN_PATTERNS.items():
+        if any(pattern in content_lower for pattern in patterns):
+            characteristics['design_features'].append(design_type)
+
+    # Analyze validity considerations
+    for validity_type, patterns in VALIDITY_MARKERS.items():
+        matches = [p for p in patterns if p in content_lower]
+        if matches:
+            if validity_type == 'internal_validity':
+                characteristics['validity_considerations']['internal'].extend(matches)
+            else:
+                characteristics['validity_considerations']['external'].extend(matches)
+
+    # Analyze quality indicators
+    for category, indicators in QUALITY_INDICATORS.items():
+        matches = [i for i in indicators if i in content_lower]
+        if matches:
+            characteristics['quality_indicators'].extend(matches)
+
+    # Calculate strength score (basic version)
+    characteristics['strength_score'] = (
+        len(characteristics['design_features']) * 2 +
+        len(characteristics['validity_considerations']['internal']) +
+        len(characteristics['validity_considerations']['external']) +
+        len(characteristics['quality_indicators'])
+    ) / 10.0  # Normalize to 0-1 scale
+
+    return characteristics
+
+# Add to validate_synopsis method
+def validate_synopsis(self, synopsis_content: str) -> Dict:
+    """Enhanced synopsis validation"""
+    try:
+        # Existing validation
+        base_validation = super().validate_synopsis(synopsis_content)
+
+        # Additional characteristics analysis
+        characteristics = self.analyze_study_characteristics(synopsis_content)
+
+        # Merge results
+        enhanced_validation = {
+            **base_validation,
+            'design_features': characteristics['design_features'],
+            'validity_profile': characteristics['validity_considerations'],
+            'quality_indicators': characteristics['quality_indicators'],
+            'strength_score': characteristics['strength_score'],
+            'recommendations': []
         }
 
-    def detect_study_type(self, content: str) -> Optional[str]:
-        try:
-            content_lower = content.lower()
-            
-            # Force check phase indicators first with strict patterns
-            phase_patterns = {
-                'phase2': ['phase 2', 'phase ii', 'phase-2', 'phase-ii'],
-                'phase1': ['phase 1', 'phase i', 'phase-1', 'phase-i'],
-                'phase3': ['phase 3', 'phase iii', 'phase-3', 'phase-iii'],
-                'phase4': ['phase 4', 'phase iv', 'phase-4', 'phase-iv']
-            }
-            
-            # Strict phase detection first
-            for phase, patterns in phase_patterns.items():
-                if any(f" {pattern} " in f" {content_lower} " for pattern in patterns):
-                    return phase
-            
-            # Only check other study types if no phase is found
-            for study_type, patterns in self.study_type_patterns.items():
-                if study_type not in ['phase1', 'phase2', 'phase3', 'phase4']:
-                    if any(pattern in content_lower for pattern in patterns):
-                        return study_type
-            
-            return None
-                
-        except Exception as e:
-            logger.error(f"Error detecting study type: {str(e)}")
-            return None
+        # Generate recommendations
+        if not characteristics['design_features']:
+            enhanced_validation['recommendations'].append(
+                "Consider explicitly stating study design features"
+            )
+        if not characteristics['validity_considerations']['internal']:
+            enhanced_validation['recommendations'].append(
+                "Add internal validity considerations"
+            )
+        if not characteristics['validity_considerations']['external']:
+            enhanced_validation['recommendations'].append(
+                "Include external validity considerations"
+            )
 
-    def detect_therapeutic_area(self, content: str) -> Optional[str]:
-        """Detect therapeutic area from content using defined patterns"""
-        therapeutic_areas = {
-            'oncology': ['cancer', 'tumor', 'oncology', 'neoplasm', 'malignancy'],
-            'cardiology': ['heart', 'cardiac', 'cardiovascular', 'hypertension'],
-            'neurology': ['brain', 'neural', 'nervous system', 'neurodegenerative'],
-            'immunology': ['immune', 'autoimmune', 'inflammation', 'rheumatic'],
-            'infectious_disease': ['infection', 'viral', 'bacterial', 'pathogen'],
-            'metabolism': ['diabetes', 'metabolic', 'endocrine', 'obesity'],
-            'respiratory': ['lung', 'respiratory', 'pulmonary', 'asthma', 'copd'],
-            'psychiatry': ['psychiatric', 'mental health', 'behavioral', 'depression'],
-            'pediatrics': ['pediatric', 'children', 'juvenile', 'infant'],
-            'rare_disease': ['rare disease', 'orphan disease', 'genetic disorder']
-        }
-        
-        content_lower = content.lower()
-        for area, patterns in therapeutic_areas.items():
-            if any(pattern in content_lower for pattern in patterns):
-                return area
+        return enhanced_validation
+
+    except Exception as e:
+        logger.error(f"Error in enhanced synopsis validation: {str(e)}")
         return None
-
-    def validate_synopsis(self, synopsis_content: str) -> Dict:
-        """Validate synopsis content and detect study type and therapeutic area"""
-        try:
-            study_type = self.detect_study_type(synopsis_content)
-            therapeutic_area = self.detect_therapeutic_area(synopsis_content)
-            
-            validation_result = {
-                'study_type': study_type,
-                'therapeutic_area': therapeutic_area,
-                'is_valid': True,
-                'messages': []
-            }
-            
-            # Add validation messages
-            if not study_type:
-                validation_result['messages'].append('Could not detect study type')
-                validation_result['is_valid'] = False
-            if not therapeutic_area:
-                validation_result['messages'].append('Could not detect therapeutic area')
-            
-            # Add study phase validation for clinical trials
-            if study_type and study_type.startswith('phase'):
-                validation_result['study_phase'] = study_type[-1]
-            
-            return validation_result
-            
-        except Exception as e:
-            logger.error(f"Error in synopsis validation: {str(e)}")
-            return None
