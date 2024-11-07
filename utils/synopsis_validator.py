@@ -59,7 +59,7 @@ class SynopsisValidator:
         self.design_patterns = DESIGN_PATTERNS
         self.validity_markers = VALIDITY_MARKERS
         self.quality_indicators = QUALITY_INDICATORS
-
+        
     def analyze_study_characteristics(self, content: str) -> Dict:
         """
         Enhanced analysis of study characteristics including design features,
@@ -152,26 +152,31 @@ class SynopsisValidator:
             'phase1': ['phase 1', 'phase i', 'first-in-human', 'dose escalation'],
             'phase2': ['phase 2', 'phase ii', 'proof of concept', 'efficacy study'],
             'phase3': ['phase 3', 'phase iii', 'confirmatory study', 'pivotal study'],
-            'phase4': ['phase 4', 'phase iv', 'post-marketing', 'real-world evidence']
+            'phase4': ['phase 4', 'phase iv', 'post-marketing']  # Removed 'real-world evidence'
         }
         
         # Special study type patterns
         special_patterns = {
             'observational': ['observational study', 'cohort study', 'case-control'],
             'systematic_review': ['systematic review', 'meta-analysis', 'literature review'],
-            'secondary_rwe': ['secondary analysis', 'database study', 'claims analysis'],
+            'secondary_rwe': [
+                'secondary analysis', 'database study', 'claims analysis',
+                'real-world evidence', 'real world evidence', 'rwe study',
+                'retrospective analysis', 'electronic health record',
+                'healthcare database', 'registry study'
+            ],
             'patient_survey': ['patient survey', 'questionnaire study', 'patient-reported']
         }
         
-        # Check phase patterns first
-        for phase, patterns in phase_patterns.items():
-            if any(pattern in content_lower for pattern in patterns):
-                return phase
-                
-        # Then check special study types
+        # Check special study types first
         for study_type, patterns in special_patterns.items():
             if any(pattern in content_lower for pattern in patterns):
                 return study_type
+                
+        # Then check phase patterns
+        for phase, patterns in phase_patterns.items():
+            if any(pattern in content_lower for pattern in patterns):
+                return phase
                 
         return None
 
