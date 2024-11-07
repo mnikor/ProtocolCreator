@@ -6,20 +6,20 @@ from utils.missing_information_handler import MissingInformationHandler
 
 logger = logging.getLogger(__name__)
 
-# Define preferred section order
+# Updated section order based on protocol standards
 SECTION_ORDER = [
     'title',
-    'synopsis',
+    'synopsis', 
     'background',
     'objectives',
     'study_design',
     'population',
     'procedures',
-    'endpoints',
     'statistical_analysis',
     'safety',
-    'data_monitoring',
+    'endpoints',
     'ethical_considerations',
+    'data_monitoring',
     'completion_criteria'
 ]
 
@@ -51,29 +51,39 @@ def calculate_progress(sections_to_display, analysis_results, updated_sections):
     return completed_sections / total_sections if total_sections > 0 else 0
 
 def generate_ai_suggestion(field: str, section_name: str) -> str:
+    """Generate AI suggestion with improved error handling and state management"""
     try:
+        # Initialize session state for suggestions if not exists
+        if 'ai_suggestions' not in st.session_state:
+            st.session_state.ai_suggestions = {}
+            
+        # Check if suggestion already exists
+        suggestion_key = f"{section_name}_{field}"
+        if suggestion_key in st.session_state.ai_suggestions:
+            return st.session_state.ai_suggestions[suggestion_key]
+        
         # Get synopsis and current content
         synopsis = st.session_state.get('synopsis_content', '')
         current_content = st.session_state.generated_sections.get(section_name, '')
         
-        # Get field requirements with improved prompts
+        # Enhanced field requirements with better context
         field_requirements = {
-            'primary_objective': 'Define clear, measurable primary objective',
-            'secondary_objectives': 'List specific secondary objectives',
-            'statistical_methods': 'Detail statistical analysis approach',
-            'safety_parameters': 'Specify safety monitoring criteria',
-            'endpoints': 'Define measurable study endpoints',
-            'population': 'Detail inclusion/exclusion criteria',
-            'study_design': 'Specify study methodology',
-            'procedures': 'List study procedures chronologically',
-            'timeline': 'Define study milestones',
-            'data_monitoring': 'Outline monitoring approach',
-            'ethical_considerations': 'Address key ethical aspects'
+            'primary_objective': 'Define clear, measurable primary objective with specific outcome measures',
+            'secondary_objectives': 'List specific secondary objectives with associated endpoints',
+            'statistical_methods': 'Detail statistical analysis approach including handling of missing data',
+            'safety_parameters': 'Specify safety monitoring criteria and reporting requirements',
+            'endpoints': 'Define measurable study endpoints with timeframes',
+            'population': 'Detail inclusion/exclusion criteria with rationale',
+            'study_design': 'Specify study methodology with timeline',
+            'procedures': 'List study procedures chronologically with windows',
+            'timeline': 'Define study milestones and critical paths',
+            'data_monitoring': 'Outline monitoring approach and frequency',
+            'ethical_considerations': 'Address key ethical aspects and protections'
         }
         
         field_requirement = field_requirements.get(field, f"Provide content for {field}")
         
-        # Enhanced prompt with study type context
+        # Enhanced prompt with study type context and quality considerations
         prompt = f'''Based on this synopsis:
 {synopsis}
 
@@ -91,13 +101,20 @@ Guidelines:
 5. Focus only on {field.replace('_', ' ')}
 6. Ensure consistency with study type: {st.session_state.get('study_type', 'clinical study')}
 7. Use clear, concise language
-8. Include measurable criteria where applicable'''
+8. Include measurable criteria where applicable
+9. Add appropriate quality control measures
+10. Consider regulatory compliance aspects'''
         
         gpt_handler = GPTHandler()
         suggestion = gpt_handler.generate_content(
             prompt=prompt,
             system_message="Generate specific, focused protocol content using available study information. Use clear, direct language."
         )
+        
+        # Store suggestion in session state
+        if suggestion:
+            st.session_state.ai_suggestions[suggestion_key] = suggestion
+            
         return suggestion
     except Exception as e:
         logger.error(f"Error generating AI suggestion: {str(e)}")
@@ -137,6 +154,11 @@ def update_section_content(section_name: str, field: str, value: str):
             st.session_state.updated_sections = set()
         st.session_state.updated_sections.add(f"{section_name}_{field}")
         
+        # Clear cached suggestion after update
+        if 'ai_suggestions' in st.session_state:
+            suggestion_key = f"{section_name}_{field}"
+            st.session_state.ai_suggestions.pop(suggestion_key, None)
+        
     except Exception as e:
         logger.error(f"Error updating section content: {str(e)}")
 
@@ -159,11 +181,15 @@ def render_editor():
         improver = ProtocolImprover()
         missing_info_handler = MissingInformationHandler()
         
-        # Get sections and order them
+        # Get sections and order them according to SECTION_ORDER
         available_sections = set(st.session_state.generated_sections.keys())
         ordered_sections = [s for s in SECTION_ORDER if s in available_sections]
-        remaining_sections = list(available_sections - set(ordered_sections))
-        ordered_sections.extend(sorted(remaining_sections))
+        remaining_sections = sorted(list(available_sections - set(ordered_sections)))
+        ordered_sections.extend(remaining_sections)
+        
+        # Initialize session state for suggestions
+        if 'ai_suggestions' not in st.session_state:
+            st.session_state.ai_suggestions = {}
         
         # Analyze all sections
         analysis_results = {}
@@ -228,10 +254,11 @@ def render_editor():
                             # Unique keys for each field
                             field_key = f"input_{section_name}_{issue['type']}_{idx}"
                             user_input = st.text_area(
-                                "",
+                                "Content",
                                 key=field_key,
                                 height=100,
-                                help="Enter content or use AI suggestion below"
+                                help="Enter content or use AI suggestion below",
+                                label_visibility="collapsed"
                             )
                             
                             # Action buttons in columns
