@@ -23,6 +23,14 @@ SECTION_ORDER = [
     'completion_criteria'
 ]
 
+# Keyboard shortcut definitions
+SHORTCUTS = {
+    "generate_ai": {"key": "ctrl+g", "description": "Generate AI suggestion"},
+    "update_section": {"key": "ctrl+u", "description": "Update section content"},
+    "clear_field": {"key": "ctrl+x", "description": "Clear field content"},
+    "toggle_details": {"key": "ctrl+d", "description": "Toggle field details"}
+}
+
 def calculate_progress(sections_to_display, analysis_results, updated_sections):
     """Calculate overall completion progress"""
     total_sections = len(sections_to_display)
@@ -49,15 +57,13 @@ def generate_unique_key(section_name: str, field: str, prefix: str = "") -> str:
 def generate_ai_suggestion(field: str, section_name: str) -> str:
     """Generate AI suggestion with improved error handling and caching"""
     try:
-        # Initialize suggestions in session state
+        # Initialize session state for suggestions if not exists
         if 'ai_suggestions' not in st.session_state:
             st.session_state.ai_suggestions = {}
             
+        # Check if suggestion already exists
         suggestion_key = f"{section_name}_{field}"
-        
-        # Return cached suggestion if available
         if suggestion_key in st.session_state.ai_suggestions:
-            logger.debug(f"Using cached suggestion for {suggestion_key}")
             return st.session_state.ai_suggestions[suggestion_key]
         
         # Get context from session state
@@ -65,41 +71,28 @@ def generate_ai_suggestion(field: str, section_name: str) -> str:
         current_content = st.session_state.generated_sections.get(section_name, '')
         study_type = st.session_state.get('study_type', '')
         
-        logger.debug(f"Generating suggestion for {section_name} - {field}")
-        
-        # Enhanced prompt with better context
-        prompt = f"""Based on this synopsis:
+        # Enhanced prompt with study type context
+        prompt = f'''Based on this synopsis:
 {synopsis}
 
 And current {section_name} section content:
 {current_content}
 
 Generate specific content for the {field.replace('_', ' ')} field.
+Consider study type: {study_type}
+Focus on required elements and consistency with existing content.
+Use concrete details from synopsis.
+Maintain professional tone and technical accuracy.'''
 
-Context:
-- Study Type: {study_type}
-- Section: {section_name}
-- Field: {field}
-
-Guidelines:
-1. Focus specifically on {field.replace('_', ' ')}
-2. Ensure consistency with study type requirements
-3. Use concrete details from synopsis
-4. Avoid duplicating existing content
-5. Include measurable criteria
-6. Consider quality control measures
-7. Address regulatory requirements"""
-        
         gpt_handler = GPTHandler()
         suggestion = gpt_handler.generate_content(
             prompt=prompt,
-            system_message="Generate focused, specific protocol content using clear, direct language."
+            system_message="Generate specific, focused protocol content using clear, direct language."
         )
         
         # Cache valid suggestion
         if suggestion:
             st.session_state.ai_suggestions[suggestion_key] = suggestion
-            logger.debug(f"Cached new suggestion for {suggestion_key}")
             
         return suggestion
         
@@ -108,7 +101,7 @@ Guidelines:
         return None
 
 def update_section_content(section_name: str, field: str, value: str):
-    """Update section content with improved error handling"""
+    """Update section content with error handling"""
     try:
         if not section_name or not field or not value:
             logger.warning("Missing required parameters for update_section_content")
@@ -121,7 +114,7 @@ def update_section_content(section_name: str, field: str, value: str):
         current_content = st.session_state.generated_sections[section_name]
         field_title = field.replace('_', ' ').title()
         
-        # Find and replace existing content
+        # Add or update field content
         field_pattern = f"{field_title}:"
         lines = current_content.split('\n')
         updated_lines = []
@@ -149,8 +142,6 @@ def update_section_content(section_name: str, field: str, value: str):
         if 'ai_suggestions' in st.session_state:
             suggestion_key = f"{section_name}_{field}"
             st.session_state.ai_suggestions.pop(suggestion_key, None)
-            
-        logger.debug(f"Successfully updated content for {section_name} - {field}")
         
     except Exception as e:
         logger.error(f"Error updating section content: {str(e)}")
@@ -165,7 +156,7 @@ def render_keyboard_shortcuts():
             st.markdown(f"| {action.replace('_', ' ').title()} | `{details['key']}` | {details['description']} |")
 
 def render_editor():
-    """Render protocol editor with improved section ordering and error handling"""
+    """Render protocol editor with improved section ordering"""
     try:
         if not st.session_state.get('generated_sections'):
             logger.debug("No generated sections available")
@@ -180,9 +171,7 @@ def render_editor():
         remaining_sections = sorted(list(available_sections - set(ordered_sections)))
         ordered_sections.extend(remaining_sections)
         
-        logger.debug(f"Ordered sections: {ordered_sections}")
-        
-        # Initialize session state
+        # Initialize session state for suggestions
         if 'ai_suggestions' not in st.session_state:
             st.session_state.ai_suggestions = {}
         
@@ -209,10 +198,15 @@ def render_editor():
         st.markdown("### 📊 Protocol Development Progress")
         st.progress(progress, text=f"Completion: {progress*100:.1f}%")
         
-        # Display issues
+        # Display protocol sections first
+        st.markdown("### 📄 Protocol Sections")
+        for section_name in ordered_sections:
+            with st.expander(f"📄 {section_name.replace('_', ' ').title()}", expanded=False):
+                st.markdown(st.session_state.generated_sections[section_name])
+        
+        # Display Protocol Assessment
         if analysis_results:
             st.markdown("### 🔍 Protocol Assessment")
-            
             for section_name in ordered_sections:
                 if section_name in analysis_results:
                     analysis = analysis_results[section_name]
@@ -231,7 +225,7 @@ def render_editor():
                         if analysis['severity_counts']['minor']:
                             st.info(f"🟢 Minor: {analysis['severity_counts']['minor']}")
                     
-                    # Display issues
+                    # Display issues with improved input handling
                     for idx, issue in enumerate(analysis['issues']):
                         severity_icon = {
                             'critical': '🔴',
@@ -242,7 +236,7 @@ def render_editor():
                         with st.expander(f"{severity_icon} {issue['message']}", expanded=False):
                             st.markdown(f"**Suggestion:** {issue['suggestion']}")
                             
-                            # Input area
+                            # Input area with unique keys
                             field_key = generate_unique_key(section_name, issue['type'], "input")
                             user_input = st.text_area(
                                 "Content",
@@ -252,7 +246,7 @@ def render_editor():
                                 label_visibility="collapsed"
                             )
                             
-                            # Action buttons
+                            # Action buttons with unique keys
                             col1, col2 = st.columns(2)
                             with col1:
                                 if st.button(
@@ -285,11 +279,8 @@ def render_editor():
                                                 st.success("✅ Content updated!")
                                                 st.rerun()
         
-        # Display protocol sections
-        st.markdown("### 📄 Protocol Sections")
-        for section_name in ordered_sections:
-            with st.expander(f"📄 {section_name.replace('_', ' ').title()}", expanded=False):
-                st.markdown(st.session_state.generated_sections[section_name])
+        # Add keyboard shortcuts
+        render_keyboard_shortcuts()
                     
     except Exception as e:
         logger.error(f"Error in editor: {str(e)}")
