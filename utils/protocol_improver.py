@@ -11,6 +11,57 @@ class ProtocolImprover:
         self.missing_info_handler = MissingInformationHandler()
         self.gpt_handler = GPTHandler()
     
+    def analyze_synopsis(self, synopsis_content: str, study_type: str) -> Dict:
+        '''Analyze synopsis content for missing information and requirements'''
+        try:
+            analysis_results = {
+                'critical_missing': False,
+                'critical_fields': {},
+                'study_type_specific': False
+            }
+            
+            # Define required synopsis elements by study type
+            required_elements = {
+                'phase1': {
+                    'primary_objective': 'Define primary safety objective',
+                    'dose_levels': 'Specify dose levels and escalation criteria',
+                    'safety_parameters': 'Define key safety parameters and monitoring'
+                },
+                'phase2': {
+                    'primary_objective': 'Define primary efficacy objective',
+                    'endpoints': 'Specify primary and secondary endpoints',
+                    'population': 'Define target patient population'
+                },
+                'phase3': {
+                    'primary_objective': 'Define confirmatory study objective',
+                    'endpoints': 'Specify primary and secondary endpoints',
+                    'randomization': 'Define randomization strategy'
+                },
+                'secondary_rwe': {
+                    'primary_objective': 'Define study objective',
+                    'data_source': 'Specify data sources and time period',
+                    'population': 'Define target population'
+                }
+            }
+            
+            # Get study type specific requirements
+            study_requirements = required_elements.get(study_type, {})
+            if study_requirements:
+                analysis_results['study_type_specific'] = True
+                
+                # Check each required element
+                synopsis_lower = synopsis_content.lower()
+                for field, prompt in study_requirements.items():
+                    if field not in synopsis_lower:
+                        analysis_results['critical_fields'][field] = prompt
+                        analysis_results['critical_missing'] = True
+            
+            return analysis_results
+            
+        except Exception as e:
+            logger.error(f"Error analyzing synopsis: {str(e)}")
+            raise
+    
     def _validate_section_requirements(self, section_name: str, content: str, study_type: str, results: Dict):
         """Check section-specific requirements"""
         section_requirements = {
