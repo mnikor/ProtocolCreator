@@ -76,7 +76,7 @@ def add_shortcut_handlers():
     st.markdown(shortcut_js, unsafe_allow_html=True)
 
 def render_editor():
-    '''Render the protocol editor interface'''
+    '''Render the protocol editor interface with improved section ordering'''
     try:
         if not st.session_state.get('generated_sections'):
             return
@@ -88,40 +88,43 @@ def render_editor():
         # Get sections to display
         sections_to_display = list(st.session_state.generated_sections.keys())
         
-        # Define preferred section order
-        section_order = [
-            # Administrative
-            'title', 'synopsis',
-            # Background
-            'background', 'objectives',
-            # Core Study Design
-            'study_design', 'population', 'procedures', 'endpoints',
-            # Statistical
-            'statistical_analysis', 'sample_size',
-            # Safety
-            'safety', 'data_monitoring',
-            # Data Management
-            'data_collection', 'data_quality',
-            # Additional
-            'ethical_considerations', 'completion_criteria'
-        ]
+        # Define preferred section order with categories
+        section_categories = {
+            "Administrative": ['title', 'synopsis'],
+            "Background": ['background', 'objectives'],
+            "Core Study Design": ['study_design', 'population', 'procedures', 'endpoints'],
+            "Statistical": ['statistical_analysis', 'sample_size'],
+            "Safety": ['safety', 'data_monitoring'],
+            "Data Management": ['data_collection', 'data_quality'],
+            "Additional": ['ethical_considerations', 'completion_criteria']
+        }
         
-        # Sort sections according to defined order
-        sections_to_display.sort(key=lambda x: section_order.index(x) if x in section_order else len(section_order))
+        # Create ordered list based on categories
+        ordered_sections = []
+        for category, sections in section_categories.items():
+            for section in sections:
+                if section in sections_to_display:
+                    ordered_sections.append(section)
+        
+        # Add any remaining sections at the end
+        remaining_sections = [s for s in sections_to_display if s not in ordered_sections]
+        ordered_sections.extend(remaining_sections)
         
         # Analyze all sections
         analysis_results = {}
-        for section in sections_to_display:
-            analysis = missing_info_handler.analyze_section_completeness(
+        for section in ordered_sections:
+            content = st.session_state.generated_sections[section]
+            analysis = improver.validate_section(
                 section,
-                st.session_state.generated_sections[section]
+                content,
+                st.session_state.get('study_type')
             )
-            if analysis['missing_fields']:
+            if analysis['issues']:
                 analysis_results[section] = analysis
                 
         # Calculate progress
         progress = calculate_progress(
-            sections_to_display,
+            ordered_sections,
             analysis_results,
             st.session_state.get('updated_sections', set())
         )
@@ -131,80 +134,86 @@ def render_editor():
         
         # Display missing information sections
         if analysis_results:
-            st.markdown("### Missing Information")
-            st.markdown("Please provide the following information to complete the protocol:")
+            st.markdown("### Protocol Assessment")
             
-            for section_name in sections_to_display:
+            for section_name in ordered_sections:
                 if section_name in analysis_results:
                     analysis = analysis_results[section_name]
-                    if analysis['missing_fields']:
-                        st.markdown(f"#### {section_name.replace('_', ' ').title()}")
+                    st.markdown(f"#### {section_name.replace('_', ' ').title()}")
+                    
+                    # Show severity counts
+                    cols = st.columns(3)
+                    with cols[0]:
+                        if analysis['severity_counts']['critical']:
+                            st.error(f"🔴 Critical Issues: {analysis['severity_counts']['critical']}")
+                    with cols[1]:
+                        if analysis['severity_counts']['major']:
+                            st.warning(f"🟡 Major Issues: {analysis['severity_counts']['major']}")
+                    with cols[2]:
+                        if analysis['severity_counts']['minor']:
+                            st.info(f"🟢 Minor Issues: {analysis['severity_counts']['minor']}")
+                    
+                    # Show detailed issues
+                    for issue in analysis['issues']:
+                        severity_icon = {
+                            'critical': '🔴',
+                            'major': '🟡',
+                            'minor': '🟢'
+                        }.get(issue['severity'], '⚪️')
                         
-                        # Handle each missing field
-                        for idx, field in enumerate(analysis['missing_fields']):
-                            field_key = f"{section_name}_{field}_{idx}"
+                        with st.expander(f"{severity_icon} {issue['message']}", expanded=False):
+                            st.markdown(f"**Suggestion:** {issue['suggestion']}")
                             
-                            # Initialize field state if needed
-                            if field_key not in st.session_state:
-                                st.session_state[field_key] = ""
-                            
-                            # Field input with improved layout
-                            col1, col2 = st.columns([3, 1])
-                            
-                            with col1:
-                                current_value = st.text_area(
-                                    label=f"Enter {field.replace('_', ' ')}:",
-                                    value=st.session_state[field_key],
-                                    key=field_key + "_input",
-                                    height=100,
-                                    help=f"Provide details for {field.replace('_', ' ')}"
-                                )
-                                st.session_state[field_key] = current_value
-                            
-                            with col2:
-                                # AI Suggestion button
-                                if st.button("🤖 Get AI Suggestion", key=f"suggest_{field_key}"):
-                                    with st.spinner("Generating suggestion..."):
-                                        gpt_handler = GPTHandler()
-                                        prompt = f"""Generate specific content for the {field.replace('_', ' ')} 
-                                        in the {section_name.replace('_', ' ')} section. Focus on:
-                                        1. Technical accuracy
-                                        2. Specific details
-                                        3. Clear language
-                                        4. Protocol standards
-                                        Context: This is for a {st.session_state.get('study_type', 'clinical')} study."""
+                            # Add AI suggestion button
+                            if st.button("🤖 Get AI Suggestion", key=f"suggest_{section_name}_{issue['type']}"):
+                                with st.spinner("Generating suggestion..."):
+                                    gpt_handler = GPTHandler()
+                                    prompt = f"""Given this issue in the {section_name.replace('_', ' ')} section:
+                                    {issue['message']}
+                                    
+                                    Generate specific content to address this issue. The content should be:
+                                    1. Technically accurate
+                                    2. Specific and detailed
+                                    3. Written in clear language
+                                    4. Compliant with protocol standards
+                                    
+                                    Study Type: {st.session_state.get('study_type', 'clinical study')}"""
+                                    
+                                    suggestion = gpt_handler.generate_content(
+                                        prompt,
+                                        "Generate concise, specific protocol content in clear technical language."
+                                    )
+                                    if suggestion:
+                                        st.markdown("### Suggested Content:")
+                                        st.markdown(suggestion)
                                         
-                                        suggestion = gpt_handler.generate_content(
-                                            prompt,
-                                            "Generate concise, specific content in clear technical language."
-                                        )
-                                        if suggestion:
-                                            st.session_state[field_key] = suggestion
-                                            st.success("✅ Suggestion generated!")
+                                        if st.button("📝 Apply Suggestion", key=f"apply_{section_name}_{issue['type']}"):
+                                            current_content = st.session_state.generated_sections[section_name]
+                                            updated_content = current_content + "\n\n" + suggestion
+                                            st.session_state.generated_sections[section_name] = updated_content
+                                            st.success("✅ Content updated!")
                                             st.rerun()
-                                
-                                # Update Section button
-                                if st.button("📝 Update Section", key=f"update_{field_key}"):
-                                    if current_value.strip():
-                                        section_content = st.session_state.generated_sections[section_name]
-                                        updated_content = f"{section_content}\n\n{field.replace('_', ' ').title()}: {current_value}"
-                                        st.session_state.generated_sections[section_name] = updated_content
-                                        
-                                        # Mark as updated
-                                        if 'updated_sections' not in st.session_state:
-                                            st.session_state.updated_sections = set()
-                                        st.session_state.updated_sections.add(f"{section_name}_{field}")
-                                        
-                                        st.success("✅ Section updated!")
-                                        st.session_state[field_key] = ""
-                                        st.rerun()
         
         # Display generated sections
-        st.markdown("### Generated Protocol Sections")
-        for section_name in sections_to_display:
-            with st.expander(f"📄 {section_name.replace('_', ' ').title()}", expanded=False):
-                st.markdown(st.session_state.generated_sections[section_name])
-                
+        st.markdown("### Protocol Sections")
+        
+        # Group sections by category
+        for category, category_sections in section_categories.items():
+            relevant_sections = [s for s in category_sections if s in ordered_sections]
+            if relevant_sections:
+                st.markdown(f"#### {category}")
+                for section_name in relevant_sections:
+                    with st.expander(f"📄 {section_name.replace('_', ' ').title()}", expanded=False):
+                        st.markdown(st.session_state.generated_sections[section_name])
+        
+        # Display any remaining sections
+        remaining = [s for s in ordered_sections if not any(s in sections for sections in section_categories.values())]
+        if remaining:
+            st.markdown("#### Other Sections")
+            for section_name in remaining:
+                with st.expander(f"📄 {section_name.replace('_', ' ').title()}", expanded=False):
+                    st.markdown(st.session_state.generated_sections[section_name])
+                    
     except Exception as e:
         logger.error(f"Error in editor: {str(e)}")
         st.error(f"An error occurred: {str(e)}")

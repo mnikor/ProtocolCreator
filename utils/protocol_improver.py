@@ -31,83 +31,6 @@ class ProtocolImprover:
             'study_type_specific': True if study_type else False
         }
 
-    def _get_study_type_requirements(self, study_type: str) -> Dict:
-        '''Get required fields based on study type'''
-        base_fields = {
-            'study_population': [
-                'inclusion criteria', 'patient population', 'subjects',
-                'eligible patients', 'study population'
-            ],
-            'primary_objective': [
-                'primary objective', 'primary endpoint',
-                'primary goal', 'main objective'
-            ]
-        }
-        
-        # Add study-type specific fields
-        if study_type == 'systematic_review':
-            base_fields.update({
-                'search_strategy': [
-                    'search strategy', 'database search',
-                    'literature search', 'systematic search'
-                ],
-                'eligibility_criteria': [
-                    'inclusion criteria', 'exclusion criteria',
-                    'study selection', 'eligibility'
-                ]
-            })
-        elif study_type == 'secondary_rwe':
-            base_fields.update({
-                'data_source': [
-                    'database', 'data source', 'real world data',
-                    'electronic health records', 'claims data'
-                ],
-                'time_period': [
-                    'study period', 'time frame', 'data period',
-                    'observation period'
-                ]
-            })
-        elif study_type == 'patient_survey':
-            base_fields.update({
-                'survey_instrument': [
-                    'questionnaire', 'survey tool', 'assessment tool',
-                    'patient reported outcome'
-                ],
-                'administration': [
-                    'survey administration', 'data collection',
-                    'survey method', 'questionnaire delivery'
-                ]
-            })
-        
-        return base_fields
-
-    def _get_field_prompt(self, field: str, study_type: str) -> str:
-        '''Get context-aware prompt for missing field'''
-        base_prompts = {
-            'study_population': 'Please specify the target study population',
-            'primary_objective': 'What is the primary objective of the study?'
-        }
-        
-        study_specific_prompts = {
-            'systematic_review': {
-                'search_strategy': 'What databases will be searched? Include search strategy details',
-                'eligibility_criteria': 'Define inclusion/exclusion criteria for study selection'
-            },
-            'secondary_rwe': {
-                'data_source': 'Which database(s) or data source(s) will be used?',
-                'time_period': 'What is the study time period for data collection?'
-            },
-            'patient_survey': {
-                'survey_instrument': 'What survey instrument or questionnaire will be used?',
-                'administration': 'How will the survey be administered to participants?'
-            }
-        }
-        
-        if study_type and study_type in study_specific_prompts:
-            base_prompts.update(study_specific_prompts[study_type])
-        
-        return base_prompts.get(field, f'Please provide information about {field.replace("_", " ")}')
-
     def analyze_protocol_sections(self, sections: Dict[str, str]) -> Dict:
         """Analyze all protocol sections for missing information"""
         analysis_results = {}
@@ -136,7 +59,12 @@ class ProtocolImprover:
             "issues": [],
             "warnings": [],
             "suggestions": [],
-            "score": 0
+            "score": 0,
+            "severity_counts": {
+                "critical": 0,
+                "major": 0,
+                "minor": 0
+            }
         }
         
         # Add section-specific validation
@@ -148,10 +76,10 @@ class ProtocolImprover:
         # Check placeholders
         self._check_placeholders(content, section_results)
         
-        # Check timeline if relevant
-        if section_name in ['study_design', 'procedures']:
-            timeline_issues = self._validate_timeline(content)
-            section_results["issues"].extend(timeline_issues)
+        # Count issues by severity
+        for issue in section_results["issues"]:
+            severity = issue.get("severity", "minor")
+            section_results["severity_counts"][severity] += 1
         
         # Calculate score
         section_results["score"] = self._calculate_section_score(section_results)
@@ -193,7 +121,7 @@ class ProtocolImprover:
                 if element.lower() not in content.lower():
                     results["issues"].append({
                         "type": "missing_element",
-                        "severity": "major",
+                        "severity": "critical",
                         "message": f"Missing required element '{element}' in {section_name}",
                         "suggestion": f"Add {element} to section"
                     })
@@ -235,6 +163,68 @@ class ProtocolImprover:
         
         return duplication_issues
 
+    def _get_study_type_requirements(self, study_type: str) -> Dict:
+        '''Get required fields based on study type'''
+        base_fields = {
+            'study_population': [
+                'inclusion criteria', 'patient population', 'subjects',
+                'eligible patients', 'study population'
+            ],
+            'primary_objective': [
+                'primary objective', 'primary endpoint',
+                'primary goal', 'main objective'
+            ]
+        }
+        
+        # Add study-type specific fields
+        if study_type == 'systematic_review':
+            base_fields.update({
+                'search_strategy': [
+                    'search strategy', 'database search',
+                    'literature search', 'systematic search'
+                ],
+                'eligibility_criteria': [
+                    'inclusion criteria', 'exclusion criteria',
+                    'study selection', 'eligibility'
+                ]
+            })
+        elif study_type == 'secondary_rwe':
+            base_fields.update({
+                'data_source': [
+                    'database', 'data source', 'real world data',
+                    'electronic health records', 'claims data'
+                ],
+                'time_period': [
+                    'study period', 'time frame', 'data period',
+                    'observation period'
+                ]
+            })
+        
+        return base_fields
+
+    def _get_field_prompt(self, field: str, study_type: str) -> str:
+        '''Get context-aware prompt for missing field'''
+        base_prompts = {
+            'study_population': 'Please specify the target study population',
+            'primary_objective': 'What is the primary objective of the study?'
+        }
+        
+        study_specific_prompts = {
+            'systematic_review': {
+                'search_strategy': 'What databases will be searched? Include search strategy details',
+                'eligibility_criteria': 'Define inclusion/exclusion criteria for study selection'
+            },
+            'secondary_rwe': {
+                'data_source': 'Which database(s) or data source(s) will be used?',
+                'time_period': 'What is the study time period for data collection?'
+            }
+        }
+        
+        if study_type and study_type in study_specific_prompts:
+            base_prompts.update(study_specific_prompts[study_type])
+        
+        return base_prompts.get(field, f'Please provide information about {field.replace("_", " ")}')
+
     def _calculate_similarity(self, text1: str, text2: str) -> float:
         """Calculate text similarity using word overlap"""
         words1 = set(text1.lower().split())
@@ -242,32 +232,6 @@ class ProtocolImprover:
         intersection = words1.intersection(words2)
         shorter_len = min(len(words1), len(words2))
         return len(intersection) / shorter_len if shorter_len > 0 else 0
-
-    def _validate_timeline(self, content: str) -> List[Dict]:
-        """Validate timeline consistency"""
-        timeline_issues = []
-        timeline_pattern = r'(\d+)\s*(day|week|month|year)s?\s*(prior to|after|from|to)\s*(\w+)'
-        
-        def convert_to_days(value: int, unit: str) -> int:
-            conversions = {'day': 1, 'week': 7, 'month': 30, 'year': 365}
-            return value * conversions[unit.lower()]
-        
-        # Extract and validate timeline entries
-        timeline_items = re.findall(timeline_pattern, content, re.IGNORECASE)
-        
-        for i in range(len(timeline_items)-1):
-            current = convert_to_days(int(timeline_items[i][0]), timeline_items[i][1])
-            next_item = convert_to_days(int(timeline_items[i+1][0]), timeline_items[i+1][1])
-            
-            if current >= next_item:
-                timeline_issues.append({
-                    "type": "timeline",
-                    "severity": "major",
-                    "message": f"Timeline inconsistency between {timeline_items[i]} and {timeline_items[i+1]}",
-                    "suggestion": "Review timeline sequence and adjust durations"
-                })
-        
-        return timeline_issues
 
     def _calculate_section_score(self, results: Dict) -> float:
         """Calculate section quality score"""
@@ -325,6 +289,32 @@ class ProtocolImprover:
                     "message": rec,
                     "severity": "minor"
                 })
+
+    def _validate_timeline(self, content: str) -> List[Dict]:
+        """Validate timeline consistency"""
+        timeline_issues = []
+        timeline_pattern = r'(\d+)\s*(day|week|month|year)s?\s*(prior to|after|from|to)\s*(\w+)'
+        
+        def convert_to_days(value: int, unit: str) -> int:
+            conversions = {'day': 1, 'week': 7, 'month': 30, 'year': 365}
+            return value * conversions[unit.lower()]
+        
+        # Extract and validate timeline entries
+        timeline_items = re.findall(timeline_pattern, content, re.IGNORECASE)
+        
+        for i in range(len(timeline_items)-1):
+            current = convert_to_days(int(timeline_items[i][0]), timeline_items[i][1])
+            next_item = convert_to_days(int(timeline_items[i+1][0]), timeline_items[i+1][1])
+            
+            if current >= next_item:
+                timeline_issues.append({
+                    "type": "timeline",
+                    "severity": "major",
+                    "message": f"Timeline inconsistency between {timeline_items[i]} and {timeline_items[i+1]}",
+                    "suggestion": "Review timeline sequence and adjust durations"
+                })
+        
+        return timeline_issues
 
     def _calculate_quality_score(self, analyses: Dict) -> float:
         """Calculate overall quality score based on completeness and recommendations"""

@@ -16,7 +16,7 @@ class GPTHandler:
             
             # Test connection with a simple completion
             test_response = self.client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4o-2024-08-06",
                 messages=[{"role": "user", "content": "test"}],
                 max_tokens=5
             )
@@ -85,7 +85,7 @@ class GPTHandler:
             
             logger.info("Sending request to OpenAI API")
             response = self.client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4o-2024-08-06",
                 messages=messages,
                 temperature=0.3,
                 max_tokens=3000
