@@ -36,21 +36,28 @@ def calculate_progress(sections_to_display, analysis_results, updated_sections):
 def generate_ai_suggestion(field: str, section_name: str) -> str:
     """Generate AI suggestion for missing field"""
     try:
+        # Get synopsis and current content
+        synopsis = st.session_state.get('synopsis_content', '')
+        current_content = st.session_state.generated_sections.get(section_name, '')
+        
+        prompt = f'''Based on this synopsis:
+{synopsis}
+
+And current {section_name} section content:
+{current_content}
+
+Generate specific content for the {field.replace('_', ' ')} field that:
+1. Uses information from the synopsis (drug names, specific details)
+2. Maintains consistency with existing content
+3. Avoids placeholders when information is available
+4. Integrates with current section content
+
+Study Type: {st.session_state.get('study_type', 'clinical study')}'''
+        
         gpt_handler = GPTHandler()
-        prompt = f"""Generate specific content for the {field.replace('_', ' ')} 
-        in the {section_name.replace('_', ' ')} section of a clinical protocol.
-        
-        Requirements:
-        1. Technical accuracy
-        2. Specific details
-        3. Clear language
-        4. Protocol standards compliance
-        
-        Study Type: {st.session_state.get('study_type', 'clinical study')}"""
-        
         suggestion = gpt_handler.generate_content(
             prompt=prompt,
-            system_message="Generate concise, specific protocol content in clear technical language."
+            system_message="Generate precise protocol content using available study information. Avoid placeholders when information exists."
         )
         return suggestion
     except Exception as e:
@@ -165,7 +172,7 @@ def render_editor():
                             st.info(f"🟢 Minor Issues: {analysis['severity_counts']['minor']}")
                     
                     # Show detailed issues
-                    for issue in analysis['issues']:
+                    for idx, issue in enumerate(analysis['issues']):
                         severity_icon = {
                             'critical': '🔴',
                             'major': '🟡',
@@ -175,30 +182,21 @@ def render_editor():
                         with st.expander(f"{severity_icon} {issue['message']}", expanded=False):
                             st.markdown(f"**Suggestion:** {issue['suggestion']}")
                             
-                            # Add AI suggestion button
-                            if st.button("🤖 Get AI Suggestion", key=f"suggest_{section_name}_{issue['type']}"):
+                            # Add unique key using index
+                            unique_key = f"suggest_{section_name}_{issue['type']}_{idx}"
+                            if st.button("🤖 Get AI Suggestion", key=unique_key):
                                 with st.spinner("Generating suggestion..."):
-                                    gpt_handler = GPTHandler()
-                                    prompt = f"""Given this issue in the {section_name.replace('_', ' ')} section:
-                                    {issue['message']}
-                                    
-                                    Generate specific content to address this issue. The content should be:
-                                    1. Technically accurate
-                                    2. Specific and detailed
-                                    3. Written in clear language
-                                    4. Compliant with protocol standards
-                                    
-                                    Study Type: {st.session_state.get('study_type', 'clinical study')}"""
-                                    
-                                    suggestion = gpt_handler.generate_content(
-                                        prompt,
-                                        "Generate concise, specific protocol content in clear technical language."
+                                    suggestion = generate_ai_suggestion(
+                                        field=issue['type'],
+                                        section_name=section_name
                                     )
                                     if suggestion:
                                         st.markdown("### Suggested Content:")
                                         st.markdown(suggestion)
                                         
-                                        if st.button("📝 Apply Suggestion", key=f"apply_{section_name}_{issue['type']}"):
+                                        # Also make this key unique
+                                        apply_key = f"apply_{section_name}_{issue['type']}_{idx}"
+                                        if st.button("📝 Apply Suggestion", key=apply_key):
                                             current_content = st.session_state.generated_sections[section_name]
                                             updated_content = current_content + "\n\n" + suggestion
                                             st.session_state.generated_sections[section_name] = updated_content
