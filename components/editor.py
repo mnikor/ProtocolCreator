@@ -33,6 +33,50 @@ def calculate_progress(sections_to_display, analysis_results, updated_sections):
             
     return completed_sections / total_sections if total_sections > 0 else 0
 
+def generate_ai_suggestion(field: str, section_name: str) -> str:
+    """Generate AI suggestion for missing field"""
+    try:
+        gpt_handler = GPTHandler()
+        prompt = f"""Generate specific content for the {field.replace('_', ' ')} 
+        in the {section_name.replace('_', ' ')} section of a clinical protocol.
+        
+        Requirements:
+        1. Technical accuracy
+        2. Specific details
+        3. Clear language
+        4. Protocol standards compliance
+        
+        Study Type: {st.session_state.get('study_type', 'clinical study')}"""
+        
+        suggestion = gpt_handler.generate_content(
+            prompt=prompt,
+            system_message="Generate concise, specific protocol content in clear technical language."
+        )
+        return suggestion
+    except Exception as e:
+        logger.error(f"Error generating AI suggestion: {str(e)}")
+        return None
+
+def update_section_content(section_name: str, field: str, value: str):
+    """Update section content with new field value"""
+    try:
+        if section_name not in st.session_state.generated_sections:
+            return
+            
+        current_content = st.session_state.generated_sections[section_name]
+        field_title = field.replace('_', ' ').title()
+        updated_content = f"{current_content}\n\n{field_title}: {value}"
+        
+        st.session_state.generated_sections[section_name] = updated_content
+        
+        # Track updated fields
+        if 'updated_sections' not in st.session_state:
+            st.session_state.updated_sections = set()
+        st.session_state.updated_sections.add(f"{section_name}_{field}")
+        
+    except Exception as e:
+        logger.error(f"Error updating section content: {str(e)}")
+
 def render_keyboard_shortcuts():
     """Display available keyboard shortcuts"""
     with st.expander("⌨️ Keyboard Shortcuts", expanded=False):
